@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QAbstractTableModel, QModelIndex
 from PyQt5.QtCore import QVariant
-from util import whoami
+from main_util import whoami
 import PyQt5.QtCore as QtCore
 
 

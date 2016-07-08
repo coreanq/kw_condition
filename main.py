@@ -4,8 +4,8 @@ import os
 import re
 
 import pandasmodel
-from util import whoami, whosdaddy, cur_date_time, parseErrorCode
-from util import dict_fid_set, dict_real
+from main_util import whoami, whosdaddy, cur_date_time
+from kw_util import dict_fid_set, dict_real, parseErrorCode
 import pandas as pd
 
 from PyQt5 import QtCore
@@ -15,8 +15,7 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtQml import QQmlApplicationEngine
 from PyQt5.QAxContainer import QAxWidget
 
-
-class Kiwoom(QObject):
+class KiwoomConditon(QObject):
     sigInitOk = pyqtSignal()
     sigConnected = pyqtSignal()
     sigDisconnected = pyqtSignal()
@@ -582,7 +581,7 @@ if __name__ == "__main__":
     os.environ['QML_IMPORT_TRACE'] = '1'
     # print(os.environ['QML_IMPORT_TRACE'])
     myApp = QApplication(sys.argv)
-    objKiwoom = Kiwoom()
+    objKiwoom = KiwoomConditon()
     # Execute the Application and Exit
     sys.exit(myApp.exec_())
 
