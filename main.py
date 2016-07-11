@@ -5,7 +5,7 @@ import re
 
 import pandasmodel
 from main_util import whoami, whosdaddy, cur_date_time
-from kw_util import dict_fid_set, dict_real, parseErrorCode
+from kw_util import dict_fid_set, dict_real, parseErrorCode, sendConditionScreenNo, selectConditionName
 import pandas as pd
 
 from PyQt5 import QtCore
@@ -59,6 +59,7 @@ class KiwoomConditon(QObject):
         
         initTrState = QState(trState)
         processingTrState = QState(trState)
+        
         
         #transition defition
         mainState.setInitialState(initState)
@@ -163,24 +164,27 @@ class KiwoomConditon(QObject):
         fileSearchObj = re.compile(searchPattern, re.IGNORECASE)
         findList = fileSearchObj.findall(result)
         
-        print(findList)
         
         tempDict = dict(findList)
+        print(tempDict)
         
-        for condition_num, condition_name in tempDict.items():
-            df = self.modelCondition._data
-            df.loc[len(self.modelCondition)] = (condition_num, condition_name)
-            self.modelCondition.refresh()
+        # for condition_num, condition_name in tempDict.items():
+        #     df = self.modelCondition._data
+        #     df.loc[len(self.modelCondition)] = (condition_num, condition_name)
+        #     self.modelCondition.refresh()
              
         # print(self.modelCondition)
         
         # name = self.dictCondition['001']
         # print(whoami() + ' ' + str(self.dictCondition) +' ' + name)
+        conditionNum = 0 
+        for number, condition in tempDict.items():
+            if condition == selectConditionName:
+                    conditionNum = int(number)
+        print(sendConditionScreenNo, selectConditionName, conditionNum)
+        self.sendCondition(sendConditionScreenNo, selectConditionName, conditionNum,  1)
         
-        
-        # self.sendCondition('0001', name, int('001'), 1)
-        
-        # self.sigSelectCondition.emit()
+        self.sigSelectCondition.emit()
         
         # 실시간 주식 체결가 샘플로 등록 
         # print( whoami() +' '+ parseErrorCode( 
@@ -345,7 +349,7 @@ class KiwoomConditon(QObject):
     # strConditionName : 조건명
     # strConditionIndex : 조건명 인덱스
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
-        print(whoami() + ' code: {}, type: {}, conditionName: {} conditionIndex: {}'
+        print(whoami() + ' code: {}, type: {}, conditionName: {}, conditionIndex: {}'
         .format(code, type, conditionName, conditionIndex ))
         typeName = ''
         if type == 'I':

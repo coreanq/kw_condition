@@ -6,7 +6,7 @@
             "type": "python",
             "request": "launch",
             "stopOnEntry": true,
-            "externalConsole": true,
+            "externalConsole": false,
             "program": "${file}",
             "debugOptions": [
                 "WaitOnAbnormalExit",
