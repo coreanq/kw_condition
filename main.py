@@ -5,7 +5,7 @@ import re
 
 import pandasmodel
 from main_util import whoami, whosdaddy, cur_date_time
-from kw_util import dict_fid_set, dict_real, parseErrorCode, sendConditionScreenNo, selectConditionName
+from kw_util import dict_fid_set, dict_real, parseErrorCode, sendConditionScreenNo, selectConditionName, sendRealRegScreenNo
 import pandas as pd
 
 from PyQt5 import QtCore
@@ -34,6 +34,8 @@ class KiwoomConditon(QObject):
         self.qmlEngine = QQmlApplicationEngine()
         self.account_list = []
         self.timerPolling = QTimer()
+
+        self.surveillanceList = []
         self.dfCurrent = pd.DataFrame(columns = (('종목코드', '종목이름') + dict_real['주식체결']) )
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         self.modelResult = pandasmodel.PandasModel(pd.DataFrame(columns = (('종목코드', '종목이름') + dict_real['주식체결']) ))                
@@ -102,24 +104,24 @@ class KiwoomConditon(QObject):
         
     @pyqtSlot()
     def mainStateEntered(self):
-        print(whoami() + ' ')
+        print(whoami())
         pass
 
     @pyqtSlot()
     def initStateEntered(self):
-        print(whoami() + ' ' )
+        print(whoami())
         self.sigInitOk.emit()
         pass
 
     @pyqtSlot()
     def disconnectedStateEntered(self):
-        print(whoami() + ' ')
+        print(whoami())
         self.commConnect()
         pass
 
     @pyqtSlot()
     def connectedStateEntered(self):
-        print(whoami() + ' ')
+        print(whoami())
         # ui 현시
         self.initQmlEngine()
         # get 계좌 정보
@@ -136,7 +138,7 @@ class KiwoomConditon(QObject):
 
         self.account_list = (acc_num.split(';')[:-1])
 
-        print(whoami() + ' ' + 'account list ' + str(self.account_list))
+        print(whoami() + 'account list ' + str(self.account_list))
         pass
 
     @pyqtSlot()
@@ -149,14 +151,14 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def initConditionStateEntered(self):
-        print(whoami() + ' ' )
+        print(whoami() )
         # get 조건 검색 리스트
         self.getConditionLoad()
         pass
 
     @pyqtSlot()
     def waitSelectingConditionStateEntered(self):
-        print(whoami() + ' ' )
+        print(whoami() )
         # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
         # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
         result = self.getConditionNameList()
@@ -176,7 +178,7 @@ class KiwoomConditon(QObject):
         # print(self.modelCondition)
         
         # name = self.dictCondition['001']
-        # print(whoami() + ' ' + str(self.dictCondition) +' ' + name)
+        # print(whoami() + str(self.dictCondition) +' ' + name)
         conditionNum = 0 
         for number, condition in tempDict.items():
             if condition == selectConditionName:
@@ -185,14 +187,14 @@ class KiwoomConditon(QObject):
         self.sendCondition(sendConditionScreenNo, selectConditionName, conditionNum,  1)
         
         self.sigSelectCondition.emit()
-        
-        # 실시간 주식 체결가 샘플로 등록 
-        # print( whoami() +' '+ parseErrorCode( 
-        #     self.setRealReg('0001', '034940;', dict_fid_set['주식체결'] , "0")))
+        #test code
+        self.insertSurveillanceList('005930')
+
+
                         
-        # print( whoami() + ' ' + str(self.setInputValue("종목코드","003520")) )
-        # print( whoami() + ' ' + str(self.setInputValue("틱범위","3:3분")) )
-        # print( whoami() + ' ' + str(self.setInputValue("수정주가구분","0")) )
+        # print( whoami() + str(self.setInputValue("종목코드","003520")) )
+        # print( whoami() + str(self.setInputValue("틱범위","3:3분")) )
+        # print( whoami() + str(self.setInputValue("수정주가구분","0")) )
         # print( whoami() + parseErrorCode( self.commRqData("003520", "opt10080", 0, '0001')) )
         
         # self.timerPolling.setSingleShot(True)
@@ -202,25 +204,25 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def processingConditionStateEntered(self):
-        print(whoami() + ' ' )
+        print(whoami())
         # self.sigRefreshCondition.emit()
         pass
 
     @pyqtSlot()
     def initTrStateEntered(self):
-        print(whoami() + ' ' )
+        print(whoami() )
         self.sigRequestTr.emit()
         pass
 
     @pyqtSlot()
     def processingTrStateEntered(self):
-        print(whoami() + ' ' )
+        print(whoami())
         # self.sigGetTrCplt.emit()
         pass
 
     @pyqtSlot()
     def finalStateEntered(self):
-        print(whoami() + ' ' )
+        print(whoami())
         pass
 
     def initQmlEngine(self):
@@ -248,6 +250,23 @@ class KiwoomConditon(QObject):
         self.timerPolling.setInterval(10000)
         self.timerPolling.timeout.connect(self.onPollingTimeout)
 
+    def insertSurveillanceList(self, jongmokCode):
+        try:
+            self.surveillanceList.index(jongmokCode)
+            print(whoami() + "jongmok Code already exists")
+
+        except ValueError:
+            self.surveillanceList.append(jongmokCode)
+            # codeList 는 마지막에 무조건 ; 로 끝나야 함  
+            codeList = ";".join(self.surveillanceList) + ';' 
+            print(self.getMasterCodeName(jongmokCode) + ' ' + codeList )
+                       
+            # 실시간 주식 체결가  등록 
+            print( whoami() +  parseErrorCode( 
+                self.setRealReg(sendRealRegScreenNo, codeList , dict_fid_set['주식체결'] , "0")))           
+ 
+            pass
+
     @pyqtSlot()
     def onPollingTimeout(self):
         print(whoami() )
@@ -274,7 +293,7 @@ class KiwoomConditon(QObject):
     # 통신 연결 상태 변경시 이벤트
     # nErrCode가 0이면 로그인 성공, 음수면 실패
     def _OnEventConnect(self, errCode):
-        print(whoami() + ' {}'.format(errCode))
+        print(whoami() + '{}'.format(errCode))
         if errCode == 0:
             self.sigConnected.emit()
         else:
@@ -282,28 +301,24 @@ class KiwoomConditon(QObject):
 
     # 수신 메시지 이벤트
     def _OnReceiveMsg(self, scrNo, rQName, trCode, msg):
-        print(whoami() + ' sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
+        print(whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
         .format(scrNo, rQName, trCode, msg))
 
     # Tran 수신시 이벤트
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        print(whoami() + ' sScrNo: {}, rQName: {}, trCode: {}, recordName: {} '
+        print(whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {} '
                     'prevNext: {}, dataLength: {}, errorCode: {}, message: {} '
                     'splmMsg: {}'
         .format(scrNo, rQName, trCode, recordName,
-                prevNext, dataLength, errorCode, message,
-                splmMsg))
-
-        print( whoami() + ' ' + str( self.setRealReg("0001", rQName, '20;10', 1)))
-        # print( whoami() + ' ' + self.getCommData("opt10080", "주식분봉차트조회", 0, "체결시간") )
-        # print( whoami() + ' ' + self.getCommData("opt10080", "주식분봉차트조회", 1, "체결시간") )
-        # print( whoami() + ' ' + self.getCommData("opt10080", "주식분봉차트조회", 2, "체결시간") )
+                prevNext, dataLength, errorCode, message, splmMsg))
+        # print( whoami() + self.getCommData("opt10080", "주식분봉차트조회", 1, "체결시간") )
+        # print( whoami() + self.getCommData("opt10080", "주식분봉차트조회", 2, "체결시간") )
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
-        # print(whoami() + ' jongmokCode: {}, realType: {}, realData: {}'
+        # print(whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
 
         if realType == '주식체결':
@@ -315,13 +330,13 @@ class KiwoomConditon(QObject):
     # sGubun – 0:주문체결통보, 1:잔고통보, 3:특이신호
     # sFidList – 데이터 구분은 ‘;’ 이다.
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
-        print(whoami() + ' gubun: {}, itemCnt: {}, fidList: {}'
+        print(whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
                 .format(gubun, itemCnt, fidList))
 
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
     def _OnReceiveConditionVer(self, ret, msg):
-        print(whoami() + ' ret: {}, msg: {}'
+        print(whoami() + 'ret: {}, msg: {}'
             .format(ret, msg))
         if ret == 1:
             self.sigGetConditionCplt.emit()
@@ -333,7 +348,7 @@ class KiwoomConditon(QObject):
     # int nIndex : 조건명 인덱스
     # int nNext : 연속조회(2:연속조회, 0:연속조회없음)
     def _OnReceiveTrCondition(self, scrNo, codeList, conditionName, index, next):
-        print(whoami() + ' scrNo: {}, codeList: {}, conditionName: {} '
+        print(whoami() + 'scrNo: {}, codeList: {}, conditionName: {} '
         'index: {}, next: {}'
         .format(scrNo, codeList, conditionName, index, next ))
          
@@ -349,15 +364,17 @@ class KiwoomConditon(QObject):
     # strConditionName : 조건명
     # strConditionIndex : 조건명 인덱스
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
-        print(whoami() + ' code: {}, type: {}, conditionName: {}, conditionIndex: {}'
+        print(whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
         .format(code, type, conditionName, conditionIndex ))
         typeName = ''
+    
         if type == 'I':
             typeName = '진입'
         else:
             typeName = '이탈'
         print('{}: name: {}, status: {}'
         .format(cur_date_time(), self.getMasterCodeName(code), typeName))
+
 
     # method 
     # 로그인

@@ -6,6 +6,7 @@
 '''
 selectConditionName = "단타 추세"
 sendConditionScreenNo = "001"
+sendRealRegScreenNo = "002"
 dict_real = {
                "주식체결" : ("체결시간", 
                             "현재가",
