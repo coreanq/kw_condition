@@ -2,6 +2,7 @@
 import sys
 import os
 import re
+import datetime
 
 import pandasmodel
 from main_util import whoami, whosdaddy, cur_date_time
@@ -320,11 +321,56 @@ class KiwoomConditon(QObject):
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
         # print(whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
-
+        '''
+        real Data Sample
+               "주식체결" : ("체결시간", 
+                            "현재가",
+	                        "전일대비",
+	                        "등락율",
+	                        "(최우선)매도호가",
+	                        "(최우선)매수호가",
+                            "거래량",
+	                        "누적거래량",
+	                        "누적거래대금",
+	                        "시가",
+	                        "고가",
+	                        "저가",
+    	                    "전일대비기호",
+	                        "전일거래량대비(계약,주)",
+	                        "거래대금증감",
+	                        "전일거래량대비(비율)",
+	                        "거래회전율",
+	                        "거래비용",
+	                        "체결강도",
+	                        "시가총액(억)",
+	                        "장구분",
+	                        "KO접근도",
+	                        "상한가발생시간",
+	                        "하한가발생시간")
+                            
+        100952	 1533000	 0	      0.00	+1534000	 1533000	-1	44078	67432	-1528000	+1537000	-1522000	3	-187266	-284986212331	-19.05	0.03	5075	97.56	2191720	2	0	000000	000000
+        '''
         if realType == '주식체결':
             jongmokName = self.getMasterCodeName(jongmokCode)
-            self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split())  
-            chesi = self.dfCurrent.tail(1)['[20] = 체결시간']
+            # shape 의 경우 2차원 배열의 사이즈를 나타냄 
+            # 맨 마지막 행의 시간을 비교해 1분이 넘었으면 데이터를 추가하도록 함 
+            lastIndex = self.dfCurrent.shape[0]
+            if( lastIndex ) :
+                lastRow = self.dfCurrent.loc[lastIndex - 1 ]
+                previousTradeTime = lastRow.loc['체결시간']
+                currentTradeTime = realData.split()[0]
+                preTime = datetime.time(int(previousTradeTime[:2]), int(previousTradeTime[2:4], 0))
+                curTime = datetime.time(int(currentTradeTime[:2]), int(currentTradeTime[2:4], 0))
+                if( preTime < curTime ):  
+                    self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
+                    #최근 10개의 자료를 컬럼을 선택하여 뿌려줌 이때 ix 사용함 (mixed index) 
+                    print(self.dfCurrent.ix[-5:, ("종목코드", "종목이름", "체결시간", "현재가", "전일대비", "등락율", "거래량", "누적거래량","시가", "고가", "저가")]) 
+                print(".")
+            else:
+                self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
+
+            
+            # chesi = self.dfCurrent.tail(1)['[20] = 체결시간']
 
     # 체결데이터를 받은 시점을 알려준다.
     # sGubun – 0:주문체결통보, 1:잔고통보, 3:특이신호
