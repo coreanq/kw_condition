@@ -6,7 +6,7 @@ import datetime
 
 import pandasmodel
 from main_util import whoami, whosdaddy, cur_date_time
-from kw_util import dict_fid_set, dict_real, parseErrorCode, sendConditionScreenNo, selectConditionName, sendRealRegScreenNo
+from kw_util import dict_fid_set, dict_jusik, parseErrorCode, sendConditionScreenNo, selectConditionName, sendRealRegScreenNo
 import pandas as pd
 
 from PyQt5 import QtCore
@@ -37,9 +37,9 @@ class KiwoomConditon(QObject):
         self.timerPolling = QTimer()
 
         self.surveillanceList = []
-        self.dfCurrent = pd.DataFrame(columns = (('종목코드', '종목이름') + dict_real['주식체결']) )
+        self.dfCurrent = pd.DataFrame(columns = (dict_jusik['체결실시간']) )
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
-        self.modelResult = pandasmodel.PandasModel(pd.DataFrame(columns = (('종목코드', '종목이름') + dict_real['주식체결']) ))                
+        self.modelResult = pandasmodel.PandasModel(pd.DataFrame(columns = (dict_jusik['체결실시간']) ))                
         self.create_states()
         self.createConnection()
 
@@ -189,18 +189,11 @@ class KiwoomConditon(QObject):
         
         self.sigSelectCondition.emit()
         #test code
-        self.insertSurveillanceList('005930')
+        # self.insertSurveillanceList('005930')
 
-
-                        
-        # print( whoami() + str(self.setInputValue("종목코드","003520")) )
-        # print( whoami() + str(self.setInputValue("틱범위","3:3분")) )
-        # print( whoami() + str(self.setInputValue("수정주가구분","0")) )
-        # print( whoami() + parseErrorCode( self.commRqData("003520", "opt10080", 0, '0001')) )
-        
-        # self.timerPolling.setSingleShot(True)
-        # self.timerPolling.setInterval(10000)
-        # self.timerPolling.start()
+        self.timerPolling.setSingleShot(False)
+        self.timerPolling.setInterval(1000)
+        self.timerPolling.start()
         pass
 
     @pyqtSlot()
@@ -270,13 +263,11 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def onPollingTimeout(self):
-        print(whoami() )
-        # print( whoami() + ' ' + str(self.setInputValue("종목코드","034940")) )
-        # print( whoami() + ' ' + str(self.setInputValue("틱범위","3:3분")) )
-        # print( whoami() + ' ' + str(self.setInputValue("수정주가구분","0")) )
-        # print( whoami() + parseErrorCode( self.commRqData("RQ1", "opt10080", 0, '0001')) )
-        print(self.dfCurrent[['[20] = 체결시간', '[10] = 현재가', '[12] = 등락율', 
-                        '[16] = 시가', '[17] = 고가', '[18] = 저가']] )
+        self.setInputValue("종목코드","034940") 
+        self.setInputValue("틱범위","1:1분") 
+        self.setInputValue("수정주가구분","0") 
+        print( whoami() + parseErrorCode( self.commRqData("RQ1", "opt10080", 0, '0001')) )
+
         pass
 
     @pyqtSlot()
@@ -314,8 +305,8 @@ class KiwoomConditon(QObject):
                     'splmMsg: {}'
         .format(scrNo, rQName, trCode, recordName,
                 prevNext, dataLength, errorCode, message, splmMsg))
-        # print( whoami() + self.getCommData("opt10080", "주식분봉차트조회", 1, "체결시간") )
-        # print( whoami() + self.getCommData("opt10080", "주식분봉차트조회", 2, "체결시간") )
+        print( whoami() + self.getCommData(trCode, rQName, 1, "체결시간") )
+        print( whoami() + self.getCommData(trCode, rQName, 2, "체결시간") )
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
@@ -365,12 +356,9 @@ class KiwoomConditon(QObject):
                     self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
                     #최근 10개의 자료를 컬럼을 선택하여 뿌려줌 이때 ix 사용함 (mixed index) 
                     print(self.dfCurrent.ix[-5:, ("종목코드", "종목이름", "체결시간", "현재가", "전일대비", "등락율", "거래량", "누적거래량","시가", "고가", "저가")]) 
-                print(".")
             else:
                 self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
-
             
-            # chesi = self.dfCurrent.tail(1)['[20] = 체결시간']
 
     # 체결데이터를 받은 시점을 알려준다.
     # sGubun – 0:주문체결통보, 1:잔고통보, 3:특이신호
