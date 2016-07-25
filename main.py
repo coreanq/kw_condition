@@ -3,6 +3,7 @@ import sys
 import os
 import re
 import datetime
+import time
 
 import pandasmodel
 from main_util import whoami, whosdaddy, cur_date_time
@@ -37,9 +38,9 @@ class KiwoomConditon(QObject):
         self.timerPolling = QTimer()
 
         self.surveillanceList = []
-        self.dfCurrent = pd.DataFrame(columns = (dict_jusik['체결실시간']) )
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
-        self.modelResult = pandasmodel.PandasModel(pd.DataFrame(columns = (dict_jusik['체결실시간']) ))                
+        # 종목번호를 key 로 하여 pandas dataframe 을 value 로 함 
+        self.dfList = {}
         self.create_states()
         self.createConnection()
 
@@ -266,7 +267,7 @@ class KiwoomConditon(QObject):
         self.setInputValue("종목코드","034940") 
         self.setInputValue("틱범위","1:1분") 
         self.setInputValue("수정주가구분","0") 
-        print( whoami() + parseErrorCode( self.commRqData("RQ1", "opt10080", 0, '0001')) )
+        print( whoami() + parseErrorCode( self.commRqData("034940", "opt10080", 0, '0001')) )
 
         pass
 
@@ -295,19 +296,56 @@ class KiwoomConditon(QObject):
     def _OnReceiveMsg(self, scrNo, rQName, trCode, msg):
         print(whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
         .format(scrNo, rQName, trCode, msg))
-
+        '''
+              [OnReceiveTrData() 이벤트함수]
+          
+          void OnReceiveTrData(
+          BSTR sScrNo,       // 화면번호
+          BSTR sRQName,      // 사용자 구분명
+          BSTR sTrCode,      // TR이름
+          BSTR sRecordName,  // 레코드 이름
+          BSTR sPrevNext,    // 연속조회 유무를 판단하는 값 0: 연속(추가조회)데이터 없음, 1:연속(추가조회) 데이터 있음
+          LONG nDataLength,  // 사용안함.
+          BSTR sErrorCode,   // 사용안함.
+          BSTR sMessage,     // 사용안함.
+          BSTR sSplmMsg     // 사용안함.
+          )
+          
+          조회요청 응답을 받거나 조회데이터를 수신했을때 호출됩니다.
+          조회데이터는 이 이벤트 함수내부에서 GetCommData()함수를 이용해서 얻어올 수 있습니다.
+        '''
+        pass
     # Tran 수신시 이벤트
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        print(whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {} '
-                    'prevNext: {}, dataLength: {}, errorCode: {}, message: {} '
-                    'splmMsg: {}'
-        .format(scrNo, rQName, trCode, recordName,
-                prevNext, dataLength, errorCode, message, splmMsg))
-        print( whoami() + self.getCommData(trCode, rQName, 1, "체결시간") )
-        print( whoami() + self.getCommData(trCode, rQName, 2, "체결시간") )
+        print(whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
+        .format(scrNo, rQName, trCode, recordName,prevNext))
 
+        repeatCnt = self.getRepeatCnt(trCode, rQName)
+
+        for i in range(repeatCnt):
+            tempList = []
+            tempList.append(self.getMasterCodeName(rQName))
+            for list in dict_jusik['분봉TR']:
+                result = self.getCommData(trCode, rQName, i, list)
+                tempList.append(result)
+
+            # print(tempList)
+            timeIndex = dict_jusik['분봉TR'].index("체결시간")
+            timeIndex += 1 #종목명 하나 그냥 추가했으므로
+
+            # 오늘 이전 데이터는 받지 않는다
+            resultTime = time.strptime(tempList[timeIndex].strip(), "%Y%m%d%H%M%S")
+            currentTime = time.localtime()
+            if( resultTime.tm_mday == currentTime.tm_mday ):
+                print(tempList)
+            else:
+                break
+
+            # 기존에 저장되어 있는 않는 데이터만 저장하고 이미 데이터가 있는 경우 리턴한다. 
+
+            
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
         # print(whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
@@ -341,23 +379,23 @@ class KiwoomConditon(QObject):
                             
         100952	 1533000	 0	      0.00	+1534000	 1533000	-1	44078	67432	-1528000	+1537000	-1522000	3	-187266	-284986212331	-19.05	0.03	5075	97.56	2191720	2	0	000000	000000
         '''
-        if realType == '주식체결':
-            jongmokName = self.getMasterCodeName(jongmokCode)
-            # shape 의 경우 2차원 배열의 사이즈를 나타냄 
-            # 맨 마지막 행의 시간을 비교해 1분이 넘었으면 데이터를 추가하도록 함 
-            lastIndex = self.dfCurrent.shape[0]
-            if( lastIndex ) :
-                lastRow = self.dfCurrent.loc[lastIndex - 1 ]
-                previousTradeTime = lastRow.loc['체결시간']
-                currentTradeTime = realData.split()[0]
-                preTime = datetime.time(int(previousTradeTime[:2]), int(previousTradeTime[2:4], 0))
-                curTime = datetime.time(int(currentTradeTime[:2]), int(currentTradeTime[2:4], 0))
-                if( preTime < curTime ):  
-                    self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
-                    #최근 10개의 자료를 컬럼을 선택하여 뿌려줌 이때 ix 사용함 (mixed index) 
-                    print(self.dfCurrent.ix[-5:, ("종목코드", "종목이름", "체결시간", "현재가", "전일대비", "등락율", "거래량", "누적거래량","시가", "고가", "저가")]) 
-            else:
-                self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
+        # if realType == '주식체결':
+        #     jongmokName = self.getMasterCodeName(jongmokCode)
+        #     # shape 의 경우 2차원 배열의 사이즈를 나타냄 
+        #     # 맨 마지막 행의 시간을 비교해 1분이 넘었으면 데이터를 추가하도록 함 
+        #     lastIndex = self.dfCurrent.shape[0]
+        #     if( lastIndex ) :
+        #         lastRow = self.dfCurrent.loc[lastIndex - 1 ]
+        #         previousTradeTime = lastRow.loc['체결시간']
+        #         currentTradeTime = realData.split()[0]
+        #         preTime = datetime.time(int(previousTradeTime[:2]), int(previousTradeTime[2:4], 0))
+        #         curTime = datetime.time(int(currentTradeTime[:2]), int(currentTradeTime[2:4], 0))
+        #         if( preTime < curTime ):  
+        #             self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
+        #             #최근 10개의 자료를 컬럼을 선택하여 뿌려줌 이때 ix 사용함 (mixed index) 
+        #             print(self.dfCurrent.ix[-5:, ("종목코드", "종목이름", "체결시간", "현재가", "전일대비", "등락율", "거래량", "누적거래량","시가", "고가", "저가")]) 
+        #     else:
+        #         self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
             
 
     # 체결데이터를 받은 시점을 알려준다.
