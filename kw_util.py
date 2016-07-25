@@ -8,7 +8,8 @@ selectConditionName = "단타 추세"
 sendConditionScreenNo = "001"
 sendRealRegScreenNo = "002"
 dict_jusik = {
-               "분봉TR":(   "현재가",
+               "분봉TR":(   "종목명", 
+                            "현재가",
                             "거래량", 
                             "체결시간", 
                             "시가",

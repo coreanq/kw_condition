@@ -193,7 +193,7 @@ class KiwoomConditon(QObject):
         # self.insertSurveillanceList('005930')
 
         self.timerPolling.setSingleShot(False)
-        self.timerPolling.setInterval(1000)
+        self.timerPolling.setInterval(5000)
         self.timerPolling.start()
         pass
 
@@ -323,30 +323,42 @@ class KiwoomConditon(QObject):
         .format(scrNo, rQName, trCode, recordName,prevNext))
 
         repeatCnt = self.getRepeatCnt(trCode, rQName)
-
         for i in range(repeatCnt):
-            tempList = []
-            tempList.append(self.getMasterCodeName(rQName))
+            line = []
             for list in dict_jusik['분봉TR']:
+                if( list == "종목명" ):
+                    line.append(self.getMasterCodeName(rQName))
+                    continue
                 result = self.getCommData(trCode, rQName, i, list)
-                tempList.append(result)
+                line.append(result)
 
-            # print(tempList)
+            # print(line)
             timeIndex = dict_jusik['분봉TR'].index("체결시간")
-            timeIndex += 1 #종목명 하나 그냥 추가했으므로
+            currentTimeStr =line[timeIndex]
 
             # 오늘 이전 데이터는 받지 않는다
-            resultTime = time.strptime(tempList[timeIndex].strip(), "%Y%m%d%H%M%S")
+            resultTime = time.strptime(currentTimeStr.strip(),  "%Y%m%d%H%M%S")
             currentTime = time.localtime()
             if( resultTime.tm_mday == currentTime.tm_mday ):
-                print(tempList)
+                # 기존에 저장되어 있는 않는 데이터만 저장하고 이미 데이터가 있는 경우 리턴한다. 
+                try:
+                    df = self.dfList[rQName]
+                    # any 를 해야 dataframe 이 리턴되지 않고 True, False 로 리턴됨 
+                    if((df['체결시간'] == currentTimeStr).any() ):
+                        #중복 나올시 바로 나옴 
+                        break
+                    else:
+                        # print(line)
+                        df.loc[df.shape[0]] = line 
+                except KeyError:
+                    self.dfList[rQName] = pd.DataFrame(columns = dict_jusik['분봉TR'])
+                    df = self.dfList[rQName]
+                    df.loc[df.shape[0]] = line
+                    print(line)
             else:
                 break
 
-            # 기존에 저장되어 있는 않는 데이터만 저장하고 이미 데이터가 있는 경우 리턴한다. 
-
-            
-    # 실시간 시세 이벤트
+               # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
         # print(whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
