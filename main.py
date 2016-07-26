@@ -24,7 +24,7 @@ class KiwoomConditon(QObject):
     sigGetConditionCplt = pyqtSignal()
     sigSelectCondition = pyqtSignal()
     sigRefreshCondition = pyqtSignal()
-    sigQueuedTr = pyqtSignal()
+    sigCheckTrList = pyqtSignal()
     sigRequestTr = pyqtSignal()
     sigGetTrCplt = pyqtSignal()
     sigStateStop = pyqtSignal()
@@ -36,8 +36,10 @@ class KiwoomConditon(QObject):
         self.qmlEngine = QQmlApplicationEngine()
         self.account_list = []
         self.timerPolling = QTimer()
-
-        self.surveillanceList = []
+        # 감시 리스트는 감시할 모든 종목을 가지고 있고 
+        # request 는 1초당 5번의 조회 제약으로 실제 tr 요청할 5개의 종목만을 가지고 있음 
+        self.gamsiList = []
+        self.requestList = []
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         # 종목번호를 key 로 하여 pandas dataframe 을 value 로 함 
         self.dfList = {}
@@ -62,7 +64,7 @@ class KiwoomConditon(QObject):
         processingConditionState = QState(conditionState)
         
         initTrState = QState(trState)
-        processingTrState = QState(trState)
+        trRequestingState = QState(trState)
         
         
         #transition defition
@@ -79,9 +81,9 @@ class KiwoomConditon(QObject):
         processingConditionState.addTransition(self.sigRefreshCondition, initConditionState)
         
         trState.setInitialState(initTrState)
-        initTrState.addTransition(self.sigQueuedTr, initTrState)
-        initTrState.addTransition(self.sigRequestTr, processingTrState)
-        processingTrState.addTransition(self.sigGetTrCplt, initTrState)
+        initTrState.addTransition(self.sigCheckTrList, initTrState)
+        initTrState.addTransition(self.sigRequestTr, trRequestingState)
+        trRequestingState.addTransition(self.sigGetTrCplt, initTrState)
         
         #state entered slot connect
         mainState.entered.connect(self.mainStateEntered)
@@ -97,7 +99,7 @@ class KiwoomConditon(QObject):
         processingConditionState.entered.connect(self.processingConditionStateEntered)
         
         initTrState.entered.connect(self.initTrStateEntered)
-        processingTrState.entered.connect(self.processingTrStateEntered)
+        trRequestingState.entered.connect(self.trRequestingStateEntered)
         
         finalState.entered.connect(self.finalStateEntered)
         
@@ -189,12 +191,7 @@ class KiwoomConditon(QObject):
         self.sendCondition(sendConditionScreenNo, selectConditionName, conditionNum,  1)
         
         self.sigSelectCondition.emit()
-        #test code
-        # self.insertSurveillanceList('005930')
 
-        self.timerPolling.setSingleShot(False)
-        self.timerPolling.setInterval(5000)
-        self.timerPolling.start()
         pass
 
     @pyqtSlot()
@@ -205,14 +202,33 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def initTrStateEntered(self):
-        print(whoami() )
-        self.sigRequestTr.emit()
+        print(".", end='')
+        for index, jongmokCode in enumerate(self.gamsiList):
+            if( index >= 5 ):
+                break
+            self.requestList.append(jongmokCode)
+        
+        for jongmokCode in self.requestList:
+            self.gamsiList.remove(jongmokCode)
+
+       
+        if( len(self.requestList)):
+            self.sigRequestTr.emit()
+             # 기존 gamsiList update 를 위해서 requestList 만큼 떼어내서 뒤로 다시 붙임 
+             # 리스트를 가져다 붙일때는 extend 사용
+            self.gamsiList.extend(self.requestList)
+        else:
+            QTimer.singleShot(1000, self.sigCheckTrList)
         pass
 
     @pyqtSlot()
-    def processingTrStateEntered(self):
-        print(whoami())
-        # self.sigGetTrCplt.emit()
+    def trRequestingStateEntered(self):
+        print(cur_date_time() + whoami())
+        for code in self.requestList:
+            self.setInputValue("종목코드",code ) 
+            self.setInputValue("틱범위","1:1분") 
+            self.setInputValue("수정주가구분","0") 
+            print( whoami() + parseErrorCode( self.commRqData(code , "opt10080", 0, '0001')) )
         pass
 
     @pyqtSlot()
@@ -245,30 +261,17 @@ class KiwoomConditon(QObject):
         self.timerPolling.setInterval(10000)
         self.timerPolling.timeout.connect(self.onPollingTimeout)
 
-    def insertSurveillanceList(self, jongmokCode):
-        try:
-            self.surveillanceList.index(jongmokCode)
+    def insertGamsiList(self, jongmokCode):
+        if( jongmokCode in self.gamsiList):
             print(whoami() + "jongmok Code already exists")
-
-        except ValueError:
-            self.surveillanceList.append(jongmokCode)
-            # codeList 는 마지막에 무조건 ; 로 끝나야 함  
-            codeList = ";".join(self.surveillanceList) + ';' 
-            print(self.getMasterCodeName(jongmokCode) + ' ' + codeList )
-                       
-            # 실시간 주식 체결가  등록 
-            print( whoami() +  parseErrorCode( 
-                self.setRealReg(sendRealRegScreenNo, codeList , dict_fid_set['주식체결'] , "0")))           
- 
+            pass
+        else:
+            self.gamsiList.append(jongmokCode)
+            self.sigCheckTrList.emit()
             pass
 
     @pyqtSlot()
     def onPollingTimeout(self):
-        self.setInputValue("종목코드","034940") 
-        self.setInputValue("틱범위","1:1분") 
-        self.setInputValue("수정주가구분","0") 
-        print( whoami() + parseErrorCode( self.commRqData("034940", "opt10080", 0, '0001')) )
-
         pass
 
     @pyqtSlot()
@@ -357,6 +360,11 @@ class KiwoomConditon(QObject):
                     print(line)
             else:
                 break
+
+        if( rQName in self.requestList):
+            self.requestList.remove(rQName)
+        if( len(self.requestList) == 0 ):
+            self.sigGetTrCplt.emit()
 
                # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
@@ -454,10 +462,15 @@ class KiwoomConditon(QObject):
     
         if type == 'I':
             typeName = '진입'
+            self.insertGamsiList(code)
         else:
             typeName = '이탈'
         print('{}: name: {}, status: {}'
         .format(cur_date_time(), self.getMasterCodeName(code), typeName))
+         # self.setInputValue("종목코드","034940") 
+        # self.setInputValue("틱범위","1:1분") 
+        # self.setInputValue("수정주가구분","0") 
+        # print( whoami() + parseErrorCode( self.commRqData("034940", "opt10080", 0, '0001')) )
 
 
     # method 

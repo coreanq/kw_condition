@@ -8,7 +8,7 @@ def whosdaddy():
     return inspect.stack()[2][3] + ' '
     
 def cur_date_time():
-    cur_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    cur_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S ')
     return cur_time
 
 if __name__ == "__main__":
