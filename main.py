@@ -21,6 +21,7 @@ class KiwoomConditon(QObject):
     sigInitOk = pyqtSignal()
     sigConnected = pyqtSignal()
     sigDisconnected = pyqtSignal()
+    sigTryConnect = pyqtSignal()
     sigGetConditionCplt = pyqtSignal()
     sigSelectCondition = pyqtSignal()
     sigRefreshCondition = pyqtSignal()
@@ -28,6 +29,7 @@ class KiwoomConditon(QObject):
     sigRequestTr = pyqtSignal()
     sigGetTrCplt = pyqtSignal()
     sigStateStop = pyqtSignal()
+    sigStockComplete = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -35,7 +37,8 @@ class KiwoomConditon(QObject):
         self.fsm = QStateMachine()
         self.qmlEngine = QQmlApplicationEngine()
         self.account_list = []
-        self.timerPolling = QTimer()
+        self.timerSystem = QTimer()
+        self.currentTime = time.localtime() 
         # 감시 리스트는 감시할 모든 종목을 가지고 있고 
         # request 는 1초당 5번의 조회 제약으로 실제 tr 요청할 5개의 종목만을 가지고 있음 
         self.gamsiList = []
@@ -43,12 +46,13 @@ class KiwoomConditon(QObject):
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         # 종목번호를 key 로 하여 pandas dataframe 을 value 로 함 
         self.dfList = {}
-        self.create_states()
+        self.createState()
         self.createConnection()
 
-    def create_states(self):
+    def createState(self):
         # state defintion
         mainState = QState(self.fsm)       
+        stockCompleteState = QState(self.fsm)
         finalState = QFinalState(self.fsm)
         self.fsm.setInitialState(mainState)
         
@@ -57,59 +61,105 @@ class KiwoomConditon(QObject):
         connectedState = QState(QtCore.QState.ParallelStates, mainState)
         
         conditionState = QState(connectedState)
-        trState = QState(connectedState)
+        purchaseState = QState(connectedState)
         
         initConditionState = QState(conditionState)
-        waitSelectingConditionState = QState(conditionState)
-        processingConditionState = QState(conditionState)
-        
-        initTrState = QState(trState)
-        trRequestingState = QState(trState)
+        waitingSelectConditionState = QState(conditionState)
+        standbyConditionState = QState(conditionState)
+        trRequestingState = QState(conditionState)
+
+        initPurchaseState = QState(purchaseState)
         
         
         #transition defition
         mainState.setInitialState(initState)
         mainState.addTransition(self.sigStateStop, finalState)
+        mainState.addTransition(self.sigStockComplete, stockCompleteState)
+        stockCompleteState.addTransition(self.sigStateStop, finalState)
         initState.addTransition(self.sigInitOk, disconnectedState)
         disconnectedState.addTransition(self.sigConnected, connectedState)
-        disconnectedState.addTransition(self.sigDisconnected, disconnectedState)
+        disconnectedState.addTransition(self.sigTryConnect,  disconnectedState)
         connectedState.addTransition(self.sigDisconnected, disconnectedState)
         
         conditionState.setInitialState(initConditionState)
-        initConditionState.addTransition(self.sigGetConditionCplt, waitSelectingConditionState)
-        waitSelectingConditionState.addTransition(self.sigSelectCondition, processingConditionState)
-        processingConditionState.addTransition(self.sigRefreshCondition, initConditionState)
+        initConditionState.addTransition(self.sigGetConditionCplt, waitingSelectConditionState)
+        waitingSelectConditionState.addTransition(self.sigSelectCondition, standbyConditionState)
+        standbyConditionState.addTransition(self.sigRefreshCondition, initConditionState)
+        standbyConditionState.addTransition(self.sigCheckTrList, standbyConditionState)
+        standbyConditionState.addTransition(self.sigRequestTr, trRequestingState)
+        trRequestingState.addTransition(self.sigGetTrCplt, standbyConditionState) 
         
-        trState.setInitialState(initTrState)
-        initTrState.addTransition(self.sigCheckTrList, initTrState)
-        initTrState.addTransition(self.sigRequestTr, trRequestingState)
-        trRequestingState.addTransition(self.sigGetTrCplt, initTrState)
-        
+        purchaseState.setInitialState(initPurchaseState)
+
         #state entered slot connect
         mainState.entered.connect(self.mainStateEntered)
+        stockCompleteState.entered.connect(self.stockCompleteStateEntered)
         initState.entered.connect(self.initStateEntered)
         disconnectedState.entered.connect(self.disconnectedStateEntered)
         connectedState.entered.connect(self.connectedStateEntered)
         
         conditionState.entered.connect(self.conditionStateEntered)
-        trState.entered.connect(self.trStateEntered)
+        purchaseState.entered.connect(self.trStateEntered)
         
         initConditionState.entered.connect(self.initConditionStateEntered)
-        waitSelectingConditionState.entered.connect(self.waitSelectingConditionStateEntered)
-        processingConditionState.entered.connect(self.processingConditionStateEntered)
-        
-        initTrState.entered.connect(self.initTrStateEntered)
-        trRequestingState.entered.connect(self.trRequestingStateEntered)
+        waitingSelectConditionState.entered.connect(self.waitingSelectConditionStateEntered)
+        standbyConditionState.entered.connect(self.standbyConditionStateEntered)
+        trRequestingState.entered.connect(self.trRequestingStateEntered) 
+
+        initPurchaseState.entered.connect(self.initPurchaseStateEntered)
         
         finalState.entered.connect(self.finalStateEntered)
         
         #fsm start
         self.fsm.start()
-        
+
+    def initQmlEngine(self):
+        rootContext = self.qmlEngine.rootContext()
+        rootContext.setContextProperty("cppModelCondition", self.modelCondition)
+        self.qmlEngine.load(QUrl('main.qml'))
+        pass
+
+    def createConnection(self):
+        self.ocx.OnEventConnect[int].connect(self._OnEventConnect)
+        self.ocx.OnReceiveMsg[str, str, str, str].connect(self._OnReceiveMsg)
+        self.ocx.OnReceiveTrData[str, str, str, str, str,
+                                    int, str, str, str].connect(self._OnReceiveTrData)
+        self.ocx.OnReceiveRealData[str, str, str].connect(
+            self._OnReceiveRealData)
+        self.ocx.OnReceiveChejanData[str, int, str].connect(
+            self._OnReceiveChejanData)
+        self.ocx.OnReceiveConditionVer[int, str].connect(
+            self._OnReceiveConditionVer)
+        self.ocx.OnReceiveTrCondition[str, str, str, int, int].connect(
+            self._OnReceiveTrCondition)
+        self.ocx.OnReceiveRealCondition[str, str, str, str].connect(
+            self._OnReceiveRealCondition)
+
+        self.timerSystem.setInterval(1000)
+        self.timerSystem.timeout.connect(self.onTimerSystemTimeout)
+        self.timerSystem.start()
+
+    def insertGamsiList(self, jongmokCode):
+        if( jongmokCode in self.gamsiList):
+            print(whoami() + "jongmok Code already exists")
+            pass
+        else:
+            self.gamsiList.append(jongmokCode)
+            pass
+  
     @pyqtSlot()
     def mainStateEntered(self):
         print(whoami())
         pass
+
+    @pyqtSlot()     
+    def stockCompleteStateEntered(self):
+        print(whoami())
+        writer = pd.ExcelWriter( "stock.xlsx" , engine='xlsxwriter')
+        for jongmokCode, df in self.dfList.items():
+            jongmokName = self.getMasterCodeName(jongmokCode)
+            df.to_excel(writer, sheet_name=jongmokName)
+        writer.save()
 
     @pyqtSlot()
     def initStateEntered(self):
@@ -120,9 +170,13 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def disconnectedStateEntered(self):
         print(whoami())
-        self.commConnect()
-        pass
-
+        if( self.getConnectState() == 0 ):
+            self.commConnect()
+            QTimer.singleShot(10000, self.sigTryConnect)
+            pass
+        else:
+            self.sigConnected.emit()
+            
     @pyqtSlot()
     def connectedStateEntered(self):
         print(whoami())
@@ -161,7 +215,7 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def waitSelectingConditionStateEntered(self):
+    def waitingSelectConditionStateEntered(self):
         print(whoami() )
         # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
         # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
@@ -187,7 +241,7 @@ class KiwoomConditon(QObject):
         for number, condition in tempDict.items():
             if condition == selectConditionName:
                     conditionNum = int(number)
-        print(sendConditionScreenNo, selectConditionName, conditionNum)
+        print("select condition" + sendConditionScreenNo, selectConditionName, conditionNum)
         self.sendCondition(sendConditionScreenNo, selectConditionName, conditionNum,  1)
         
         self.sigSelectCondition.emit()
@@ -195,14 +249,8 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def processingConditionStateEntered(self):
-        print(whoami())
-        # self.sigRefreshCondition.emit()
-        pass
+    def standbyConditionStateEntered(self):
 
-    @pyqtSlot()
-    def initTrStateEntered(self):
-        print(".", end='')
         for index, jongmokCode in enumerate(self.gamsiList):
             if( index >= 5 ):
                 break
@@ -211,67 +259,54 @@ class KiwoomConditon(QObject):
         for jongmokCode in self.requestList:
             self.gamsiList.remove(jongmokCode)
 
-       
         if( len(self.requestList)):
+            # 기존 gamsiList update 를 위해서 requestList 만큼 떼어내서 뒤로 다시 붙임 
+            # 리스트를 가져다 붙일때는 extend 사용
             self.sigRequestTr.emit()
-             # 기존 gamsiList update 를 위해서 requestList 만큼 떼어내서 뒤로 다시 붙임 
-             # 리스트를 가져다 붙일때는 extend 사용
-            self.gamsiList.extend(self.requestList)
         else:
             QTimer.singleShot(1000, self.sigCheckTrList)
+        # self.setInputValue("종목코드", "000660" )
+        # self.setInputValue("틱범위","1:1분") 
+        # self.setInputValue("수정주가구분","0") 
+        # print( "commRqData() " + self.getMasterCodeName("000660") + " " + parseErrorCode( self.commRqData("000660", "opt10080", 0, '0001')) )
+        # self.setInputValue("종목코드", "005930" )
+        # self.setInputValue("틱범위","1:1분") 
+        # self.setInputValue("수정주가구분","0") 
+        # print( "commRqData() " + self.getMasterCodeName("005930") + " " + parseErrorCode( self.commRqData("005930" , "opt10080", 0, '0001')) )
         pass
 
     @pyqtSlot()
     def trRequestingStateEntered(self):
-        print(cur_date_time() + whoami())
         for code in self.requestList:
-            self.setInputValue("종목코드",code ) 
+            self.setInputValue("종목코드", code )
             self.setInputValue("틱범위","1:1분") 
             self.setInputValue("수정주가구분","0") 
-            print( whoami() + parseErrorCode( self.commRqData(code , "opt10080", 0, '0001')) )
+            ret = self.commRqData(code , "opt10080", 0, '0001') 
+            if( ret != 0 ):
+                print( cur_date_time() + whoami() + "commRqData() " + self.getMasterCodeName(code) + " " +  parseErrorCode(str(ret))) 
         pass
+
+    @pyqtSlot()
+    def initPurchaseStateEntered(self):
+        pass
+     
+
 
     @pyqtSlot()
     def finalStateEntered(self):
         print(whoami())
         pass
 
-    def initQmlEngine(self):
-        rootContext = self.qmlEngine.rootContext()
-        rootContext.setContextProperty("cppModelCondition", self.modelCondition)
-        self.qmlEngine.load(QUrl('main.qml'))
-        pass
-
-    def createConnection(self):
-        self.ocx.OnEventConnect[int].connect(self._OnEventConnect)
-        self.ocx.OnReceiveMsg[str, str, str, str].connect(self._OnReceiveMsg)
-        self.ocx.OnReceiveTrData[str, str, str, str, str,
-                                    int, str, str, str].connect(self._OnReceiveTrData)
-        self.ocx.OnReceiveRealData[str, str, str].connect(
-            self._OnReceiveRealData)
-        self.ocx.OnReceiveChejanData[str, int, str].connect(
-            self._OnReceiveChejanData)
-        self.ocx.OnReceiveConditionVer[int, str].connect(
-            self._OnReceiveConditionVer)
-        self.ocx.OnReceiveTrCondition[str, str, str, int, int].connect(
-            self._OnReceiveTrCondition)
-        self.ocx.OnReceiveRealCondition[str, str, str, str].connect(
-            self._OnReceiveRealCondition)
-
-        self.timerPolling.setInterval(10000)
-        self.timerPolling.timeout.connect(self.onPollingTimeout)
-
-    def insertGamsiList(self, jongmokCode):
-        if( jongmokCode in self.gamsiList):
-            print(whoami() + "jongmok Code already exists")
-            pass
-        else:
-            self.gamsiList.append(jongmokCode)
-            self.sigCheckTrList.emit()
-            pass
-
+   
     @pyqtSlot()
-    def onPollingTimeout(self):
+    def onTimerSystemTimeout(self):
+        print(".", end='') 
+        self.currentTime = time.localtime()
+        if( self.currentTime.tm_hour >= 15 and self.currentTime.tm_min  >= 10): 
+            # self.sigStockComplete.emit()
+            pass
+        if( self.getConnectState() != 1 ):
+            self.sigDisconnected.emit() 
         pass
 
     @pyqtSlot()
@@ -322,8 +357,8 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        print(whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
-        .format(scrNo, rQName, trCode, recordName,prevNext))
+        # print(whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
+        # .format(scrNo, rQName, trCode, recordName,prevNext))
 
         repeatCnt = self.getRepeatCnt(trCode, rQName)
         for i in range(repeatCnt):
@@ -333,14 +368,14 @@ class KiwoomConditon(QObject):
                     line.append(self.getMasterCodeName(rQName))
                     continue
                 result = self.getCommData(trCode, rQName, i, list)
-                line.append(result)
+                line.append(result.strip())
 
             # print(line)
             timeIndex = dict_jusik['분봉TR'].index("체결시간")
             currentTimeStr =line[timeIndex]
 
             # 오늘 이전 데이터는 받지 않는다
-            resultTime = time.strptime(currentTimeStr.strip(),  "%Y%m%d%H%M%S")
+            resultTime = time.strptime(currentTimeStr,  "%Y%m%d%H%M%S")
             currentTime = time.localtime()
             if( resultTime.tm_mday == currentTime.tm_mday ):
                 # 기존에 저장되어 있는 않는 데이터만 저장하고 이미 데이터가 있는 경우 리턴한다. 
@@ -363,8 +398,9 @@ class KiwoomConditon(QObject):
 
         if( rQName in self.requestList):
             self.requestList.remove(rQName)
+            self.insertGamsiList(rQName)
         if( len(self.requestList) == 0 ):
-            self.sigGetTrCplt.emit()
+            QTimer.singleShot(1000, self.sigGetTrCplt)
 
                # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
@@ -456,8 +492,8 @@ class KiwoomConditon(QObject):
     # strConditionName : 조건명
     # strConditionIndex : 조건명 인덱스
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
-        print(whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
-        .format(code, type, conditionName, conditionIndex ))
+        # print(whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
+        # .format(code, type, conditionName, conditionIndex ))
         typeName = ''
     
         if type == 'I':
@@ -476,6 +512,7 @@ class KiwoomConditon(QObject):
     # method 
     # 로그인
     # 0 - 성공, 음수값은 실패
+    # 단순 API 호출이 되었느냐 안되었느냐만 확인 가능 
     @pyqtSlot(result=int)
     def commConnect(self):
         return self.ocx.dynamicCall("CommConnect()")
@@ -694,12 +731,18 @@ class KiwoomConditon(QObject):
 
 
 if __name__ == "__main__":
+
     # putenv 는 current process 에 영향을 못끼치므로 environ 에서 직접 세팅 
     # qml debugging 를 위해 QML_IMPORT_TRACE 환경변수 1로 세팅 후 DebugView 에서 디버깅 메시지 확인 가능  
     os.environ['QML_IMPORT_TRACE'] = '1'
     # print(os.environ['QML_IMPORT_TRACE'])
     myApp = QApplication(sys.argv)
     objKiwoom = KiwoomConditon()
+        
+    def test1():
+        objKiwoom.insertGamsiList("005930")
+    def test2():
+        objKiwoom.stockCompleteStateEntered()
     # Execute the Application and Exit
     sys.exit(myApp.exec_())
 
