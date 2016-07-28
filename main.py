@@ -173,7 +173,7 @@ class KiwoomConditon(QObject):
         print(whoami())
         if( self.getConnectState() == 0 ):
             self.commConnect()
-            QTimer.singleShot(10000, self.sigTryConnect)
+            QTimer.singleShot(30000, self.sigTryConnect)
             pass
         else:
             self.sigConnected.emit()
@@ -304,7 +304,7 @@ class KiwoomConditon(QObject):
         print(".", end='') 
         self.currentTime = time.localtime()
         if( self.currentTime.tm_hour >= 15 and self.currentTime.tm_min  >= 10): 
-            # self.sigStockComplete.emit()
+            self.sigStockComplete.emit()
             pass
         if( self.getConnectState() != 1 ):
             self.sigDisconnected.emit() 
@@ -502,8 +502,9 @@ class KiwoomConditon(QObject):
             self.insertGamsiList(code)
         else:
             typeName = '이탈'
-        print('{}: name: {}, status: {}'
-        .format(cur_date_time(), self.getMasterCodeName(code), typeName))
+        if( typeName == '진입'):
+            print('\n{}: name: {}, status: {}'
+            .format(cur_date_time(), self.getMasterCodeName(code), typeName))
          # self.setInputValue("종목코드","034940") 
         # self.setInputValue("틱범위","1:1분") 
         # self.setInputValue("수정주가구분","0") 
