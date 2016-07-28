@@ -157,8 +157,9 @@ class KiwoomConditon(QObject):
         print(whoami())
         writer = pd.ExcelWriter( "stock.xlsx" , engine='xlsxwriter')
         for jongmokCode, df in self.dfList.items():
+            tempDf = df.sort_values(by=['체결시간'])
             jongmokName = self.getMasterCodeName(jongmokCode)
-            df.to_excel(writer, sheet_name=jongmokName)
+            tempDf.to_excel(writer, sheet_name=jongmokName)
         writer.save()
 
     @pyqtSlot()
@@ -476,9 +477,9 @@ class KiwoomConditon(QObject):
     # int nIndex : 조건명 인덱스
     # int nNext : 연속조회(2:연속조회, 0:연속조회없음)
     def _OnReceiveTrCondition(self, scrNo, codeList, conditionName, index, next):
-        print(whoami() + 'scrNo: {}, codeList: {}, conditionName: {} '
-        'index: {}, next: {}'
-        .format(scrNo, codeList, conditionName, index, next ))
+        # print(whoami() + 'scrNo: {}, codeList: {}, conditionName: {} '
+        # 'index: {}, next: {}'
+        # .format(scrNo, codeList, conditionName, index, next ))
          
         codes = codeList.split(';')[:-1]
         
