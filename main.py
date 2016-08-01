@@ -7,7 +7,7 @@ import time
 
 import pandasmodel
 from main_util import whoami, whosdaddy, cur_date_time
-from kw_util import dict_fid_set, dict_jusik, parseErrorCode, sendConditionScreenNo, selectConditionName, sendRealRegScreenNo
+from kw_util import * 
 import pandas as pd
 
 from PyQt5 import QtCore
@@ -25,7 +25,6 @@ class KiwoomConditon(QObject):
     sigGetConditionCplt = pyqtSignal()
     sigSelectCondition = pyqtSignal()
     sigRefreshCondition = pyqtSignal()
-    sigCheckTrList = pyqtSignal()
     sigRequestTr = pyqtSignal()
     sigGetTrCplt = pyqtSignal()
     sigStateStop = pyqtSignal()
@@ -42,7 +41,9 @@ class KiwoomConditon(QObject):
         # 감시 리스트는 감시할 모든 종목을 가지고 있고 
         # request 는 1초당 5번의 조회 제약으로 실제 tr 요청할 5개의 종목만을 가지고 있음 
         self.gamsiList = []
-        self.requestList = []
+        self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 분봉 저장용으로 사용 
+        self.afterBuycodeList  = [] # 매수 후 보유 종목에 대한 종목 코드 리스트
+        self.beforeBuyCodeList = [] # 매수 전 실시간 호가 정보를 얻기 위한 종목 코드 리스트 
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         # 종목번호를 key 로 하여 pandas dataframe 을 value 로 함 
         self.dfList = {}
@@ -85,9 +86,8 @@ class KiwoomConditon(QObject):
         initConditionState.addTransition(self.sigGetConditionCplt, waitingSelectConditionState)
         waitingSelectConditionState.addTransition(self.sigSelectCondition, standbyConditionState)
         standbyConditionState.addTransition(self.sigRefreshCondition, initConditionState)
-        standbyConditionState.addTransition(self.sigCheckTrList, standbyConditionState)
         standbyConditionState.addTransition(self.sigRequestTr, trRequestingState)
-        trRequestingState.addTransition(self.sigGetTrCplt, standbyConditionState) 
+        trRequestingState.addTransition(self.sigGetTrCplt, trRequestingState) 
         
         purchaseState.setInitialState(initPurchaseState)
 
@@ -139,13 +139,6 @@ class KiwoomConditon(QObject):
         self.timerSystem.timeout.connect(self.onTimerSystemTimeout)
         self.timerSystem.start()
 
-    def insertGamsiList(self, jongmokCode):
-        if( jongmokCode in self.gamsiList):
-            print(whoami() + "jongmok Code already exists")
-            pass
-        else:
-            self.gamsiList.append(jongmokCode)
-            pass
   
     @pyqtSlot()
     def mainStateEntered(self):
@@ -161,6 +154,7 @@ class KiwoomConditon(QObject):
             jongmokName = self.getMasterCodeName(jongmokCode)
             tempDf.to_excel(writer, sheet_name=jongmokName)
         writer.save()
+        self.sigStateStop()
 
     @pyqtSlot()
     def initStateEntered(self):
@@ -173,7 +167,7 @@ class KiwoomConditon(QObject):
         print(whoami())
         if( self.getConnectState() == 0 ):
             self.commConnect()
-            QTimer.singleShot(30000, self.sigTryConnect)
+            QTimer.singleShot(90000, self.sigTryConnect)
             pass
         else:
             self.sigConnected.emit()
@@ -251,40 +245,36 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def standbyConditionStateEntered(self):
-
-        for index, jongmokCode in enumerate(self.gamsiList):
-            if( index >= 5 ):
-                break
-            self.requestList.append(jongmokCode)
+        print(whoami() )
         
-        for jongmokCode in self.requestList:
-            self.gamsiList.remove(jongmokCode)
-
-        if( len(self.requestList)):
-            # 기존 gamsiList update 를 위해서 requestList 만큼 떼어내서 뒤로 다시 붙임 
-            # 리스트를 가져다 붙일때는 extend 사용
-            self.sigRequestTr.emit()
-        else:
-            QTimer.singleShot(1000, self.sigCheckTrList)
-        # self.setInputValue("종목코드", "000660" )
-        # self.setInputValue("틱범위","1:1분") 
-        # self.setInputValue("수정주가구분","0") 
-        # print( "commRqData() " + self.getMasterCodeName("000660") + " " + parseErrorCode( self.commRqData("000660", "opt10080", 0, '0001')) )
-        # self.setInputValue("종목코드", "005930" )
-        # self.setInputValue("틱범위","1:1분") 
-        # self.setInputValue("수정주가구분","0") 
-        # print( "commRqData() " + self.getMasterCodeName("005930") + " " + parseErrorCode( self.commRqData("005930" , "opt10080", 0, '0001')) )
         pass
 
     @pyqtSlot()
     def trRequestingStateEntered(self):
-        for code in self.requestList:
+        # print(whoami() )
+
+        if( len(self.conditionOccurList) == 0 ):
+            self.sigStockComplete.emit()
+        # 조건 진입 정보를 읽어 종목 코드 값을 빼낸 뒤 tr 요청 
+        try:
+            df = self.dfList["조건진입"].drop_duplicates("종목명")
+            for index, series in df.iterrows():
+                self.conditionOccurList.append(series["종목코드"])
+        except KeyError:
+            pass 
+       
+        for index, code in enumerate(self.conditionOccurList):
+            # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
             self.setInputValue("종목코드", code )
             self.setInputValue("틱범위","1:1분") 
             self.setInputValue("수정주가구분","0") 
-            ret = self.commRqData(code , "opt10080", 0, '0001') 
+            ret = self.commRqData(code , "opt10080", 0, send1minTrScreenNo) 
+            
             if( ret != 0 ):
                 print( cur_date_time() + whoami() + "commRqData() " + self.getMasterCodeName(code) + " " +  parseErrorCode(str(ret))) 
+            else:
+                break
+
         pass
 
     @pyqtSlot()
@@ -303,8 +293,7 @@ class KiwoomConditon(QObject):
     def onTimerSystemTimeout(self):
         print(".", end='') 
         self.currentTime = time.localtime()
-        if( self.currentTime.tm_hour >= 15 and self.currentTime.tm_min  >= 10): 
-            self.sigStockComplete.emit()
+        if( self.currentTime.tm_hour >= 15 and self.currentTime.tm_min  >= 40): 
             pass
         if( self.getConnectState() != 1 ):
             self.sigDisconnected.emit() 
@@ -358,13 +347,13 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        # print(whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
-        # .format(scrNo, rQName, trCode, recordName,prevNext))
+        print(whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
+        .format(scrNo, rQName, trCode, recordName,prevNext))
 
         repeatCnt = self.getRepeatCnt(trCode, rQName)
         for i in range(repeatCnt):
             line = []
-            for list in dict_jusik['분봉TR']:
+            for list in dict_jusik['TR:분봉']:
                 if( list == "종목명" ):
                     line.append(self.getMasterCodeName(rQName))
                     continue
@@ -372,7 +361,7 @@ class KiwoomConditon(QObject):
                 line.append(result.strip())
 
             # print(line)
-            timeIndex = dict_jusik['분봉TR'].index("체결시간")
+            timeIndex = dict_jusik['TR:분봉'].index("체결시간")
             currentTimeStr =line[timeIndex]
 
             # 오늘 이전 데이터는 받지 않는다
@@ -390,71 +379,54 @@ class KiwoomConditon(QObject):
                         # print(line)
                         df.loc[df.shape[0]] = line 
                 except KeyError:
-                    self.dfList[rQName] = pd.DataFrame(columns = dict_jusik['분봉TR'])
+                    self.dfList[rQName] = pd.DataFrame(columns = dict_jusik['TR:분봉'])
                     df = self.dfList[rQName]
                     df.loc[df.shape[0]] = line
                     print(line)
             else:
                 break
+        if( rQName in self.conditionOccurList):
+            self.conditionOccurList.remove(rQName)
+            self.sigGetTrCplt.emit()
 
-        if( rQName in self.requestList):
-            self.requestList.remove(rQName)
-            self.insertGamsiList(rQName)
-        if( len(self.requestList) == 0 ):
-            QTimer.singleShot(1000, self.sigGetTrCplt)
-
-               # 실시간 시세 이벤트
+    # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
         # print(whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
-        '''
-        real Data Sample
-               "주식체결" : ("체결시간", 
-                            "현재가",
-	                        "전일대비",
-	                        "등락율",
-	                        "(최우선)매도호가",
-	                        "(최우선)매수호가",
-                            "거래량",
-	                        "누적거래량",
-	                        "누적거래대금",
-	                        "시가",
-	                        "고가",
-	                        "저가",
-    	                    "전일대비기호",
-	                        "전일거래량대비(계약,주)",
-	                        "거래대금증감",
-	                        "전일거래량대비(비율)",
-	                        "거래회전율",
-	                        "거래비용",
-	                        "체결강도",
-	                        "시가총액(억)",
-	                        "장구분",
-	                        "KO접근도",
-	                        "상한가발생시간",
-	                        "하한가발생시간")
-                            
-        100952	 1533000	 0	      0.00	+1534000	 1533000	-1	44078	67432	-1528000	+1537000	-1522000	3	-187266	-284986212331	-19.05	0.03	5075	97.56	2191720	2	0	000000	000000
-        '''
-        # if realType == '주식체결':
-        #     jongmokName = self.getMasterCodeName(jongmokCode)
-        #     # shape 의 경우 2차원 배열의 사이즈를 나타냄 
-        #     # 맨 마지막 행의 시간을 비교해 1분이 넘었으면 데이터를 추가하도록 함 
-        #     lastIndex = self.dfCurrent.shape[0]
-        #     if( lastIndex ) :
-        #         lastRow = self.dfCurrent.loc[lastIndex - 1 ]
-        #         previousTradeTime = lastRow.loc['체결시간']
-        #         currentTradeTime = realData.split()[0]
-        #         preTime = datetime.time(int(previousTradeTime[:2]), int(previousTradeTime[2:4], 0))
-        #         curTime = datetime.time(int(currentTradeTime[:2]), int(currentTradeTime[2:4], 0))
-        #         if( preTime < curTime ):  
-        #             self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
-        #             #최근 10개의 자료를 컬럼을 선택하여 뿌려줌 이때 ix 사용함 (mixed index) 
-        #             print(self.dfCurrent.ix[-5:, ("종목코드", "종목이름", "체결시간", "현재가", "전일대비", "등락율", "거래량", "누적거래량","시가", "고가", "저가")]) 
-        #     else:
-        #         self.dfCurrent.loc[self.dfCurrent.shape[0]] = (jongmokCode, jongmokName) + tuple(realData.split()) 
-            
+        if( realType == "주식호가잔량"):
+          self.makeHogaJanRyangInfo(jongmokCode)
+               
+    def makeHogaJanRyangInfo(self, jongmokCode):
+        #주식 호가 잔량 정보 요청 
+        jongmokName = ""
+        line = []
+        for list in dict_jusik['실시간:주식호가잔량']:
+            if( list == "종목명" ):
+                jongmokName = self.getMasterCodeName(jongmokCode)
+                line.append(jongmokName)
+                continue
+            result = self.getCommRealData(jongmokCode, dict_name_fid[list] ) 
+            line.append(result.strip())
 
+        df = {}
+        try:
+            df = self.dfList["실시간:주식호가잔량"]
+            df.loc[jongmokName] = line
+        except KeyError:
+            self.dfList["실시간:주식호가잔량"] = pd.DataFrame(columns = dict_jusik["실시간:주식호가잔량"])
+            df = self.dfList["실시간:주식호가잔량"]
+            df.loc[jongmokName] = line
+
+        # 호가 창을 보고 매수 할지 안할지 여부 결정
+        maedoHoga1 =  df.loc[jongmokName, '매도호가1']
+        maedoHogaAmount1 =  df.loc[jongmokName, '매도호가수량1']
+        maedoHoga2 =  df.loc[jongmokName, '매도호가2']
+        maedoHogaAmount2 =  df.loc[jongmokName, '매도호가수량2']
+        #    print( whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
+        sum =  int(maedoHoga1) * int(maedoHogaAmount1) + int(maedoHoga2) * int(maedoHogaAmount2)
+        print( whoami() + jongmokName + " " + str(sum))
+        # print(line)
+        pass 
     # 체결데이터를 받은 시점을 알려준다.
     # sGubun – 0:주문체결통보, 1:잔고통보, 3:특이신호
     # sFidList – 데이터 구분은 ‘;’ 이다.
@@ -496,21 +468,36 @@ class KiwoomConditon(QObject):
         # print(whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
         # .format(code, type, conditionName, conditionIndex ))
         typeName = ''
-    
         if type == 'I':
             typeName = '진입'
-            self.insertGamsiList(code)
         else:
             typeName = '이탈'
+
         if( typeName == '진입'):
+            self.makeConditionOccurInfo(code)
             print('\n{}: name: {}, status: {}'
             .format(cur_date_time(), self.getMasterCodeName(code), typeName))
-         # self.setInputValue("종목코드","034940") 
-        # self.setInputValue("틱범위","1:1분") 
-        # self.setInputValue("수정주가구분","0") 
-        # print( whoami() + parseErrorCode( self.commRqData("034940", "opt10080", 0, '0001')) )
-
-
+       
+    def makeConditionOccurInfo(self, jongmokCode):
+           #주식 호가 잔량 정보 요청 
+        if( jongmokCode not in self.beforeBuyCodeList ):
+            self.beforeBuyCodeList.append(jongmokCode)
+        self.setRealReg(sendRealRegScreenNo, ';'.join(self.beforeBuyCodeList), dict_type_fids['주식호가잔량'], "0")
+        line = []
+        #발생시간, 종목코드,  종목명, 매수여부 dict_type_fids
+        line.append(cur_date_time().strip() )
+        line.append(jongmokCode)
+        line.append(self.getMasterCodeName(jongmokCode))
+        line.append("No")
+        try:
+            df = self.dfList["조건진입"]
+            df.loc[df.shape[0]] = line 
+        except KeyError:
+            self.dfList["조건진입"] = pd.DataFrame(columns = dict_jusik['조건진입'])
+            df = self.dfList['조건진입']
+            df.loc[df.shape[0]] = line
+        print(line)
+        pass
     # method 
     # 로그인
     # 0 - 성공, 음수값은 실패
@@ -672,7 +659,7 @@ class KiwoomConditon(QObject):
     # 타입 “0”은 항상 마지막에 등록한 종목들만 실시간등록이 됩니다.
     # 타입 “1”은 이전에 실시간 등록한 종목들과 함께 실시간을 받고 싶은 종목을 추가로 등록할 때 사용합니다.
     # ※ 종목, FID는 각각 한번에 실시간 등록 할 수 있는 개수는 100개 입니다.
-    @pyqtSlot(str, str, str, int, result=int)
+    @pyqtSlot(str, str, str, str,  result=int)
     def setRealReg(self, screenNo, codeList, fidList, optType):
         return self.ocx.dynamicCall("SetRealReg(QString, QString, QString, QString)", screenNo, codeList, fidList, optType)
 
@@ -742,9 +729,20 @@ if __name__ == "__main__":
     objKiwoom = KiwoomConditon()
         
     def test1():
-        objKiwoom.insertGamsiList("005930")
+        objKiwoom.makeConditionOccurInfo('068330')
     def test2():
-        objKiwoom.stockCompleteStateEntered()
+        objKiwoom.makeConditionOccurInfo('036620') 
+    def test_save():
+        objKiwoom.conditionOccurList.append('068330')
+        objKiwoom.conditionOccurList.append('021080')
+        objKiwoom.conditionOccurList.append('036620')
+        objKiwoom.conditionOccurList.append('127710')
+        objKiwoom.conditionOccurList.append('033340')
+        objKiwoom.conditionOccurList.append('045390')
+              
+        objKiwoom.conditionOccurList.append('090')
+        objKiwoom.sigRequestTr.emit()
+               
     # Execute the Application and Exit
     sys.exit(myApp.exec_())
 
