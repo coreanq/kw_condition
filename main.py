@@ -6,7 +6,7 @@ import datetime
 import time
 
 import pandasmodel
-from main_util import whoami, whosdaddy, cur_date_time
+from main_util import *
 from kw_util import * 
 import pandas as pd
 
@@ -38,9 +38,6 @@ class KiwoomConditon(QObject):
         self.account_list = []
         self.timerSystem = QTimer()
         self.currentTime = time.localtime() 
-        # 감시 리스트는 감시할 모든 종목을 가지고 있고 
-        # request 는 1초당 5번의 조회 제약으로 실제 tr 요청할 5개의 종목만을 가지고 있음 
-        self.gamsiList = []
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 분봉 저장용으로 사용 
         self.afterBuycodeList  = [] # 매수 후 보유 종목에 대한 종목 코드 리스트
         self.beforeBuyCodeList = [] # 매수 전 실시간 호가 정보를 얻기 위한 종목 코드 리스트 
@@ -149,12 +146,14 @@ class KiwoomConditon(QObject):
     def stockCompleteStateEntered(self):
         print(whoami())
         writer = pd.ExcelWriter( "stock.xlsx" , engine='xlsxwriter')
+        # df 에는 jongmokCode 키 값 이외에 다른 값이 들어오므로 체크해야함  조건 진입 리스트 등등
         for jongmokCode, df in self.dfList.items():
-            tempDf = df.sort_values(by=['체결시간'])
             jongmokName = self.getMasterCodeName(jongmokCode)
-            tempDf.to_excel(writer, sheet_name=jongmokName)
+            if( jongmokName != ""):
+                tempDf = df.sort_values(by=['체결시간'])
+            tempDf.to_excel(writer, sheet_name=jongmokName, index= False )
         writer.save()
-        self.sigStateStop()
+        self.sigStateStop.emit()
 
     @pyqtSlot()
     def initStateEntered(self):
@@ -196,10 +195,6 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def conditionStateEntered(self):
-        pass
-
-    @pyqtSlot()
-    def trStateEntered(self):
         pass
 
     @pyqtSlot()
@@ -246,7 +241,9 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def standbyConditionStateEntered(self):
         print(whoami() )
-        
+
+        # test_buy()
+        # test_save() 
         pass
 
     @pyqtSlot()
@@ -257,7 +254,7 @@ class KiwoomConditon(QObject):
             self.sigStockComplete.emit()
         # 조건 진입 정보를 읽어 종목 코드 값을 빼낸 뒤 tr 요청 
         try:
-            df = self.dfList["조건진입"].drop_duplicates("종목명")
+            df = self.dfList["조건진입"].drop_duplicates("종목코드")
             for index, series in df.iterrows():
                 self.conditionOccurList.append(series["종목코드"])
         except KeyError:
@@ -281,7 +278,9 @@ class KiwoomConditon(QObject):
     def initPurchaseStateEntered(self):
         pass
      
-
+    @pyqtSlot()
+    def trStateEntered(self):
+        pass
 
     @pyqtSlot()
     def finalStateEntered(self):
@@ -294,6 +293,7 @@ class KiwoomConditon(QObject):
         print(".", end='') 
         self.currentTime = time.localtime()
         if( self.currentTime.tm_hour >= 15 and self.currentTime.tm_min  >= 40): 
+            self.sigRequestTr.emit()
             pass
         if( self.getConnectState() != 1 ):
             self.sigDisconnected.emit() 
@@ -350,7 +350,15 @@ class KiwoomConditon(QObject):
         print(whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
         .format(scrNo, rQName, trCode, recordName,prevNext))
 
+        if( trCode == "opt10080"):
+            self.makeOpt10080Info(trCode, rQName)
+            pass
+            
+
+    # 1분봉 데이터 생성 --> to dataframe
+    def makeOpt10080Info(self, trCode, rQName):
         repeatCnt = self.getRepeatCnt(trCode, rQName)
+        currentTimeStr  = ""
         for i in range(repeatCnt):
             line = []
             for list in dict_jusik['TR:분봉']:
@@ -358,12 +366,11 @@ class KiwoomConditon(QObject):
                     line.append(self.getMasterCodeName(rQName))
                     continue
                 result = self.getCommData(trCode, rQName, i, list)
+                if( list == "체결시간"):
+                    currentTimeStr = result.strip()
                 line.append(result.strip())
 
             # print(line)
-            timeIndex = dict_jusik['TR:분봉'].index("체결시간")
-            currentTimeStr =line[timeIndex]
-
             # 오늘 이전 데이터는 받지 않는다
             resultTime = time.strptime(currentTimeStr,  "%Y%m%d%H%M%S")
             currentTime = time.localtime()
@@ -388,13 +395,13 @@ class KiwoomConditon(QObject):
         if( rQName in self.conditionOccurList):
             self.conditionOccurList.remove(rQName)
             self.sigGetTrCplt.emit()
-
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
         # print(whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
         if( realType == "주식호가잔량"):
-          self.makeHogaJanRyangInfo(jongmokCode)
+            self.makeHogaJanRyangInfo(jongmokCode)
+            pass
                
     def makeHogaJanRyangInfo(self, jongmokCode):
         #주식 호가 잔량 정보 요청 
@@ -430,9 +437,34 @@ class KiwoomConditon(QObject):
     # 체결데이터를 받은 시점을 알려준다.
     # sGubun – 0:주문체결통보, 1:잔고통보, 3:특이신호
     # sFidList – 데이터 구분은 ‘;’ 이다.
+    '''
+    _OnReceiveChejanData gubun: 1, itemCnt: 27, fidList: 9201;9001;917;916;302;10;930;931;932;933;945;946;950;951;27;28;307;8019;957;958;918;990;991;992;993;959;924
+    {'종목코드': 'A010050', '당일실현손익률(유가)': '0.00', '대출일': '00000000', '당일실현손익률(신용)': '0.00', '(최우선)매수호가': '+805', '당일순매수수량': '5', '총매입가': '4043', 
+    '당일총매도손일': '0', '만기일': '00000000', '신용금액': '0', '당일실현손익(신용)': '0', '현재가': '+806', '기준가': '802', '계좌번호': ', '보유수량': '5', 
+    '예수금': '0', '주문가능수량': '5', '종목명': '우리종금                                ', '손익율': '0.00', '당일실현손익(유가)': '0', '담보대출수량': '0', '924': '0', 
+    '매입단가': '809', '신용구분': '00', '매도/매수구분': '2', '(최우선)매도호가': '+806', '신용이자': '0'}
+    ''' 
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
-        print(whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
-                .format(gubun, itemCnt, fidList))
+        # print(whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
+        #         .format(gubun, itemCnt, fidList))
+
+        if( gubun == "1"):
+            fids = fidList.split(";")
+            dictLine = {} 
+            printData = ""
+            for fid in fids:
+                nFid = int(fid)
+                result = self.getChejanData(nFid)
+                try: 
+                    index = dict_chejan[fid]
+                except KeyError:
+                    continue
+                dictLine[index] = result
+            
+            for key, value in dictLine:
+                printData += '{0}:{1}, '.format(key, value)
+            save_log(printData, '잔고정보')
+            print(printData)
 
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
@@ -452,9 +484,7 @@ class KiwoomConditon(QObject):
         # print(whoami() + 'scrNo: {}, codeList: {}, conditionName: {} '
         # 'index: {}, next: {}'
         # .format(scrNo, codeList, conditionName, index, next ))
-         
         codes = codeList.split(';')[:-1]
-        
         # 마지막 split 결과 None 이므로 삭제 
         for code in codes:
             print('code: {} '.format(code) + self.getMasterCodeName(code))
@@ -474,7 +504,7 @@ class KiwoomConditon(QObject):
             typeName = '이탈'
 
         if( typeName == '진입'):
-            self.makeConditionOccurInfo(code)
+            # self.makeConditionOccurInfo(code)
             print('\n{}: name: {}, status: {}'
             .format(cur_date_time(), self.getMasterCodeName(code), typeName))
        
@@ -710,17 +740,17 @@ class KiwoomConditon(QObject):
     @pyqtSlot(str)
     def disconnectRealData(self, scnNo):
         self.ocx.dynamicCall("DisconnectRealData(QString)", scnNo)
+
     # 종목코드의 한글명을 반환한다.
     # strCode – 종목코드
     # 종목한글명
-    
+    # 없는 코드 일경우 empty 를 리턴함 
     @pyqtSlot(str, result=str)
     def getMasterCodeName(self, strCode):
         return self.ocx.dynamicCall("GetMasterCodeName(QString)", strCode)
 
 
 if __name__ == "__main__":
-
     # putenv 는 current process 에 영향을 못끼치므로 environ 에서 직접 세팅 
     # qml debugging 를 위해 QML_IMPORT_TRACE 환경변수 1로 세팅 후 DebugView 에서 디버깅 메시지 확인 가능  
     os.environ['QML_IMPORT_TRACE'] = '1'
@@ -739,10 +769,28 @@ if __name__ == "__main__":
         objKiwoom.conditionOccurList.append('127710')
         objKiwoom.conditionOccurList.append('033340')
         objKiwoom.conditionOccurList.append('045390')
-              
-        objKiwoom.conditionOccurList.append('090')
         objKiwoom.sigRequestTr.emit()
-               
-    # Execute the Application and Exit
+    def test_buy():
+        # 정상 매수 - 우리종금 1주 
+        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매수"], 
+        # "010050", 1, 0 , dict_order["시장가"], "")
+
+        # 비정상 매수 (시장가에 단가 넣기 ) 우리종금 1주  
+        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매수"], 
+        # "010050", 1, 900 , dict_order["시장가"], "")
+
+        # 정상 매도 - 우리 종금 1주 
+        objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매도"], 
+        "010050", 1, 0 , dict_order["시장가"], "")
+        
+        # 정상 매수 - kd 건설 1주 
+        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매수"], 
+        # "044180", 1, 0 , dict_order["시장가"], "")
+
+        #정상 매도 - kd 건설 1주 
+        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매도"], 
+        # "044180", 1, 0 , dict_order["시장가"], "")
+        # Execute the Application and Exit
+        pass
     sys.exit(myApp.exec_())
 
