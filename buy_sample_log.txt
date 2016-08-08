@@ -1,5 +1,5 @@
 - 시장가 주문 명령 
-objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매수"], "010050", 1, 0 , dict_order["시장가"], "")
+objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], "010050", 1, 0 , kw_util.dict_order["시장가"], "")
 
 - 정상 처리시 
 ._OnReceiveMsg sScrNo: 004, sRQName: buy, sTrCode: buy, sMsg: [107066] 매수주문이 완료되었습니다.

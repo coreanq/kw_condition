@@ -1,9 +1,8 @@
 import sys
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QAbstractTableModel, QModelIndex
 from PyQt5.QtCore import QVariant
-from main_util import whoami
+import util 
 import PyQt5.QtCore as QtCore
-
 
 class PandasModel(QtCore.QAbstractTableModel):
     """
@@ -52,7 +51,7 @@ class PandasModel(QtCore.QAbstractTableModel):
         
     def refresh(self):
         leftTopIndex = self.index(0, 0)
-        print("%s row count %s col count %s" % ( whoami(), self.rowCount(), self.columnCount() ))
+        print("%s row count %s col count %s" % ( util.whoami(), self.rowCount(), self.columnCount() ))
         rightBottomIndex = self.index(self.rowCount(), self.columnCount())
         self.dataChanged.emit(leftTopIndex, rightBottomIndex)
         

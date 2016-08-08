@@ -37,5 +37,5 @@ def cur_time():
 if __name__ == "__main__":
     print(cur_time())
     print(cur_date())
-    print(cur_date_time() )
-    save_log("한글", "한글")
+    print(util.cur_date_time() )
+    util.save_log("한글", "한글")

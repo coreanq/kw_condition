@@ -2,12 +2,11 @@
 import sys
 import os
 import re
-import datetime
 import time
 
 import pandasmodel
-from main_util import *
-from kw_util import * 
+import util 
+import kw_util  
 import pandas as pd
 
 from PyQt5 import QtCore
@@ -139,12 +138,12 @@ class KiwoomConditon(QObject):
   
     @pyqtSlot()
     def mainStateEntered(self):
-        print(whoami())
+        print(util.whoami())
         pass
 
     @pyqtSlot()     
     def stockCompleteStateEntered(self):
-        print(whoami())
+        print(util.whoami())
         writer = pd.ExcelWriter( "stock.xlsx" , engine='xlsxwriter')
         # df 에는 jongmokCode 키 값 이외에 다른 값이 들어오므로 체크해야함  조건 진입 리스트 등등
         for jongmokCode, df in self.dfList.items():
@@ -157,13 +156,13 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def initStateEntered(self):
-        print(whoami())
+        print(util.whoami())
         self.sigInitOk.emit()
         pass
 
     @pyqtSlot()
     def disconnectedStateEntered(self):
-        print(whoami())
+        print(util.whoami())
         if( self.getConnectState() == 0 ):
             self.commConnect()
             QTimer.singleShot(90000, self.sigTryConnect)
@@ -173,7 +172,7 @@ class KiwoomConditon(QObject):
             
     @pyqtSlot()
     def connectedStateEntered(self):
-        print(whoami())
+        print(util.whoami())
         # ui 현시
         self.initQmlEngine()
         # get 계좌 정보
@@ -190,7 +189,7 @@ class KiwoomConditon(QObject):
 
         self.account_list = (acc_num.split(';')[:-1])
 
-        print(whoami() + 'account list ' + str(self.account_list))
+        print(util.whoami() + 'account list ' + str(self.account_list))
         pass
 
     @pyqtSlot()
@@ -199,14 +198,14 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def initConditionStateEntered(self):
-        print(whoami() )
+        print(util.whoami() )
         # get 조건 검색 리스트
         self.getConditionLoad()
         pass
 
     @pyqtSlot()
     def waitingSelectConditionStateEntered(self):
-        print(whoami() )
+        print(util.whoami() )
         # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
         # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
         result = self.getConditionNameList()
@@ -226,13 +225,13 @@ class KiwoomConditon(QObject):
         # print(self.modelCondition)
         
         # name = self.dictCondition['001']
-        # print(whoami() + str(self.dictCondition) +' ' + name)
+        # print(util.whoami() + str(self.dictCondition) +' ' + name)
         conditionNum = 0 
         for number, condition in tempDict.items():
-            if condition == selectConditionName:
+            if condition == kw_util.selectConditionName:
                     conditionNum = int(number)
-        print("select condition" + sendConditionScreenNo, selectConditionName, conditionNum)
-        self.sendCondition(sendConditionScreenNo, selectConditionName, conditionNum,  1)
+        print("select condition" + kw_util.sendConditionScreenNo, kw_util.selectConditionName, conditionNum)
+        self.sendCondition(kw_util.sendConditionScreenNo, kw_util.selectConditionName, conditionNum,  1)
         
         self.sigSelectCondition.emit()
 
@@ -240,7 +239,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def standbyConditionStateEntered(self):
-        print(whoami() )
+        print(util.whoami() )
 
         # test_buy()
         # test_save() 
@@ -248,7 +247,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def trRequestingStateEntered(self):
-        # print(whoami() )
+        # print(util.whoami() )
 
         if( len(self.conditionOccurList) == 0 ):
             self.sigStockComplete.emit()
@@ -265,12 +264,12 @@ class KiwoomConditon(QObject):
             self.setInputValue("종목코드", code )
             self.setInputValue("틱범위","1:1분") 
             self.setInputValue("수정주가구분","0") 
-            ret = self.commRqData(code , "opt10080", 0, send1minTrScreenNo) 
+            ret = self.commRqData(code , "opt10080", 0, kw_util.send1minTrScreenNo) 
             
             if( ret != 0 ):
-                errorString =  self.getMasterCodeName(code) + " commRqData() " + parseErrorCode(str(ret))
-                print(whoami() + errorString ) 
-                save_log(errorString, whoami() )
+                errorString =  self.getMasterCodeName(code) + " commRqData() " + kw_util.parseErrorCode(str(ret))
+                print(util.whoami() + errorString ) 
+                util.util.save_log(errorString, util.whoami() )
             else:
                 break
 
@@ -286,7 +285,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def finalStateEntered(self):
-        print(whoami())
+        print(util.whoami())
         pass
 
    
@@ -303,20 +302,20 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def quit(self):
-        print(whoami())
+        print(util.whoami())
         self.commTerminate()
         QApplication.quit()
 
     # 에러코드의 메시지를 출력한다.
     @pyqtSlot(int, result=str)
     def parseErrorCode(self, errCode):
-        return util.parseErrorCode(errCode)
+        return kw_util.parseErrorCode(errCode)
 
     # event
     # 통신 연결 상태 변경시 이벤트
     # nErrCode가 0이면 로그인 성공, 음수면 실패
     def _OnEventConnect(self, errCode):
-        print(whoami() + '{}'.format(errCode))
+        print(util.whoami() + '{}'.format(errCode))
         if errCode == 0:
             self.sigConnected.emit()
         else:
@@ -324,7 +323,7 @@ class KiwoomConditon(QObject):
 
     # 수신 메시지 이벤트
     def _OnReceiveMsg(self, scrNo, rQName, trCode, msg):
-        print(whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
+        print(util.whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
         .format(scrNo, rQName, trCode, msg))
         '''
               [OnReceiveTrData() 이벤트함수]
@@ -349,7 +348,7 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        print(whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
+        print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
         .format(scrNo, rQName, trCode, recordName,prevNext))
 
         if( trCode == "opt10080"):
@@ -363,7 +362,7 @@ class KiwoomConditon(QObject):
         currentTimeStr  = ""
         for i in range(repeatCnt):
             line = []
-            for list in dict_jusik['TR:분봉']:
+            for list in kw_util.dict_jusik['TR:분봉']:
                 if( list == "종목명" ):
                     line.append(self.getMasterCodeName(rQName))
                     continue
@@ -388,7 +387,7 @@ class KiwoomConditon(QObject):
                         # print(line)
                         df.loc[df.shape[0]] = line 
                 except KeyError:
-                    self.dfList[rQName] = pd.DataFrame(columns = dict_jusik['TR:분봉'])
+                    self.dfList[rQName] = pd.DataFrame(columns = kw_util.dict_jusik['TR:분봉'])
                     df = self.dfList[rQName]
                     df.loc[df.shape[0]] = line
                     # print(line)
@@ -399,7 +398,7 @@ class KiwoomConditon(QObject):
             self.sigGetTrCplt.emit()
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
-        # print(whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+        # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
         if( realType == "주식호가잔량"):
             self.makeHogaJanRyangInfo(jongmokCode)
@@ -409,12 +408,12 @@ class KiwoomConditon(QObject):
         #주식 호가 잔량 정보 요청 
         jongmokName = ""
         line = []
-        for list in dict_jusik['실시간:주식호가잔량']:
+        for list in kw_util.dict_jusik['실시간:주식호가잔량']:
             if( list == "종목명" ):
                 jongmokName = self.getMasterCodeName(jongmokCode)
                 line.append(jongmokName)
                 continue
-            result = self.getCommRealData(jongmokCode, dict_name_fid[list] ) 
+            result = self.getCommRealData(jongmokCode, kw_util.dict_name_fid[list] ) 
             line.append(result.strip())
 
         df = {}
@@ -422,7 +421,7 @@ class KiwoomConditon(QObject):
             df = self.dfList["실시간:주식호가잔량"]
             df.loc[jongmokName] = line
         except KeyError:
-            self.dfList["실시간:주식호가잔량"] = pd.DataFrame(columns = dict_jusik["실시간:주식호가잔량"])
+            self.dfList["실시간:주식호가잔량"] = pd.DataFrame(columns = kw_util.dict_jusik["실시간:주식호가잔량"])
             df = self.dfList["실시간:주식호가잔량"]
             df.loc[jongmokName] = line
 
@@ -431,10 +430,10 @@ class KiwoomConditon(QObject):
         maedoHogaAmount1 =  df.loc[jongmokName, '매도호가수량1']
         maedoHoga2 =  df.loc[jongmokName, '매도호가2']
         maedoHogaAmount2 =  df.loc[jongmokName, '매도호가수량2']
-        #    print( whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
+        #    print( util.whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
         sum =  int(maedoHoga1) * int(maedoHogaAmount1) + int(maedoHoga2) * int(maedoHogaAmount2)
-        # print( whoami() + jongmokName + " " + str(sum))
-        save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
+        # print( util.whoami() + jongmokName + " " + str(sum))
+        util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
                                 .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '매도호가잔량' ) 
 
         # 잔량 정보 요청은 첫 조건 진입시 한번만 해야 하므로 리스트에서 지움                
@@ -452,7 +451,7 @@ class KiwoomConditon(QObject):
     '매입단가': '809', '신용구분': '00', '매도/매수구분': '2', '(최우선)매도호가': '+806', '신용이자': '0'}
     ''' 
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
-        # print(whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
+        # print(util.whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
         #         .format(gubun, itemCnt, fidList))
 
         if( gubun == "1"):
@@ -463,20 +462,20 @@ class KiwoomConditon(QObject):
                 nFid = int(fid)
                 result = self.getChejanData(nFid)
                 try: 
-                    index = dict_chejan[fid]
+                    index = kw_util.dict_chejan[fid]
                 except KeyError:
                     continue
                 dictLine[index] = result
             
             for key, value in dictLine:
                 printData += '{0}:{1}, '.format(key, value)
-            save_log(printData, '잔고정보')
+            util.save_log(printData, '잔고정보')
             # print(printData)
 
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
     def _OnReceiveConditionVer(self, ret, msg):
-        print(whoami() + 'ret: {}, msg: {}'
+        print(util.whoami() + 'ret: {}, msg: {}'
             .format(ret, msg))
         if ret == 1:
             self.sigGetConditionCplt.emit()
@@ -488,7 +487,7 @@ class KiwoomConditon(QObject):
     # int nIndex : 조건명 인덱스
     # int nNext : 연속조회(2:연속조회, 0:연속조회없음)
     def _OnReceiveTrCondition(self, scrNo, codeList, conditionName, index, next):
-        # print(whoami() + 'scrNo: {}, codeList: {}, conditionName: {} '
+        # print(util.whoami() + 'scrNo: {}, codeList: {}, conditionName: {} '
         # 'index: {}, next: {}'
         # .format(scrNo, codeList, conditionName, index, next ))
         codes = codeList.split(';')[:-1]
@@ -502,7 +501,7 @@ class KiwoomConditon(QObject):
     # strConditionName : 조건명
     # strConditionIndex : 조건명 인덱스
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
-        # print(whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
+        # print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
         # .format(code, type, conditionName, conditionIndex ))
         typeName = ''
         if type == 'I':
@@ -513,12 +512,12 @@ class KiwoomConditon(QObject):
         if( typeName == '진입'):
             self.makeConditionOccurInfo(code)
             print('\n{}: name: {}, status: {}'
-            .format(cur_date_time(), self.getMasterCodeName(code), typeName))
+            .format(util.cur_date_time(), self.getMasterCodeName(code), typeName))
        
     def makeConditionOccurInfo(self, jongmokCode):
         line = []
-        #발생시간, 종목코드,  종목명, 매수여부 dict_type_fids
-        line.append(cur_date_time().strip() )
+        #발생시간, 종목코드,  종목명, 매수여부 kw_util.dict_type_fids
+        line.append(util.cur_date_time().strip() )
         line.append(jongmokCode)
         line.append(self.getMasterCodeName(jongmokCode))
         line.append("No")
@@ -526,7 +525,7 @@ class KiwoomConditon(QObject):
             df = self.dfList["조건진입"]
             df.loc[df.shape[0]] = line 
         except KeyError:
-            self.dfList["조건진입"] = pd.DataFrame(columns = dict_jusik['조건진입'])
+            self.dfList["조건진입"] = pd.DataFrame(columns = kw_util.dict_jusik['조건진입'])
             df = self.dfList['조건진입']
             df.loc[df.shape[0]] = line
         self.insertBeforeJanRyangCodeList(jongmokCode)
@@ -540,7 +539,7 @@ class KiwoomConditon(QObject):
         for code in self.afterBuyCodeList:
             codeList.append(code)
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
-        self.setRealReg(sendRealRegScreenNo, ';'.join(codeList), dict_type_fids['주식호가잔량'], "0")
+        self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
 
 
     #주식 호가 잔량 정보 요청리스트 추가 
@@ -551,7 +550,7 @@ class KiwoomConditon(QObject):
         for code in self.beforeBuyCodeList:
             codeList.append(code)
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
-        self.setRealReg(sendRealRegScreenNo, ';'.join(codeList), dict_type_fids['주식호가잔량'], "0")
+        self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
     
     #주식 호가 잔량 정보 요청리스트 삭제 
     def removeJanRyangCodeList(self, jongmokCode):
@@ -566,9 +565,9 @@ class KiwoomConditon(QObject):
             codeList.append(code)
         # setRealReg의 경우 "0" 은 이전거 제외 하고 새로 요청,  리스트가 없는 경우는 아무것도 안함 
         # if( len(codeList ) ):
-        #     self.setRealReg(sendRealRegScreenNo, ';'.join(codeList), dict_type_fids['주식호가잔량'], "0")
+        #     self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
         # else :
-        self.setRealRemove(sendRealRegScreenNo, jongmokCode)
+        self.setRealRemove(kw_util.sendRealRegScreenNo, jongmokCode)
 
 
     # method 
@@ -774,7 +773,7 @@ class KiwoomConditon(QObject):
     # 증가합니다.
     @pyqtSlot(str, str, result=str)
     def getCommDataEx(self, trCode, recordName):
-        return json.dumps(self.ocx.dynamicCall("GetCommDataEx(QString, QString)", trCode, recordName))
+        return self.ocx.dynamicCall("GetCommDataEx(QString, QString)", trCode, recordName)
 
     # 리얼 시세를 끊는다.
     # s화면 내 모든 리얼데이터 요청을 제거한다.
@@ -815,24 +814,24 @@ if __name__ == "__main__":
         objKiwoom.sigRequestTr.emit()
     def test_buy():
         # 정상 매수 - 우리종금 1주 
-        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매수"], 
-        # "010050", 1, 0 , dict_order["시장가"], "")
+        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        # "010050", 1, 0 , kw_util.dict_order["시장가"], "")
 
         # 비정상 매수 (시장가에 단가 넣기 ) 우리종금 1주  
-        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매수"], 
-        # "010050", 1, 900 , dict_order["시장가"], "")
+        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        # "010050", 1, 900 , kw_util.dict_order["시장가"], "")
 
         # 정상 매도 - 우리 종금 1주 
-        objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매도"], 
-        "010050", 1, 0 , dict_order["시장가"], "")
+        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+        "010050", 1, 0 , kw_util.dict_order["시장가"], "")
         
         # 정상 매수 - kd 건설 1주 
-        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매수"], 
-        # "044180", 1, 0 , dict_order["시장가"], "")
+        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        # "044180", 1, 0 , kw_util.dict_order["시장가"], "")
 
         #정상 매도 - kd 건설 1주 
-        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], dict_order["신규매도"], 
-        # "044180", 1, 0 , dict_order["시장가"], "")
+        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+        # "044180", 1, 0 , kw_util.dict_order["시장가"], "")
         # Execute the Application and Exit
         pass
     sys.exit(myApp.exec_())
