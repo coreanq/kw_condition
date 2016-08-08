@@ -39,7 +39,7 @@ class KiwoomConditon(QObject):
         self.timerSystem = QTimer()
         self.currentTime = time.localtime() 
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 분봉 저장용으로 사용 
-        self.afterBuycodeList  = [] # 매수 후 보유 종목에 대한 종목 코드 리스트
+        self.afterBuyCodeList  = [] # 매수 후 보유 종목에 대한 종목 코드 리스트
         self.beforeBuyCodeList = [] # 매수 전 실시간 호가 정보를 얻기 위한 종목 코드 리스트 
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         # 종목번호를 key 로 하여 pandas dataframe 을 value 로 함 
@@ -268,7 +268,9 @@ class KiwoomConditon(QObject):
             ret = self.commRqData(code , "opt10080", 0, send1minTrScreenNo) 
             
             if( ret != 0 ):
-                print( cur_date_time() + whoami() + "commRqData() " + self.getMasterCodeName(code) + " " +  parseErrorCode(str(ret))) 
+                errorString =  self.getMasterCodeName(code) + " commRqData() " + parseErrorCode(str(ret))
+                print(whoami() + errorString ) 
+                save_log(errorString, whoami() )
             else:
                 break
 
@@ -389,7 +391,7 @@ class KiwoomConditon(QObject):
                     self.dfList[rQName] = pd.DataFrame(columns = dict_jusik['TR:분봉'])
                     df = self.dfList[rQName]
                     df.loc[df.shape[0]] = line
-                    print(line)
+                    # print(line)
             else:
                 break
         if( rQName in self.conditionOccurList):
@@ -431,7 +433,12 @@ class KiwoomConditon(QObject):
         maedoHogaAmount2 =  df.loc[jongmokName, '매도호가수량2']
         #    print( whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
         sum =  int(maedoHoga1) * int(maedoHogaAmount1) + int(maedoHoga2) * int(maedoHogaAmount2)
-        print( whoami() + jongmokName + " " + str(sum))
+        # print( whoami() + jongmokName + " " + str(sum))
+        save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
+                                .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '매도호가잔량' ) 
+
+        # 잔량 정보 요청은 첫 조건 진입시 한번만 해야 하므로 리스트에서 지움                
+        self.removeJanRyangCodeList(jongmokCode)
         # print(line)
         pass 
     # 체결데이터를 받은 시점을 알려준다.
@@ -464,7 +471,7 @@ class KiwoomConditon(QObject):
             for key, value in dictLine:
                 printData += '{0}:{1}, '.format(key, value)
             save_log(printData, '잔고정보')
-            print(printData)
+            # print(printData)
 
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
@@ -504,15 +511,11 @@ class KiwoomConditon(QObject):
             typeName = '이탈'
 
         if( typeName == '진입'):
-            # self.makeConditionOccurInfo(code)
+            self.makeConditionOccurInfo(code)
             print('\n{}: name: {}, status: {}'
             .format(cur_date_time(), self.getMasterCodeName(code), typeName))
        
     def makeConditionOccurInfo(self, jongmokCode):
-           #주식 호가 잔량 정보 요청 
-        if( jongmokCode not in self.beforeBuyCodeList ):
-            self.beforeBuyCodeList.append(jongmokCode)
-        self.setRealReg(sendRealRegScreenNo, ';'.join(self.beforeBuyCodeList), dict_type_fids['주식호가잔량'], "0")
         line = []
         #발생시간, 종목코드,  종목명, 매수여부 dict_type_fids
         line.append(cur_date_time().strip() )
@@ -526,8 +529,48 @@ class KiwoomConditon(QObject):
             self.dfList["조건진입"] = pd.DataFrame(columns = dict_jusik['조건진입'])
             df = self.dfList['조건진입']
             df.loc[df.shape[0]] = line
-        print(line)
+        self.insertBeforeJanRyangCodeList(jongmokCode)
         pass
+
+    #주식 호가 잔량 정보 요청리스트 추가 
+    def insertBeforeJanRyangCodeList(self, jongmokCode):
+        codeList = []
+        if( jongmokCode not in self.beforeBuyCodeList ):
+            codeList.append(jongmokCode)
+        for code in self.afterBuyCodeList:
+            codeList.append(code)
+        # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
+        self.setRealReg(sendRealRegScreenNo, ';'.join(codeList), dict_type_fids['주식호가잔량'], "0")
+
+
+    #주식 호가 잔량 정보 요청리스트 추가 
+    def insertAfterJanRyangCodeList(self, jongmokCode):
+        codeList = []
+        if( jongmokCode not in self.afterBuyCodeList ):
+            codeList.append(jongmokCode)
+        for code in self.beforeBuyCodeList:
+            codeList.append(code)
+        # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
+        self.setRealReg(sendRealRegScreenNo, ';'.join(codeList), dict_type_fids['주식호가잔량'], "0")
+    
+    #주식 호가 잔량 정보 요청리스트 삭제 
+    def removeJanRyangCodeList(self, jongmokCode):
+        codeList = []
+        if( jongmokCode in self.beforeBuyCodeList ):
+            self.beforeBuyCodeList.remove(jongmokCode)
+        if( jongmokCode in self.afterBuyCodeList ):
+            self.afterBuyCodeList.remove(jongmokCode)
+        for code in self.beforeBuyCodeList:
+            codeList.append(code)
+        for code in self.afterBuyCodeList:
+            codeList.append(code)
+        # setRealReg의 경우 "0" 은 이전거 제외 하고 새로 요청,  리스트가 없는 경우는 아무것도 안함 
+        # if( len(codeList ) ):
+        #     self.setRealReg(sendRealRegScreenNo, ';'.join(codeList), dict_type_fids['주식호가잔량'], "0")
+        # else :
+        self.setRealRemove(sendRealRegScreenNo, jongmokCode)
+
+
     # method 
     # 로그인
     # 0 - 성공, 음수값은 실패
