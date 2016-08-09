@@ -145,6 +145,7 @@ class KiwoomConditon(QObject):
     def stockCompleteStateEntered(self):
         print(util.whoami())
         writer = pd.ExcelWriter( "stock.xlsx" , engine='xlsxwriter')
+        tempDf = None 
         # df 에는 jongmokCode 키 값 이외에 다른 값이 들어오므로 체크해야함  조건 진입 리스트 등등
         for jongmokCode, df in self.dfList.items():
             jongmokName = self.getMasterCodeName(jongmokCode)
@@ -266,6 +267,7 @@ class KiwoomConditon(QObject):
             self.setInputValue("수정주가구분","0") 
             ret = self.commRqData(code , "opt10080", 0, kw_util.send1minTrScreenNo) 
             
+            errorString = None
             if( ret != 0 ):
                 errorString =  self.getMasterCodeName(code) + " commRqData() " + kw_util.parseErrorCode(str(ret))
                 print(util.whoami() + errorString ) 
@@ -294,9 +296,11 @@ class KiwoomConditon(QObject):
         print(".", end='') 
         self.currentTime = time.localtime()
         if( self.currentTime.tm_hour >= 15 and self.currentTime.tm_min  >= 40): 
+            util.save_log("Stock Trade Terminate!", "시스템")
             self.sigRequestTr.emit()
             pass
         if( self.getConnectState() != 1 ):
+            util.save_log("Disconnected!", "시스템")
             self.sigDisconnected.emit() 
         pass
 
@@ -359,7 +363,7 @@ class KiwoomConditon(QObject):
     # 1분봉 데이터 생성 --> to dataframe
     def makeOpt10080Info(self, trCode, rQName):
         repeatCnt = self.getRepeatCnt(trCode, rQName)
-        currentTimeStr  = ""
+        currentTimeStr  = None 
         for i in range(repeatCnt):
             line = []
             for list in kw_util.dict_jusik['TR:분봉']:
@@ -406,8 +410,10 @@ class KiwoomConditon(QObject):
                
     def makeHogaJanRyangInfo(self, jongmokCode):
         #주식 호가 잔량 정보 요청 
-        jongmokName = ""
-        line = []
+        jongmokName = None 
+        line = [] 
+        df = None
+        result = None 
         for list in kw_util.dict_jusik['실시간:주식호가잔량']:
             if( list == "종목명" ):
                 jongmokName = self.getMasterCodeName(jongmokCode)
@@ -416,7 +422,6 @@ class KiwoomConditon(QObject):
             result = self.getCommRealData(jongmokCode, kw_util.dict_name_fid[list] ) 
             line.append(result.strip())
 
-        df = {}
         try:
             df = self.dfList["실시간:주식호가잔량"]
             df.loc[jongmokName] = line
@@ -457,7 +462,7 @@ class KiwoomConditon(QObject):
         if( gubun == "1"):
             fids = fidList.split(";")
             dictLine = {} 
-            printData = ""
+            printData = None
             for fid in fids:
                 nFid = int(fid)
                 result = self.getChejanData(nFid)
@@ -511,9 +516,10 @@ class KiwoomConditon(QObject):
 
         if( typeName == '진입'):
             self.makeConditionOccurInfo(code)
-            print('\n{}: name: {}, status: {}'
-            .format(util.cur_date_time(), self.getMasterCodeName(code), typeName))
-       
+            printLog = '{}, status: {}'.format( self.getMasterCodeName(code), typeName)
+            util.save_log(printLog, "조건진입")
+            print("!")
+
     def makeConditionOccurInfo(self, jongmokCode):
         line = []
         #발생시간, 종목코드,  종목명, 매수여부 kw_util.dict_type_fids

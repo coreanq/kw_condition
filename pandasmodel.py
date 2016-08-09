@@ -84,7 +84,7 @@ if __name__ == '__main__':
     # pandas model and qml operation test
     from PyQt5.QtQml import QQmlApplicationEngine
     from PyQt5.QtWidgets import QApplication
-    from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
+    from PyQt5.QtCore import QUrl
     myApp = QApplication(sys.argv)
         
     qmlEngine = QQmlApplicationEngine()
