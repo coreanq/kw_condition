@@ -24,8 +24,9 @@ class KiwoomConditon(QObject):
     sigGetConditionCplt = pyqtSignal()
     sigSelectCondition = pyqtSignal()
     sigRefreshCondition = pyqtSignal()
-    sigRequestTr = pyqtSignal()
+    sigRequest1minTr = pyqtSignal()
     sigGetTrCplt = pyqtSignal()
+    sigPrepare1minTrListComplete = pyqtSignal()
     sigStateStop = pyqtSignal()
     sigStockComplete = pyqtSignal()
 
@@ -63,7 +64,8 @@ class KiwoomConditon(QObject):
         initConditionState = QState(conditionState)
         waitingSelectConditionState = QState(conditionState)
         standbyConditionState = QState(conditionState)
-        trRequestingState = QState(conditionState)
+        prepare1minTrListState = QState(conditionState)
+        request1minTrState = QState(conditionState)
 
         initPurchaseState = QState(purchaseState)
         
@@ -82,8 +84,9 @@ class KiwoomConditon(QObject):
         initConditionState.addTransition(self.sigGetConditionCplt, waitingSelectConditionState)
         waitingSelectConditionState.addTransition(self.sigSelectCondition, standbyConditionState)
         standbyConditionState.addTransition(self.sigRefreshCondition, initConditionState)
-        standbyConditionState.addTransition(self.sigRequestTr, trRequestingState)
-        trRequestingState.addTransition(self.sigGetTrCplt, trRequestingState) 
+        standbyConditionState.addTransition(self.sigRequest1minTr,prepare1minTrListState ) 
+        prepare1minTrListState.addTransition(self.sigPrepare1minTrListComplete, request1minTrState) 
+        request1minTrState.addTransition(self.sigGetTrCplt, request1minTrState) 
         
         purchaseState.setInitialState(initPurchaseState)
 
@@ -100,7 +103,8 @@ class KiwoomConditon(QObject):
         initConditionState.entered.connect(self.initConditionStateEntered)
         waitingSelectConditionState.entered.connect(self.waitingSelectConditionStateEntered)
         standbyConditionState.entered.connect(self.standbyConditionStateEntered)
-        trRequestingState.entered.connect(self.trRequestingStateEntered) 
+        prepare1minTrListState.entered.connect(self.prepare1minTrListStateEntered)
+        request1minTrState.entered.connect(self.request1minTrStateEntered) 
 
         initPurchaseState.entered.connect(self.initPurchaseStateEntered)
         
@@ -144,13 +148,15 @@ class KiwoomConditon(QObject):
     @pyqtSlot()     
     def stockCompleteStateEntered(self):
         print(util.whoami())
-        writer = pd.ExcelWriter( "stock.xlsx" , engine='xlsxwriter')
+        writer = pd.ExcelWriter( util.cur_date() + "_stock.xlsx" , engine='xlsxwriter')
         tempDf = None 
         # df 에는 jongmokCode 키 값 이외에 다른 값이 들어오므로 체크해야함  조건 진입 리스트 등등
         for jongmokCode, df in self.dfList.items():
             jongmokName = self.getMasterCodeName(jongmokCode)
             if( jongmokName != ""):
                 tempDf = df.sort_values(by=['체결시간'])
+            else:
+                tempDf = df
             tempDf.to_excel(writer, sheet_name=jongmokName, index= False )
         writer.save()
         self.sigStateStop.emit()
@@ -247,19 +253,25 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def trRequestingStateEntered(self):
-        # print(util.whoami() )
-
-        if( len(self.conditionOccurList) == 0 ):
-            self.sigStockComplete.emit()
+    def prepare1minTrListStateEntered(self):
+        print(util.whoami() )
+        self.conditionOccurList = [] 
         # 조건 진입 정보를 읽어 종목 코드 값을 빼낸 뒤 tr 요청 
         try:
             df = self.dfList["조건진입"].drop_duplicates("종목코드")
             for index, series in df.iterrows():
                 self.conditionOccurList.append(series["종목코드"])
         except KeyError:
-            pass 
-       
+            pass  
+        self.sigPrepare1minTrListComplete.emit()
+
+    @pyqtSlot()
+    def request1minTrStateEntered(self):
+        print(util.whoami() )
+        if( len(self.conditionOccurList) == 0 ):
+            self.sigStockComplete.emit()
+            return
+
         for index, code in enumerate(self.conditionOccurList):
             # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
             self.setInputValue("종목코드", code )
@@ -271,7 +283,7 @@ class KiwoomConditon(QObject):
             if( ret != 0 ):
                 errorString =  self.getMasterCodeName(code) + " commRqData() " + kw_util.parseErrorCode(str(ret))
                 print(util.whoami() + errorString ) 
-                util.util.save_log(errorString, util.whoami() )
+                util.save_log(errorString, util.whoami() )
             else:
                 break
 
@@ -297,7 +309,7 @@ class KiwoomConditon(QObject):
         self.currentTime = time.localtime()
         if( self.currentTime.tm_hour >= 15 and self.currentTime.tm_min  >= 40): 
             util.save_log("Stock Trade Terminate!", "시스템")
-            self.sigRequestTr.emit()
+            self.sigRequest1minTr.emit()
             pass
         if( self.getConnectState() != 1 ):
             util.save_log("Disconnected!", "시스템")
@@ -399,7 +411,7 @@ class KiwoomConditon(QObject):
                 break
         if( rQName in self.conditionOccurList):
             self.conditionOccurList.remove(rQName)
-            self.sigGetTrCplt.emit()
+            QTimer.singleShot(200, self.sigGetTrCplt)
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
         # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
@@ -516,6 +528,7 @@ class KiwoomConditon(QObject):
 
         if( typeName == '진입'):
             self.makeConditionOccurInfo(code)
+            self.insertBeforeJanRyangCodeList(code)
             printLog = '{}, status: {}'.format( self.getMasterCodeName(code), typeName)
             util.save_log(printLog, "조건진입")
             print("!")
@@ -534,7 +547,6 @@ class KiwoomConditon(QObject):
             self.dfList["조건진입"] = pd.DataFrame(columns = kw_util.dict_jusik['조건진입'])
             df = self.dfList['조건진입']
             df.loc[df.shape[0]] = line
-        self.insertBeforeJanRyangCodeList(jongmokCode)
         pass
 
     #주식 호가 잔량 정보 요청리스트 추가 
@@ -811,13 +823,33 @@ if __name__ == "__main__":
     def test2():
         objKiwoom.makeConditionOccurInfo('036620') 
     def test_save():
-        objKiwoom.conditionOccurList.append('068330')
-        objKiwoom.conditionOccurList.append('021080')
-        objKiwoom.conditionOccurList.append('036620')
-        objKiwoom.conditionOccurList.append('127710')
-        objKiwoom.conditionOccurList.append('033340')
-        objKiwoom.conditionOccurList.append('045390')
-        objKiwoom.sigRequestTr.emit()
+        objKiwoom.makeConditionOccurInfo('068330') 
+        objKiwoom.makeConditionOccurInfo('021080') 
+        objKiwoom.makeConditionOccurInfo('036620') 
+        objKiwoom.makeConditionOccurInfo('127710') 
+        objKiwoom.makeConditionOccurInfo('127710') 
+        objKiwoom.makeConditionOccurInfo('033340') 
+        objKiwoom.makeConditionOccurInfo('102280') 
+        objKiwoom.makeConditionOccurInfo('065060') 
+        objKiwoom.makeConditionOccurInfo('006910') 
+        objKiwoom.makeConditionOccurInfo('005110') 
+        objKiwoom.makeConditionOccurInfo('091590') 
+        objKiwoom.makeConditionOccurInfo('093380') 
+        objKiwoom.makeConditionOccurInfo('065240') 
+        objKiwoom.makeConditionOccurInfo('064260') 
+        objKiwoom.makeConditionOccurInfo('020560') 
+        objKiwoom.makeConditionOccurInfo('014910') 
+        objKiwoom.makeConditionOccurInfo('033340') 
+        objKiwoom.makeConditionOccurInfo('115610') 
+        objKiwoom.makeConditionOccurInfo('040350') 
+        objKiwoom.makeConditionOccurInfo('049480') 
+        objKiwoom.makeConditionOccurInfo('102280') 
+        objKiwoom.makeConditionOccurInfo('065060') 
+        objKiwoom.makeConditionOccurInfo('006910') 
+        objKiwoom.makeConditionOccurInfo('005110') 
+        objKiwoom.makeConditionOccurInfo('091590') 
+        objKiwoom.makeConditionOccurInfo('035720') 
+        objKiwoom.sigRequest1minTr.emit()
     def test_buy():
         # 정상 매수 - 우리종금 1주 
         # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
