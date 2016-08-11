@@ -150,14 +150,18 @@ class KiwoomConditon(QObject):
         print(util.whoami())
         writer = pd.ExcelWriter( util.cur_date() + "_stock.xlsx" , engine='xlsxwriter')
         tempDf = None 
+        sheetName = None
+        jongmokName = None
         # df 에는 jongmokCode 키 값 이외에 다른 값이 들어오므로 체크해야함  조건 진입 리스트 등등
         for jongmokCode, df in self.dfList.items():
-            jongmokName = self.getMasterCodeName(jongmokCode)
             if( jongmokName != ""):
                 tempDf = df.sort_values(by=['체결시간'])
+                jongmokName = self.getMasterCodeName(jongmokCode)
+                sheetName = jongmokName
             else:
                 tempDf = df
-            tempDf.to_excel(writer, sheet_name=jongmokName, index= False )
+                sheetName = jongmokCode
+            tempDf.to_excel(writer, sheet_name=sheetName,  index= False )
         writer.save()
         self.sigStateStop.emit()
 
