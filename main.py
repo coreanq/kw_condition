@@ -161,7 +161,7 @@ class KiwoomConditon(QObject):
             else:
                 tempDf = df
                 sheetName = jongmokCode
-            tempDf.to_excel(writer, sheet_name=sheetName,  index= False )
+            tempDf.to_excel(writer, sheet_name=sheetName )
         writer.save()
         self.sigStateStop.emit()
 
@@ -476,22 +476,37 @@ class KiwoomConditon(QObject):
         #         .format(gubun, itemCnt, fidList))
 
         if( gubun == "1"):
-            fids = fidList.split(";")
-            dictLine = {} 
-            printData = None
-            for fid in fids:
-                nFid = int(fid)
+            jongmokCode = self.getChejanData(9001)[1:]
+            self.makeJangoInfo(jongmokCode, fidList)
+            pass
+
+    def makeJangoInfo(self, jongmokCode, fidList):
+        jongmokName = self.getMasterCodeName(jongmokCode)
+        fids = fidList.split(";")
+        lineData = []
+        printData = "" 
+
+        for jangoInfo in kw_util.dict_jusik["잔고정보"]:
+            nFid = None
+            try:
+                nFid = kw_util.dict_name_fid[jangoInfo]
+            except KeyError:
+                continue
+                
+            if( str(nFid) in fids):
                 result = self.getChejanData(nFid)
-                try: 
-                    index = kw_util.dict_chejan[fid]
-                except KeyError:
-                    continue
-                dictLine[index] = result
-            
-            for key, value in dictLine:
-                printData += '{0}:{1}, '.format(key, value)
-            util.save_log(printData, '잔고정보')
-            # print(printData)
+                lineData.append(result)
+                printData += jangoInfo +": " + result + ", " 
+
+        try: 
+            df = self.dfList["잔고정보"]
+            df.loc[jongmokName] = lineData
+        except KeyError:
+            self.dfList["잔고정보"] = pd.DataFrame(columns = kw_util.dict_jusik['잔고정보'])
+            df = self.dfList['잔고정보']
+            df.loc[jongmokName] = lineData
+            util.save_log(printData, "잔고정보")
+        pass
 
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
@@ -826,7 +841,7 @@ if __name__ == "__main__":
         objKiwoom.makeConditionOccurInfo('068330')
     def test2():
         objKiwoom.makeConditionOccurInfo('036620') 
-    def test_save():
+    def test_add_jongmok_save():
         objKiwoom.makeConditionOccurInfo('068330') 
         objKiwoom.makeConditionOccurInfo('021080') 
         objKiwoom.makeConditionOccurInfo('036620') 
@@ -856,25 +871,28 @@ if __name__ == "__main__":
         objKiwoom.sigRequest1minTr.emit()
     def test_buy():
         # 정상 매수 - 우리종금 1주 
-        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
         # "010050", 1, 0 , kw_util.dict_order["시장가"], "")
 
         # 비정상 매수 (시장가에 단가 넣기 ) 우리종금 1주  
-        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
         # "010050", 1, 900 , kw_util.dict_order["시장가"], "")
 
         # 정상 매도 - 우리 종금 1주 
-        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-        "010050", 1, 0 , kw_util.dict_order["시장가"], "")
+        # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+        # "010050", 1, 0 , kw_util.dict_order["시장가"], "")
         
         # 정상 매수 - kd 건설 1주 
-        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-        # "044180", 1, 0 , kw_util.dict_order["시장가"], "")
+        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        "044180", 1, 0 , kw_util.dict_order["시장가"], "")
 
         #정상 매도 - kd 건설 1주 
-        # objKiwoom.sendOrder("buy", sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+        # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
         # "044180", 1, 0 , kw_util.dict_order["시장가"], "")
         # Execute the Application and Exit
         pass
+    def test_save():
+        objKiwoom.sigRequest1minTr.emit()
+
     sys.exit(myApp.exec_())
 
