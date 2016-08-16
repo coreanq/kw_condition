@@ -16,6 +16,13 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtQml import QQmlApplicationEngine
 from PyQt5.QAxContainer import QAxWidget
 
+
+
+TIME_CUT_MIN = 5 
+STOP_LOSS_PLUS = 3
+STOP_LOSS_MINUS = 2.5
+
+
 class KiwoomConditon(QObject):
     sigInitOk = pyqtSignal()
     sigConnected = pyqtSignal()
@@ -430,7 +437,7 @@ class KiwoomConditon(QObject):
         line = [] 
         df = None
         result = None 
-        for list in kw_util.dict_jusik['실시간:주식호가잔량']:
+        for list in kw_util.dict_jusik['실시간-주식호가잔량']:
             if( list == "종목명" ):
                 jongmokName = self.getMasterCodeName(jongmokCode)
                 line.append(jongmokName)
@@ -439,11 +446,11 @@ class KiwoomConditon(QObject):
             line.append(result.strip())
 
         try:
-            df = self.dfList["실시간:주식호가잔량"]
+            df = self.dfList["실시간-주식호가잔량"]
             df.loc[jongmokName] = line
         except KeyError:
-            self.dfList["실시간:주식호가잔량"] = pd.DataFrame(columns = kw_util.dict_jusik["실시간:주식호가잔량"])
-            df = self.dfList["실시간:주식호가잔량"]
+            self.dfList["실시간-주식호가잔량"] = pd.DataFrame(columns = kw_util.dict_jusik["실시간-주식호가잔량"])
+            df = self.dfList["실시간-주식호가잔량"]
             df.loc[jongmokName] = line
 
         # 호가 창을 보고 매수 할지 안할지 여부 결정
