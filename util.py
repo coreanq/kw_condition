@@ -3,16 +3,16 @@ import inspect
 from datetime import datetime
 import os.path
 
-def save_log(contents, subject="None"):
-    fileName = cur_date() + ".txt"
+def save_log(contents, subject="None", folder=""):
+    filePath = folder + os.sep + cur_date() + ".txt"
     openMode = ""
-    if (os.path.isfile(fileName)):
+    if (os.path.isfile(filePath)):
         openMode = 'a'
     else:
         openMode = 'w'
     line = '[{0:<8}][{1:<10}] {2}\n'.format(cur_time(), subject, contents)
 
-    with open(fileName, openMode, encoding='utf8') as f:
+    with open(filePath, openMode, encoding='utf8') as f:
         f.write(line)
     pass
 
@@ -37,5 +37,5 @@ def cur_time():
 if __name__ == "__main__":
     print(cur_time())
     print(cur_date())
-    print(util.cur_date_time() )
-    util.save_log("한글", "한글")
+    print(cur_date_time() )
+    save_log("한글", "한글", "log")
