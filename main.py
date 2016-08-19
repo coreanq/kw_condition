@@ -448,6 +448,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
         if( realType == "주식호가잔량"):
+            jongmokName = self.getMasterCodeName(jongmokName)
             self.makeHogaJanRyangInfo(jongmokCode)
             # 잔량 정보 요청은 첫 조건 진입시 한번만 해야 하므로 리스트에서 지움                
             self.removeJanRyangCodeList(jongmokCode)
@@ -487,6 +488,7 @@ class KiwoomConditon(QObject):
             jongmokName = self.getMasterCodeName(jongmokCode)
             try: 
                 df = self.dfList["잔고정보"]
+                df.loc[jongmokName]
             except KeyError:
                 return
             maesu_time_str = df.loc[jongmokName, "발생시간"]
@@ -539,6 +541,7 @@ class KiwoomConditon(QObject):
         
             try:
                 df = self.dfList["실시간-주식호가잔량"]
+                df.loc[jongmokName]
             except KeyError:
                 return
 
@@ -584,25 +587,21 @@ class KiwoomConditon(QObject):
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
         # print(util.whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
         #         .format(gubun, itemCnt, fidList))
-
+        maedo_maesu_gubun = self.getChejanData(946)
         if( gubun == "1"): # 잔고 정보
+            # 잔고 정보에서는 매도/매수 구분이 되지 않음 
             jongmokCode = self.getChejanData(9001)[1:]
-            maedo_maesu_gubun = self.getChejanData(946)
+            jongmokName = self.getMasterCodeName(jongmokCode)
             boyouSuryang = int(self.getChejanData(930))
-
-            print("매도매수구분" + maedo_maesu_gubun )
             if( boyouSuryang == 0 ):
-                self.removeBuyCodeList(jongmokCode)
-
-            if( maedo_maesu_gubun == "1"):  # 매도
-            # 매도 시 
-                pass
-            elif(maedo_maesu_gubun == "2") :# 매수
-                pass 
-            self.makeJangoInfo(jongmokCode, fidList)
+                self.removeBuyCodeList(jongmokCode)       
+                util.save_log(jongmokName, "매도", folder= "log")
+                self.makeJangoInfo(jongmokCode, fidList, False)
+            else:
+                self.makeJangoInfo(jongmokCode, fidList)
             pass
 
-    def makeJangoInfo(self, jongmokCode, fidList):
+    def makeJangoInfo(self, jongmokCode, fidList, save = True):
         jongmokName = self.getMasterCodeName(jongmokCode)
         fids = fidList.split(";")
         lineData = []
@@ -629,15 +628,16 @@ class KiwoomConditon(QObject):
                 result = self.getChejanData(nFid)
             lineData.append(result)
             printData += jangoDfColumn + ": " + result + ", " 
-
-        try: 
-            df = self.dfList["잔고정보"]
-            df.loc[jongmokName] = lineData
-        except KeyError:
-            self.dfList["잔고정보"] = pd.DataFrame(columns = kw_util.dict_jusik['잔고정보'])
-            df = self.dfList['잔고정보']
-            df.loc[jongmokName] = lineData
-            
+        
+        if( save == True ):
+            try: 
+                df = self.dfList["잔고정보"]
+                df.loc[jongmokName] = lineData
+            except KeyError:
+                self.dfList["잔고정보"] = pd.DataFrame(columns = kw_util.dict_jusik['잔고정보'])
+                df = self.dfList['잔고정보']
+                df.loc[jongmokName] = lineData
+                
         util.save_log(printData, "잔고정보", folder= "log")
         pass
 
