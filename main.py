@@ -448,7 +448,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
         if( realType == "주식호가잔량"):
-            jongmokName = self.getMasterCodeName(jongmokName)
+            jongmokName = self.getMasterCodeName(jongmokCode)
             self.makeHogaJanRyangInfo(jongmokCode)
             # 잔량 정보 요청은 첫 조건 진입시 한번만 해야 하므로 리스트에서 지움                
             self.removeJanRyangCodeList(jongmokCode)
