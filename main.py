@@ -177,7 +177,7 @@ class KiwoomConditon(QObject):
     @pyqtSlot()     
     def stockCompleteStateEntered(self):
         print(util.whoami())
-        writer = pd.ExcelWriter( util.cur_date() + "_stock.xlsx" , engine='xlsxwriter')
+        writer = pd.ExcelWriter( "log" + os.path.sep + util.cur_date() + "_stock.xlsx" , engine='xlsxwriter')
         tempDf = None 
         sheetName = None
         jongmokName = None
@@ -395,8 +395,8 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
-        .format(scrNo, rQName, trCode, recordName,prevNext))
+        # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
+        # .format(scrNo, rQName, trCode, recordName,prevNext))
 
         if( trCode == "opt10080"):
             self.makeOpt10080Info(trCode, rQName)
@@ -485,7 +485,9 @@ class KiwoomConditon(QObject):
 
     def processStopLoss(self, jongmokCode):
         if( self.isTradeAvailable() ) :
+            df = None
             jongmokName = self.getMasterCodeName(jongmokCode)
+            isTimeCut = False
             try: 
                 df = self.dfList["잔고정보"]
                 df.loc[jongmokName]
@@ -500,9 +502,12 @@ class KiwoomConditon(QObject):
             time_span = (currentTime - maesu_time).total_seconds()
             # 타임컷을 넘은 경우 매입단가로 손절가를 높임 
             if( time_span > 60 * TIME_CUT_MIN ):
+                isTimeCut = True
                 stop_loss = int(df.loc[jongmokName, "매입단가"])
             else:
                 stop_loss = int(df.loc[jongmokName, "손절가"])
+            
+            df.loc[jongmokName, "손절가"] = stop_loss
             stop_plus = int(df.loc[jongmokName, "이익실현가"])
 
 
@@ -518,13 +523,19 @@ class KiwoomConditon(QObject):
 
             #손절 
             if( stop_loss >= maesuHoga1 ) :
+                if( isTimeCut == True ) :
+                    util.save_log(jongmokName, "   타임컷 손절매도주문", folder= "log")
+                else:
+                    util.save_log(jongmokName, "   손절매도주문", folder= "log")
                 self.sendOrder("sell_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
             jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
                 pass
             #익절
-            if( stop_plus <= maesuHoga1 ) :
-                self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
+            if( stop_plus < maesuHoga1 ) :
+                if( sum >= TOTAL_BUY_AMOUNT):
+                    util.save_log(jongmokName, "   익절매도문주문", folder= "log")
+                    self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+                                    jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
                 pass
 
         pass
@@ -554,7 +565,7 @@ class KiwoomConditon(QObject):
             sum =  maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2 
             # print( util.whoami() + jongmokName + " " + str(sum) + (" won") ) 
             util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
-                    .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '매도호가잔량' , folder= "log") 
+                    .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
             
             if( TEST_MODE == True ):
                 self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
@@ -565,6 +576,7 @@ class KiwoomConditon(QObject):
                 pass
             else:
                 if( sum >= TOTAL_BUY_AMOUNT):
+                    util.save_log(jongmokName, "   매수주문", folder= "log")
                     self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
                             jongmokCode, 1, 0 , kw_util.dict_order["시장가"], "")
                     print("$", sep="")
@@ -595,7 +607,6 @@ class KiwoomConditon(QObject):
             boyouSuryang = int(self.getChejanData(930))
             if( boyouSuryang == 0 ):
                 self.removeBuyCodeList(jongmokCode)       
-                util.save_log(jongmokName, "매도", folder= "log")
                 self.makeJangoInfo(jongmokCode, fidList, False)
             else:
                 self.makeJangoInfo(jongmokCode, fidList)
@@ -637,8 +648,9 @@ class KiwoomConditon(QObject):
                 self.dfList["잔고정보"] = pd.DataFrame(columns = kw_util.dict_jusik['잔고정보'])
                 df = self.dfList['잔고정보']
                 df.loc[jongmokName] = lineData
-                
-        util.save_log(printData, "잔고정보", folder= "log")
+        boyouSuryang = int(self.getChejanData(930))
+        if( boyouSuryang !=  0):
+            util.save_log(printData, "잔고정보", folder= "log")
         pass
 
     def insertBuyCodeList(self, jongmokCode):
