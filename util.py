@@ -26,6 +26,10 @@ def cur_date_time():
     cur_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     return cur_time
 
+def cur_time_msec():
+    cur_time = datetime.now().strftime("%H:%M:%S.%f") 
+    return cur_time
+
 def cur_date():
     cur_time = datetime.now().strftime('%Y-%m-%d')
     return cur_time

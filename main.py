@@ -370,8 +370,8 @@ class KiwoomConditon(QObject):
 
     # 수신 메시지 이벤트
     def _OnReceiveMsg(self, scrNo, rQName, trCode, msg):
-        print(util.whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
-        .format(scrNo, rQName, trCode, msg))
+        # print(util.whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
+        # .format(scrNo, rQName, trCode, msg))
         '''
               [OnReceiveTrData() 이벤트함수]
           
@@ -390,6 +390,8 @@ class KiwoomConditon(QObject):
           조회요청 응답을 받거나 조회데이터를 수신했을때 호출됩니다.
           조회데이터는 이 이벤트 함수내부에서 GetCommData()함수를 이용해서 얻어올 수 있습니다.
         '''
+        printData =  'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'.format(scrNo, rQName, trCode, msg)
+        util.save_log(printData, "시스템메시지", "log")
         pass
     # Tran 수신시 이벤트
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
@@ -448,7 +450,6 @@ class KiwoomConditon(QObject):
         # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
         if( realType == "주식호가잔량"):
-            jongmokName = self.getMasterCodeName(jongmokCode)
             self.makeHogaJanRyangInfo(jongmokCode)
             # 잔량 정보 요청은 첫 조건 진입시 한번만 해야 하므로 리스트에서 지움                
             self.removeJanRyangCodeList(jongmokCode)
@@ -599,11 +600,9 @@ class KiwoomConditon(QObject):
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
         # print(util.whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
         #         .format(gubun, itemCnt, fidList))
-        maedo_maesu_gubun = self.getChejanData(946)
         if( gubun == "1"): # 잔고 정보
             # 잔고 정보에서는 매도/매수 구분이 되지 않음 
             jongmokCode = self.getChejanData(9001)[1:]
-            jongmokName = self.getMasterCodeName(jongmokCode)
             boyouSuryang = int(self.getChejanData(930))
             if( boyouSuryang == 0 ):
                 self.removeBuyCodeList(jongmokCode)       
@@ -611,6 +610,47 @@ class KiwoomConditon(QObject):
             else:
                 self.makeJangoInfo(jongmokCode, fidList)
             pass
+
+        elif ( gubun == "0"):
+            jumun_sangtae =  self.getChejanData(913)
+            jongmokCode = self.getChejanData(9001)[1:]
+            jumun_gubun = self.getChejanData(905)[1:]
+            if( jumun_sangtae == "체결"):
+                if( jumun_gubun == "매수"):
+                    pass
+                elif(jumun_gubun == "매도"):
+                    pass
+                self.makeChegyelInfo(jongmokCode, fidList)
+                pass
+            pass
+    def makeChegyelInfo(self, jongmokCode, fidList):
+        fids = fidList.split(";")
+        lineData = []
+        printData = "" 
+        keyIndex = util.cur_time_msec() 
+
+        for chegyelDfColumn in kw_util.dict_jusik["체결정보"]:
+            nFid = None
+            result = ""
+            try:
+                nFid = kw_util.dict_name_fid[chegyelDfColumn]
+            except KeyError:
+                continue
+                
+            if( str(nFid) in fids):
+                result = self.getChejanData(nFid)
+            lineData.append(result)
+            printData += chegyelDfColumn + ": " + result + ", " 
+        
+        try: 
+            df = self.dfList["체결정보"]
+            df.loc[keyIndex] = lineData
+        except KeyError:
+            self.dfList["체결정보"] = pd.DataFrame(columns = kw_util.dict_jusik['체결정보'])
+            df = self.dfList['체결정보']
+            df.loc[keyIndex] = lineData
+        util.save_log(printData, "체결정보", folder= "log")
+        pass
 
     def makeJangoInfo(self, jongmokCode, fidList, save = True):
         jongmokName = self.getMasterCodeName(jongmokCode)
@@ -726,11 +766,10 @@ class KiwoomConditon(QObject):
 
     def makeConditionOccurInfo(self, jongmokCode):
         line = []
-        #발생시간, 종목코드,  종목명, 매수여부 kw_util.dict_type_fids
+        #발생시간, 종목코드,  종목명
         line.append(util.cur_date_time().strip() )
         line.append(jongmokCode)
         line.append(self.getMasterCodeName(jongmokCode))
-        line.append("No")
         try:
             df = self.dfList["조건진입"]
             df.loc[df.shape[0]] = line 
