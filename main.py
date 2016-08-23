@@ -17,7 +17,7 @@ from PyQt5.QAxContainer import QAxWidget
 STOCK_START_TIME = [9, 10]
 STOCK_STOP_TIME = [15, 20]
 
-TIME_CUT_MIN = 5 
+TIME_CUT_MIN = 10
 STOP_PLUS_PERCENT = 3
 STOP_LOSS_PERCENT = 2.5
 # 5000만 이상 안되면 구매 안함 (슬리피지 최소화) 
@@ -450,6 +450,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
         if( realType == "주식호가잔량"):
+            # 엉뚱한 종목코드의 주식 호가 잔량이 넘어 오는 경우가 있으므로 확인해야함 
             self.makeHogaJanRyangInfo(jongmokCode)
             # 잔량 정보 요청은 첫 조건 진입시 한번만 해야 하므로 리스트에서 지움                
             self.removeJanRyangCodeList(jongmokCode)
@@ -529,7 +530,8 @@ class KiwoomConditon(QObject):
                 else:
                     util.save_log(jongmokName, "   손절매도주문", folder= "log")
                 self.sendOrder("sell_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
+                                jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
+                print("%", sep = "")
                 pass
             #익절
             if( stop_plus < maesuHoga1 ) :
@@ -537,6 +539,7 @@ class KiwoomConditon(QObject):
                     util.save_log(jongmokName, "   익절매도문주문", folder= "log")
                     self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
                                     jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
+                    print("%", sep= "")
                 pass
 
         pass
@@ -544,8 +547,8 @@ class KiwoomConditon(QObject):
 
     def processBuy(self, jongmokCode):
         if( self.isTradeAvailable() ):        
-            # 이미 매수한 종목인 경우 매수 금지 
-            if( jongmokCode in self.buyCodeList):
+            # 기존 매수한 종목인 경우 매수 금지 
+            if( len(self.buyCodeList) ):
                 return
             # 호가 창을 보고 매수 할지 안할지 여부 결정
             df = None
@@ -753,9 +756,8 @@ class KiwoomConditon(QObject):
 
         if( typeName == '진입'):
             printLog = '{}, status: {}'.format( self.getMasterCodeName(code), typeName)
-
+            self.makeConditionOccurInfo(code)
             if( len(self.buyCodeList) == 0 ):
-                self.makeConditionOccurInfo(code)
                 self.insertJanRyangCodeList(code)
                 util.save_log(printLog, "조건진입(미보유)", folder = "log")
                 pass
