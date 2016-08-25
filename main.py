@@ -560,6 +560,14 @@ class KiwoomConditon(QObject):
             except KeyError:
                 return
 
+            # 이미 구매한적이 있는 종목의 경우 매수 금지 
+            try: 
+                df = self.dfList["체결정보"]
+                if( len( df[ df['종목명'].isin([jongmokName]) == True ] ) ) :
+                    return
+            except KeyError:
+                pass
+
             # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
             maedoHoga1 =  abs(int(df.loc[jongmokName, '매도호가1']))
             maedoHogaAmount1 =  int(df.loc[jongmokName, '매도호가수량1'])
@@ -642,7 +650,7 @@ class KiwoomConditon(QObject):
                 
             if( str(nFid) in fids):
                 result = self.getChejanData(nFid)
-            lineData.append(result)
+            lineData.append(result.strip())
             printData += chegyelDfColumn + ": " + result + ", " 
         
         try: 
