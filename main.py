@@ -23,8 +23,9 @@ STOP_LOSS_PERCENT = 2.5
 # 5000만 이상 안되면 구매 안함 (슬리피지 최소화) 
 TOTAL_BUY_AMOUNT = 50000000
 
+ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
+STOCK_INFO_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() +"_stock.xlsx"
 TEST_MODE = False 
-
 
 class KiwoomConditon(QObject):
     sigInitOk = pyqtSignal()
@@ -52,7 +53,8 @@ class KiwoomConditon(QObject):
         self.buyCodeList  = [] # 매수 후 보유 종목에 대한 종목 코드 리스트
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         # 종목번호를 key 로 하여 pandas dataframe 을 value 로 함 
-        self.dfList = {}
+        self.df1minCandleStickList = {}
+        self.dfStockInfoList ={}
         self.createState()
         self.createConnection()
 
@@ -170,29 +172,47 @@ class KiwoomConditon(QObject):
   
     @pyqtSlot()
     def mainStateEntered(self):
+        self.loadStockInfoExcel()
         print(util.whoami())
 
         pass
+    def loadStockInfoExcel(self):
+        xls_file = pd.ExcelFile(STOCK_INFO_EXCEL_FILE_PATH)
+        for sheetName in xls_file.sheet_names:
+            self.dfStockInfoList[sheetName] = xls_file.parse(sheetName)
+        pass
 
-    @pyqtSlot()     
+    @pyqtSlot()
     def stockCompleteStateEntered(self):
         print(util.whoami())
-        writer = pd.ExcelWriter( "log" + os.path.sep + util.cur_date() + "_stock.xlsx" , engine='xlsxwriter')
+        self.save1minCandleStickInfo()
+        self.saveStockInfo()
+        self.sigStateStop.emit()
+        pass
+
+    def save1minCandleStickInfo(self):
+        writer = pd.ExcelWriter(ONE_MIN_CANDLE_EXCEL_FILE_PATH, engine='xlsxwriter')
         tempDf = None 
         sheetName = None
         jongmokName = None
-        # df 에는 jongmokCode 키 값 이외에 다른 값이 들어오므로 체크해야함  조건 진입 리스트 등등
-        for jongmokCode, df in self.dfList.items():
+        for jongmokCode, df in self.df1minCandleStickList.items():
             jongmokName = self.getMasterCodeName(jongmokCode)
+            # 종목 이름을 sheet name 으로 해서 1분봉 데이터 저장 
             if( jongmokName != ""):
                 tempDf = df.sort_values(by=['체결시간'])
                 sheetName = jongmokName
             else:
-                tempDf = df
-                sheetName = jongmokCode
+                continue
             tempDf.to_excel(writer, sheet_name=sheetName )
         writer.save()
-        self.sigStateStop.emit()
+        pass
+        
+    def saveStockInfo(self):
+        writer = pd.ExcelWriter(STOCK_INFO_EXCEL_FILE_PATH, engine='xlsxwriter')
+        for sheetName, df in self.dfStockInfoList.items():
+            df.to_excel(writer, sheet_name=sheetName )
+        writer.save()
+        pass
 
     @pyqtSlot()
     def initStateEntered(self):
@@ -288,7 +308,7 @@ class KiwoomConditon(QObject):
         self.conditionOccurList = [] 
         # 조건 진입 정보를 읽어 종목 코드 값을 빼낸 뒤 tr 요청 
         try:
-            df = self.dfList["조건진입"].drop_duplicates("종목코드")
+            df = self.dfStockInfoList['체결정보'].drop_duplicates("종목코드")
             for index, series in df.iterrows():
                 self.conditionOccurList.append(series["종목코드"])
         except KeyError:
@@ -427,7 +447,7 @@ class KiwoomConditon(QObject):
             if( resultTime.tm_mday == currentTime.tm_mday ):
                 # 기존에 저장되어 있는 않는 데이터만 저장하고 이미 데이터가 있는 경우 리턴한다. 
                 try:
-                    df = self.dfList[rQName]
+                    df = self.df1minCandleStickList[rQName]
                     # any 를 해야 dataframe 이 리턴되지 않고 True, False 로 리턴됨 
                     if((df['체결시간'] == currentTimeStr).any() ):
                         #중복 나올시 바로 나옴 
@@ -436,8 +456,8 @@ class KiwoomConditon(QObject):
                         # print(line)
                         df.loc[df.shape[0]] = line 
                 except KeyError:
-                    self.dfList[rQName] = pd.DataFrame(columns = kw_util.dict_jusik['TR:분봉'])
-                    df = self.dfList[rQName]
+                    self.df1minCandleStickList[rQName] = pd.DataFrame(columns = kw_util.dict_jusik['TR:분봉'])
+                    df = self.df1minCandleStickList[rQName]
                     df.loc[df.shape[0]] = line
                     # print(line)
             else:
@@ -473,11 +493,11 @@ class KiwoomConditon(QObject):
             line.append(result.strip())
 
         try:
-            df = self.dfList["실시간-주식호가잔량"]
+            df = self.dfStockInfoList["실시간-주식호가잔량"]
             df.loc[jongmokName] = line
         except KeyError:
-            self.dfList["실시간-주식호가잔량"] = pd.DataFrame(columns = kw_util.dict_jusik["실시간-주식호가잔량"])
-            df = self.dfList["실시간-주식호가잔량"]
+            self.dfStockInfoList["실시간-주식호가잔량"] = pd.DataFrame(columns = kw_util.dict_jusik["실시간-주식호가잔량"])
+            df = self.dfStockInfoList["실시간-주식호가잔량"]
             df.loc[jongmokName] = line
 
         # print(line)
@@ -491,7 +511,7 @@ class KiwoomConditon(QObject):
             jongmokName = self.getMasterCodeName(jongmokCode)
             isTimeCut = False
             try: 
-                df = self.dfList["잔고정보"]
+                df = self.dfStockInfoList["잔고정보"]
                 df.loc[jongmokName]
             except KeyError:
                 return
@@ -514,7 +534,7 @@ class KiwoomConditon(QObject):
 
 
             # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
-            df = self.dfList["실시간-주식호가잔량"]
+            df = self.dfStockInfoList["실시간-주식호가잔량"]
             maesuHoga1 =  abs(int(df.loc[jongmokName, '매수호가1']))
             maesuHogaAmount1 =  int(df.loc[jongmokName, '매수호가수량1'])
             maesuHoga2 =  abs(int(df.loc[jongmokName, '매수호가2']))
@@ -551,28 +571,28 @@ class KiwoomConditon(QObject):
             if( len(self.buyCodeList) ):
                 return
             # 호가 창을 보고 매수 할지 안할지 여부 결정
-            df = None
+            dfHoga = None
             jongmokName = self.getMasterCodeName(jongmokCode)
         
             try:
-                df = self.dfList["실시간-주식호가잔량"]
-                df.loc[jongmokName]
+                dfHoga = self.dfStockInfoList["실시간-주식호가잔량"]
+                dfHoga.loc[jongmokName]
             except KeyError:
                 return
 
             # 이미 구매한적이 있는 종목의 경우 매수 금지 
             try: 
-                df = self.dfList["체결정보"]
-                if( len( df[ df['종목명'].isin([jongmokName]) == True ] ) ) :
+                df = self.dfStockInfoList["체결정보"]
+                if( len( df[ df['종목코드'].isin([jongmokCode]) == True ] ) ) :
                     return
             except KeyError:
                 pass
 
             # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
-            maedoHoga1 =  abs(int(df.loc[jongmokName, '매도호가1']))
-            maedoHogaAmount1 =  int(df.loc[jongmokName, '매도호가수량1'])
-            maedoHoga2 =  abs(int(df.loc[jongmokName, '매도호가2']))
-            maedoHogaAmount2 =  int(df.loc[jongmokName, '매도호가수량2'])
+            maedoHoga1 =  abs(int(dfHoga.loc[jongmokName, '매도호가1']))
+            maedoHogaAmount1 =  int(dfHoga.loc[jongmokName, '매도호가수량1'])
+            maedoHoga2 =  abs(int(dfHoga.loc[jongmokName, '매도호가2']))
+            maedoHogaAmount2 =  int(dfHoga.loc[jongmokName, '매도호가수량2'])
             #    print( util.whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
             sum =  maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2 
             # print( util.whoami() + jongmokName + " " + str(sum) + (" won") ) 
@@ -653,12 +673,12 @@ class KiwoomConditon(QObject):
             lineData.append(result.strip())
             printData += chegyelDfColumn + ": " + result + ", " 
         
-        try: 
-            df = self.dfList["체결정보"]
+        try:
+            df = self.dfStockInfoList["체결정보"]
             df.loc[keyIndex] = lineData
         except KeyError:
-            self.dfList["체결정보"] = pd.DataFrame(columns = kw_util.dict_jusik['체결정보'])
-            df = self.dfList['체결정보']
+            self.dfStockInfoList["체결정보"] = pd.DataFrame(columns = kw_util.dict_jusik['체결정보'])
+            df = self.dfStockInfoList['체결정보']
             df.loc[keyIndex] = lineData
         util.save_log(printData, "체결정보", folder= "log")
         pass
@@ -693,11 +713,11 @@ class KiwoomConditon(QObject):
         
         if( save == True ):
             try: 
-                df = self.dfList["잔고정보"]
+                df = self.dfStockInfoList["잔고정보"]
                 df.loc[jongmokName] = lineData
             except KeyError:
-                self.dfList["잔고정보"] = pd.DataFrame(columns = kw_util.dict_jusik['잔고정보'])
-                df = self.dfList['잔고정보']
+                self.dfStockInfoList["잔고정보"] = pd.DataFrame(columns = kw_util.dict_jusik['잔고정보'])
+                df = self.dfStockInfoList['잔고정보']
                 df.loc[jongmokName] = lineData
         boyouSuryang = int(self.getChejanData(930))
         if( boyouSuryang !=  0):
@@ -718,11 +738,11 @@ class KiwoomConditon(QObject):
         # 잔고 df frame 삭제 
         df = None
         try: 
-            df = self.dfList["잔고정보"]
+            df = self.dfStockInfoList["잔고정보"]
         except KeyError:
             return
         jongmokName = self.getMasterCodeName(jongmokCode)
-        self.dfList["잔고정보"] = df.drop(jongmokName.strip())
+        self.dfStockInfoList["잔고정보"] = df.drop(jongmokName.strip())
         pass
 
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
@@ -781,11 +801,11 @@ class KiwoomConditon(QObject):
         line.append(jongmokCode)
         line.append(self.getMasterCodeName(jongmokCode))
         try:
-            df = self.dfList["조건진입"]
+            df = self.dfStockInfoList["조건진입"]
             df.loc[df.shape[0]] = line 
         except KeyError:
-            self.dfList["조건진입"] = pd.DataFrame(columns = kw_util.dict_jusik['조건진입'])
-            df = self.dfList['조건진입']
+            self.dfStockInfoList["조건진입"] = pd.DataFrame(columns = kw_util.dict_jusik['조건진입'])
+            df = self.dfStockInfoList['조건진입']
             df.loc[df.shape[0]] = line
         pass
 
@@ -1037,10 +1057,7 @@ if __name__ == "__main__":
     # print(os.environ['QML_IMPORT_TRACE'])
     myApp = QApplication(sys.argv)
     objKiwoom = KiwoomConditon()
-    def test1():
-        objKiwoom.makeConditionOccurInfo('068330')
-    def test2():
-        objKiwoom.makeConditionOccurInfo('036620') 
+
     def test_add_jongmok_save():
         objKiwoom.makeConditionOccurInfo('068330') 
         objKiwoom.makeConditionOccurInfo('021080') 
@@ -1092,7 +1109,7 @@ if __name__ == "__main__":
         # Execute the Application and Exit
         pass
     def test_save():
-        objKiwoom.sigRequest1minTr.emit()
+        objKiwoom.saveStockInfo()
         pass
     def test_condition():
         objKiwoom._OnReceiveRealCondition("044180", "I",  "단타 추세", 1)
