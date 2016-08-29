@@ -160,9 +160,8 @@ class KiwoomConditon(QObject):
         self.ocx.OnReceiveRealCondition[str, str, str, str].connect(
             self._OnReceiveRealCondition)
 
-        self.timerSystem.setInterval(1000)
-        self.timerSystem.timeout.connect(self.onTimerSystemTimeout)
-        self.timerSystem.start()
+        self.timerSystem.setInterval(1000) 
+        self.timerSystem.timeout.connect(self.onTimerSystemTimeout) 
 
     def isTradeAvailable(self):
         if( self.currentTime >= self.tradeStartTime and self.currentTime <= self.tradeStopTime ):
@@ -173,14 +172,16 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def mainStateEntered(self):
         self.loadStockInfoExcel()
+        self.timerSystem.start()
         print(util.whoami())
+        pass
 
-        pass
     def loadStockInfoExcel(self):
-        xls_file = pd.ExcelFile(STOCK_INFO_EXCEL_FILE_PATH)
-        for sheetName in xls_file.sheet_names:
-            self.dfStockInfoList[sheetName] = xls_file.parse(sheetName)
-        pass
+        if( os.path.isfile( STOCK_INFO_EXCEL_FILE_PATH) == True):
+            xls_file = pd.ExcelFile(STOCK_INFO_EXCEL_FILE_PATH)
+            for sheetName in xls_file.sheet_names:
+                self.dfStockInfoList[sheetName] = xls_file.parse(sheetName)
+            pass
 
     @pyqtSlot()
     def stockCompleteStateEntered(self):
@@ -300,6 +301,16 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def standbyConditionStateEntered(self):
         print(util.whoami() )
+        jangoList = [] 
+        try: 
+            df = self.dfStockInfoList["잔고정보"]
+            for index, row in df.iterrows():
+                jangoList.append(row["종목코드"]) 
+                pass
+        except KeyError:
+            pass 
+        for jongmokCode in jangoList:
+            self.insertBuyCodeList(str(jongmokCode)) 
         pass
 
     @pyqtSlot()
@@ -472,6 +483,7 @@ class KiwoomConditon(QObject):
         if( realType == "주식호가잔량"):
             # 엉뚱한 종목코드의 주식 호가 잔량이 넘어 오는 경우가 있으므로 확인해야함 
             self.makeHogaJanRyangInfo(jongmokCode)
+            jongmokName = self.getMasterCodeName(jongmokCode)
             # 잔량 정보 요청은 첫 조건 진입시 한번만 해야 하므로 리스트에서 지움                
             self.removeJanRyangCodeList(jongmokCode)
             self.processStopLoss(jongmokCode)
@@ -540,7 +552,7 @@ class KiwoomConditon(QObject):
             maesuHoga2 =  abs(int(df.loc[jongmokName, '매수호가2']))
             maesuHogaAmount2 =  int(df.loc[jongmokName, '매수호가수량2'])
             #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
-            sum =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2
+            totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2
             # print( util.whoami() + jongmokName + " " + str(sum))
 
             #손절 
@@ -549,17 +561,17 @@ class KiwoomConditon(QObject):
                     util.save_log(jongmokName, "   타임컷 손절매도주문", folder= "log")
                 else:
                     util.save_log(jongmokName, "   손절매도주문", folder= "log")
-                self.sendOrder("sell_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+                result = self.sendOrder("sell_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
                                 jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
-                print("%", sep = "")
+                print("% "+ str(result), sep = "")
                 pass
             #익절
             if( stop_plus < maesuHoga1 ) :
-                if( sum >= TOTAL_BUY_AMOUNT):
+                if( totalAmount >= TOTAL_BUY_AMOUNT):
                     util.save_log(jongmokName, "   익절매도문주문", folder= "log")
-                    self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+                    result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
                                     jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
-                    print("%", sep= "")
+                    print("% " + str(result), sep= "")
                 pass
 
         pass
@@ -594,7 +606,7 @@ class KiwoomConditon(QObject):
             maedoHoga2 =  abs(int(dfHoga.loc[jongmokName, '매도호가2']))
             maedoHogaAmount2 =  int(dfHoga.loc[jongmokName, '매도호가수량2'])
             #    print( util.whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
-            sum =  maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2 
+            totalAmount =  maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2 
             # print( util.whoami() + jongmokName + " " + str(sum) + (" won") ) 
             util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
                     .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
@@ -607,11 +619,11 @@ class KiwoomConditon(QObject):
                 self.insertBuyCodeList(jongmokCode)
                 pass
             else:
-                if( sum >= TOTAL_BUY_AMOUNT):
+                if( totalAmount >= TOTAL_BUY_AMOUNT):
                     util.save_log(jongmokName, "   매수주문", folder= "log")
-                    self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+                    result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
                             jongmokCode, 1, 0 , kw_util.dict_order["시장가"], "")
-                    print("$", sep="")
+                    print("$" + str(result) , sep="")
                     # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
                     self.insertBuyCodeList(jongmokCode)
         pass
@@ -727,7 +739,7 @@ class KiwoomConditon(QObject):
     def insertBuyCodeList(self, jongmokCode):
         if( jongmokCode not in self.buyCodeList ):
             self.buyCodeList.append(jongmokCode)
-        self.insertJanRyangCodeList(jongmokCode)
+            self.insertJanRyangCodeList(jongmokCode)
         pass
 
     #주식 호가 잔량 정보 요청리스트 삭제 
@@ -785,6 +797,9 @@ class KiwoomConditon(QObject):
         if( typeName == '진입'):
             printLog = '{}, status: {}'.format( self.getMasterCodeName(code), typeName)
             self.makeConditionOccurInfo(code)
+            if( self.isTradeAvailable() == False ) :
+                util.save_log(printLog, "조건진입(거래시간오버)", folder = "log" )
+                return
             if( len(self.buyCodeList) == 0 ):
                 self.insertJanRyangCodeList(code)
                 util.save_log(printLog, "조건진입(미보유)", folder = "log")
