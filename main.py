@@ -25,7 +25,6 @@ TOTAL_BUY_AMOUNT = 50000000
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 STOCK_INFO_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() +"_stock.xlsx"
-TEST_MODE = False 
 
 class KiwoomConditon(QObject):
     sigInitOk = pyqtSignal()
@@ -48,9 +47,8 @@ class KiwoomConditon(QObject):
         self.qmlEngine = QQmlApplicationEngine()
         self.account_list = []
         self.timerSystem = QTimer()
-
+        self.buyCodeList = []
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 분봉 저장용으로 사용 
-        self.buyCodeList  = [] # 매수 후 보유 종목에 대한 종목 코드 리스트
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         # 종목번호를 key 로 하여 pandas dataframe 을 value 로 함 
         self.df1minCandleStickList = {}
@@ -528,7 +526,7 @@ class KiwoomConditon(QObject):
             except KeyError:
                 return
             maesu_time_str = df.loc[jongmokName, "발생시간"]
-            jangosuryang = df.loc[jongmokName, "주문가능수량"]
+            jangosuryang = int( df.loc[jongmokName, "주문가능수량"] )
 
             currentTime = datetime.datetime.strptime(util.cur_date_time(),  "%Y-%m-%d %H:%M:%S")
             maesu_time =  datetime.datetime.strptime(maesu_time_str, "%Y-%m-%d %H:%M:%S")
@@ -555,25 +553,26 @@ class KiwoomConditon(QObject):
             totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2
             # print( util.whoami() + jongmokName + " " + str(sum))
 
-            #손절 
+            isSell = False
+            printData = ""
             if( stop_loss >= maesuHoga1 ) :
                 if( isTimeCut == True ) :
-                    util.save_log(jongmokName, "   타임컷 손절매도주문", folder= "log")
+                    printData += "타임컷 손절매도주문: "
                 else:
-                    util.save_log(jongmokName, "   손절매도주문", folder= "log")
-                result = self.sendOrder("sell_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-                                jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
-                print("% "+ str(result), sep = "")
-                pass
-            #익절
+                    printData += "손절매도주문: "
+                isSell = True
             if( stop_plus < maesuHoga1 ) :
                 if( totalAmount >= TOTAL_BUY_AMOUNT):
-                    util.save_log(jongmokName, "   익절매도문주문", folder= "log")
-                    result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-                                    jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
-                    print("% " + str(result), sep= "")
-                pass
+                    printData += "익절매도문주문: ", 
+                    isSell = True 
 
+            printData += jongmokCode + " " + jongmokName + " 잔고수량 " + str(jangosuryang) 
+            if( isSell == True ):
+                result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+                                    jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
+                util.save_log(printData, '손절', 'log')
+                print("S " + str(result), sep= "")
+                pass
         pass
 
 
@@ -610,22 +609,14 @@ class KiwoomConditon(QObject):
             # print( util.whoami() + jongmokName + " " + str(sum) + (" won") ) 
             util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
                     .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
-            
-            if( TEST_MODE == True ):
-                self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-                            jongmokCode, 1, 0 , kw_util.dict_order["시장가"], "")
-                print("$", sep="")
+
+            if( totalAmount >= TOTAL_BUY_AMOUNT):
+                util.save_log(jongmokName, "   매수주문", folder= "log")
+                result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+                        jongmokCode, 1, 0 , kw_util.dict_order["시장가"], "")
+                print("B " + str(result) , sep="")
                 # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
                 self.insertBuyCodeList(jongmokCode)
-                pass
-            else:
-                if( totalAmount >= TOTAL_BUY_AMOUNT):
-                    util.save_log(jongmokName, "   매수주문", folder= "log")
-                    result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-                            jongmokCode, 1, 0 , kw_util.dict_order["시장가"], "")
-                    print("$" + str(result) , sep="")
-                    # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
-                    self.insertBuyCodeList(jongmokCode)
         pass
 
 
@@ -648,8 +639,7 @@ class KiwoomConditon(QObject):
             jongmokCode = self.getChejanData(9001)[1:]
             boyouSuryang = int(self.getChejanData(930))
             if( boyouSuryang == 0 ):
-                self.removeBuyCodeList(jongmokCode)       
-                self.makeJangoInfo(jongmokCode, fidList, False)
+                self.removeBuyCodeList(jongmokCode)
             else:
                 self.makeJangoInfo(jongmokCode, fidList)
             pass
@@ -681,7 +671,10 @@ class KiwoomConditon(QObject):
                 continue
                 
             if( str(nFid) in fids):
-                result = self.getChejanData(nFid)
+                if( chegyelDfColumn == '종목코드'):
+                    result = self.getChejanData(nFid)[1:]
+                else: 
+                    result = self.getChejanData(nFid)
             lineData.append(result.strip())
             printData += chegyelDfColumn + ": " + result + ", " 
         
@@ -695,7 +688,7 @@ class KiwoomConditon(QObject):
         util.save_log(printData, "체결정보", folder= "log")
         pass
 
-    def makeJangoInfo(self, jongmokCode, fidList, save = True):
+    def makeJangoInfo(self, jongmokCode, fidList):
         jongmokName = self.getMasterCodeName(jongmokCode)
         fids = fidList.split(";")
         lineData = []
@@ -723,14 +716,13 @@ class KiwoomConditon(QObject):
             lineData.append(result)
             printData += jangoDfColumn + ": " + result + ", " 
         
-        if( save == True ):
-            try: 
-                df = self.dfStockInfoList["잔고정보"]
-                df.loc[jongmokName] = lineData
-            except KeyError:
-                self.dfStockInfoList["잔고정보"] = pd.DataFrame(columns = kw_util.dict_jusik['잔고정보'])
-                df = self.dfStockInfoList['잔고정보']
-                df.loc[jongmokName] = lineData
+        try: 
+            df = self.dfStockInfoList["잔고정보"]
+            df.loc[jongmokName] = lineData
+        except KeyError:
+            self.dfStockInfoList["잔고정보"] = pd.DataFrame(columns = kw_util.dict_jusik['잔고정보'])
+            df = self.dfStockInfoList['잔고정보']
+            df.loc[jongmokName] = lineData
         boyouSuryang = int(self.getChejanData(930))
         if( boyouSuryang !=  0):
             util.save_log(printData, "잔고정보", folder= "log")
@@ -1129,5 +1121,10 @@ if __name__ == "__main__":
     def test_condition():
         objKiwoom._OnReceiveRealCondition("044180", "I",  "단타 추세", 1)
         pass
-    sys.exit(myApp.exec_())
+    try: 
+        sys.exit(myApp.exec_())
+    except: 
+        test_save()
+        key_input = input()
+
 
