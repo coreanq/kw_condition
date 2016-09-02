@@ -17,7 +17,7 @@ from PyQt5.QAxContainer import QAxWidget
 STOCK_START_TIME = [9, 10]
 STOCK_STOP_TIME = [15, 20]
 
-TIME_CUT_MIN = 10
+TIME_CUT_MIN = 20  
 STOP_PLUS_PERCENT = 3
 STOP_LOSS_PERCENT = 2.5
 # 5000만 이상 안되면 구매 안함 (슬리피지 최소화) 
@@ -611,7 +611,7 @@ class KiwoomConditon(QObject):
                     .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
 
             if( totalAmount >= TOTAL_BUY_AMOUNT):
-                util.save_log(jongmokName, "   매수주문", folder= "log")
+                util.save_log(jongmokName, "매수주문", folder= "log")
                 result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
                         jongmokCode, 1, 0 , kw_util.dict_order["시장가"], "")
                 print("B " + str(result) , sep="")
@@ -685,7 +685,7 @@ class KiwoomConditon(QObject):
             self.dfStockInfoList["체결정보"] = pd.DataFrame(columns = kw_util.dict_jusik['체결정보'])
             df = self.dfStockInfoList['체결정보']
             df.loc[keyIndex] = lineData
-        util.save_log(printData, "체결정보", folder= "log")
+        util.save_log(printData, "*체결정보", folder= "log")
         pass
 
     def makeJangoInfo(self, jongmokCode, fidList):
@@ -1121,10 +1121,6 @@ if __name__ == "__main__":
     def test_condition():
         objKiwoom._OnReceiveRealCondition("044180", "I",  "단타 추세", 1)
         pass
-    try: 
-        sys.exit(myApp.exec_())
-    except: 
-        test_save()
-        key_input = input()
+    sys.exit(myApp.exec_())
 
 
