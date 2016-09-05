@@ -563,7 +563,7 @@ class KiwoomConditon(QObject):
                 isSell = True
             if( stop_plus < maesuHoga1 ) :
                 if( totalAmount >= TOTAL_BUY_AMOUNT):
-                    printData += "익절매도문주문: ", 
+                    printData += "익절매도문주문: " 
                     isSell = True 
 
             printData += jongmokCode + " " + jongmokName + " 잔고수량 " + str(jangosuryang) 
