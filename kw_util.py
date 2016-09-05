@@ -10,6 +10,7 @@ sendConditionScreenNo = "001"
 sendRealRegScreenNo = "002"
 send1minTrScreenNo = "003"
 sendOrderScreenNo = "004"
+sendReqYupjongScreenNo = "005"
 
 
 dict_order = {

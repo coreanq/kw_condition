@@ -14,10 +14,9 @@ from PyQt5.QtQml import QQmlApplicationEngine
 from PyQt5.QAxContainer import QAxWidget
 
 
-STOCK_START_TIME = [9, 10]
-STOCK_STOP_TIME = [15, 20]
+STOCK_TRADE_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]
 
-TIME_CUT_MIN = 20  
+TIME_CUT_MIN = 10  
 STOP_PLUS_PERCENT = 3
 STOP_LOSS_PERCENT = 2.5
 # 5000만 이상 안되면 구매 안함 (슬리피지 최소화) 
@@ -57,19 +56,7 @@ class KiwoomConditon(QObject):
         self.createConnection()
 
         self.currentTime = datetime.datetime.now()
-        self.tradeStartTime = datetime.datetime( year = self.currentTime.year,
-                                month = self.currentTime.month, 
-                                day = self.currentTime.day, 
-                                hour = STOCK_START_TIME[0],
-                                minute = STOCK_START_TIME[1])
-        self.tradeStopTime  = datetime.datetime(  year = self.currentTime.year,
-                                month = self.currentTime.month, 
-                                day = self.currentTime.day, 
-                                hour = STOCK_STOP_TIME[0],
-                                minute = STOCK_STOP_TIME[1])
-
-
-
+        
     def createState(self):
         # state defintion
         mainState = QState(self.fsm)       
@@ -162,10 +149,21 @@ class KiwoomConditon(QObject):
         self.timerSystem.timeout.connect(self.onTimerSystemTimeout) 
 
     def isTradeAvailable(self):
-        if( self.currentTime >= self.tradeStartTime and self.currentTime <= self.tradeStopTime ):
-            return True 
-        else:
-            return False
+        for start, stop in STOCK_TRADE_TIME:
+            start_time =  datetime.datetime( year = self.currentTime.year,
+                            month = self.currentTime.month, 
+                            day = self.currentTime.day, 
+                            hour = start[0],
+                            minute = start[1])
+            stop_time =   datetime.datetime( year = self.currentTime.year,
+                            month = self.currentTime.month, 
+                            day = self.currentTime.day, 
+                            hour = stop[0],
+                            minute = stop[1])
+            if( self.currentTime >= start_time and self.currentTime <= stop_time ):
+                return True 
+        return False 
+        pass
   
     @pyqtSlot()
     def mainStateEntered(self):
@@ -330,22 +328,35 @@ class KiwoomConditon(QObject):
         if( len(self.conditionOccurList) == 0 ):
             self.sigStockComplete.emit()
             return
+        self.requestOpt10080(self, self.conditionOccurList[0])
+        pass
 
-        for index, code in enumerate(self.conditionOccurList):
-            # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
-            self.setInputValue("종목코드", code )
-            self.setInputValue("틱범위","1:1분") 
-            self.setInputValue("수정주가구분","0") 
-            ret = self.commRqData(code , "opt10080", 0, kw_util.send1minTrScreenNo) 
-            
-            errorString = None
-            if( ret != 0 ):
-                errorString =  self.getMasterCodeName(code) + " commRqData() " + kw_util.parseErrorCode(str(ret))
-                print(util.whoami() + errorString ) 
-                util.save_log(errorString, util.whoami(), folder = "log" )
-            else:
-                break
+    # 1분봉 tr 요청 
+    def requestOpt10080(self, jongmokCode):
+     # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
+        self.setInputValue("종목코드", jongmokCode )
+        self.setInputValue("틱범위","1:1분") 
+        self.setInputValue("수정주가구분","0") 
+        ret = self.commRqData(jongmokCode , "opt10080", 0, kw_util.send1minTrScreenNo) 
+        
+        errorString = None
+        if( ret != 0 ):
+            errorString =  self.getMasterCodeName(jongmokCode) + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            print(util.whoami() + errorString ) 
+            util.save_log(errorString, util.whoami(), folder = "log" )
+        pass
 
+    # 업종 현재가 요청 
+    def requestOpt20001(self, sijangGubun, yupjongCode):
+        self.setInputValue("시장구분", sijangGubun )
+        self.setInputValue("업종코드", yupjongCode) 
+        ret = self.commRqData(sijangGubun + "_" + yupjongCode , "opt20001", 0, kw_util.sendReqYupjongScreenNo) 
+        
+        errorString = None
+        if( ret != 0 ):
+            errorString =  sijangGubun + " "  + " " + yupjongCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            print(util.whoami() + errorString ) 
+            util.save_log(errorString, util.whoami(), folder = "log" )
         pass
 
     @pyqtSlot()
@@ -360,7 +371,6 @@ class KiwoomConditon(QObject):
     def finalStateEntered(self):
         print(util.whoami())
         pass
-
    
     @pyqtSlot()
     def onTimerSystemTimeout(self):
@@ -431,8 +441,14 @@ class KiwoomConditon(QObject):
 
         if( trCode == "opt10080"):
             self.makeOpt10080Info(trCode, rQName)
+            if( rQName in self.conditionOccurList):
+                self.conditionOccurList.remove(rQName)
+                QTimer.singleShot(200, self.sigGetTrCplt)
             pass
-            
+        elif( trCode == "opt20001"):
+            print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
+                .format(scrNo, rQName, trCode, recordName,prevNext))
+            pass
 
     # 1분봉 데이터 생성 --> to dataframe
     def makeOpt10080Info(self, trCode, rQName):
@@ -471,9 +487,7 @@ class KiwoomConditon(QObject):
                     # print(line)
             else:
                 break
-        if( rQName in self.conditionOccurList):
-            self.conditionOccurList.remove(rQName)
-            QTimer.singleShot(200, self.sigGetTrCplt)
+
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
         # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
