@@ -52,6 +52,8 @@ class KiwoomConditon(QObject):
         # 종목번호를 key 로 하여 pandas dataframe 을 value 로 함 
         self.df1minCandleStickList = {}
         self.dfStockInfoList ={}
+        self.kospiCodeList = () 
+        self.kosdaqCodeList = () 
         self.createState()
         self.createConnection()
 
@@ -148,7 +150,9 @@ class KiwoomConditon(QObject):
         self.timerSystem.setInterval(1000) 
         self.timerSystem.timeout.connect(self.onTimerSystemTimeout) 
 
-    def isTradeAvailable(self):
+    def isTradeAvailable(self, jongmokCode):
+        # 시간을 확인해 거래 가능한지 여부 판단 
+        result = False
         for start, stop in STOCK_TRADE_TIME:
             start_time =  datetime.datetime( year = self.currentTime.year,
                             month = self.currentTime.month, 
@@ -161,8 +165,30 @@ class KiwoomConditon(QObject):
                             hour = stop[0],
                             minute = stop[1])
             if( self.currentTime >= start_time and self.currentTime <= stop_time ):
-                return True 
-        return False 
+                result = True
+            
+        # 종목 코드를 확인해 현재 업종 지수가 + 인경우만 거래 가능하도록 함  
+        # 종합(KOSDAQ) or 종합(KOSPI)
+        df = None
+        yupjong = ""
+        # yupjong 는 df 내의 종목명으로 넣어서 검색 가능하게 함 
+        if( jongmokCode in self.kospiCodeList):
+            yupjong = "종합(KOSPI)"
+        elif( jongmokCode in self.kosdaqCodeList):
+            yupjong = "종합(KOSDAQ)"
+        
+        if( yupjong == "" ):
+            return False
+
+        try:
+            df = self.dfStockInfoList['전업종지수']
+            updownPercent = df.loc[yupjong, '등락률']
+            if( '+' in updownPercent):
+                result = True
+        except KeyError:
+            return False 
+
+        return result 
         pass
   
     @pyqtSlot()
@@ -247,6 +273,12 @@ class KiwoomConditon(QObject):
         self.account_list = (acc_num.split(';')[:-1])
 
         print(util.whoami() + 'account list ' + str(self.account_list))
+
+        # 코스피 , 코스닥 종목 코드 리스트 얻기 
+        result = self.getCodeListByMarket('0')
+        self.kospiCodeList = tuple(result.split(';'))
+        result = self.getCodeListByMarket('10')
+        self.kosdaqCodeList = tuple(result.split(';'))
         pass
 
     @pyqtSlot()
@@ -328,15 +360,29 @@ class KiwoomConditon(QObject):
         if( len(self.conditionOccurList) == 0 ):
             self.sigStockComplete.emit()
             return
-        self.requestOpt10080(self, self.conditionOccurList[0])
+        self.requestOpt10080(self.conditionOccurList[0])
         pass
 
+    # 주식 기본정보 요청 
+    def requestOpt10001(self, jongmokCode):
+        self.setInputValue("종목코드", jongmokCode) 
+        ret = self.commRqData(jongmokCode, "opt10001", 0, kw_util.sendJusikGobonScreenNo) 
+        
+        errorString = None
+        if( ret != 0 ):
+            errorString =   jongmokCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            print(util.whoami() + errorString ) 
+            util.save_log(errorString, util.whoami(), folder = "log" )
+        pass
+
+        pass
     # 1분봉 tr 요청 
     def requestOpt10080(self, jongmokCode):
      # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
         self.setInputValue("종목코드", jongmokCode )
         self.setInputValue("틱범위","1:1분") 
         self.setInputValue("수정주가구분","0") 
+        # rQName 을 데이터로 외부에서 사용
         ret = self.commRqData(jongmokCode , "opt10080", 0, kw_util.send1minTrScreenNo) 
         
         errorString = None
@@ -347,14 +393,13 @@ class KiwoomConditon(QObject):
         pass
 
     # 업종 현재가 요청 
-    def requestOpt20001(self, sijangGubun, yupjongCode):
-        self.setInputValue("시장구분", sijangGubun )
+    def requestOpt20003(self, yupjongCode):
         self.setInputValue("업종코드", yupjongCode) 
-        ret = self.commRqData(sijangGubun + "_" + yupjongCode , "opt20001", 0, kw_util.sendReqYupjongScreenNo) 
+        ret = self.commRqData("yupjong_" +  yupjongCode , "opt20003", 0, kw_util.sendReqYupjongScreenNo) 
         
         errorString = None
         if( ret != 0 ):
-            errorString =  sijangGubun + " "  + " " + yupjongCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            errorString =   yupjongCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
             print(util.whoami() + errorString ) 
             util.save_log(errorString, util.whoami(), folder = "log" )
         pass
@@ -377,13 +422,18 @@ class KiwoomConditon(QObject):
         print(".", end='') 
         self.currentTime = datetime.datetime.now()
 
-        if( self.currentTime.hour >= 15 and self.currentTime.minute  >= 40): 
-            util.save_log("Stock Trade Terminate!", "시스템", folder = "log")
-            self.sigRequest1minTr.emit()
-            pass
         if( self.getConnectState() != 1 ):
             util.save_log("Disconnected!", "시스템", folder = "log")
             self.sigDisconnected.emit() 
+        else:
+            if( self.currentTime.hour >= 15 and self.currentTime.minute  >= 40): 
+                util.save_log("Stock Trade Terminate!", "시스템", folder = "log")
+                self.sigRequest1minTr.emit()
+                pass
+            else :
+                # 코스피 코스닥 업종 현재가 요청 
+                self.requestOpt20003('001')
+                self.requestOpt20003('101')
         pass
 
     @pyqtSlot()
@@ -440,19 +490,69 @@ class KiwoomConditon(QObject):
         # .format(scrNo, rQName, trCode, recordName,prevNext))
 
         if( trCode == "opt10080"):
-            self.makeOpt10080Info(trCode, rQName)
+            # rQName 은 개별 종목 코드임 
+            self.makeOpt10080Info(rQName)
             if( rQName in self.conditionOccurList):
                 self.conditionOccurList.remove(rQName)
                 QTimer.singleShot(200, self.sigGetTrCplt)
             pass
-        elif( trCode == "opt20001"):
-            print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
-                .format(scrNo, rQName, trCode, recordName,prevNext))
+        elif( trCode == "opt20003"):
+            self.makeOpt20003Info(rQName)
+            pass
+        #주식 기본 정보 요청 완료 후 매수 여부 판단 
+        elif( trCode == "opt10001"):
+            self.makeOpt10001Info(rQName)
             pass
 
+    #주식 기본 정보 
+    def makeOpt10001Info(self, rQName):
+        index = 0
+        line = []
+        jongmokName = ""
+        for list in kw_util.dict_jusik['TR:주식기본정보']:
+            result = self.getCommData("opt10001", rQName, index, list)
+            if( list == '종목명'):
+                jongmokName = result.strip()
+            line.append(result.strip())
+      # print(line)
+        df = None
+        try:
+            df = self.dfStockInfoList['주식기본정보']
+            df.loc[jongmokName] = line 
+        except KeyError:
+            self.dfStockInfoList['전업종지수']= pd.DataFrame(columns = kw_util.dict_jusik['TR:주식기본정보'])
+            df = self.dfStockInfoList['전업종지수']
+            df.loc[jongmokName] = line
+        # print(df)
+        pass
+    
+    # 전업종 지수
+    def makeOpt20003Info(self, rQName):
+        # repeatCnt = self.getRepeatCnt("opt20003", rQName)
+        # kospi 와 kosdaq 만 얻을 것이므로 몇 첫번째 데이터만 취함 
+        index = 0
+        line = []
+        jongmokName = ""
+        for list in kw_util.dict_jusik['TR:전업종지수']:
+            result = self.getCommData("opt20003", rQName, index, list)
+            if( list == '종목명'):
+                jongmokName = result.strip()
+            line.append(result.strip())
+      # print(line)
+        df = None
+        try:
+            df = self.dfStockInfoList['전업종지수']
+            df.loc[jongmokName] = line 
+        except KeyError:
+            self.dfStockInfoList['전업종지수']= pd.DataFrame(columns = kw_util.dict_jusik['TR:전업종지수'])
+            df = self.dfStockInfoList['전업종지수']
+            df.loc[jongmokName] = line
+        # print(df)
+        pass
+        
     # 1분봉 데이터 생성 --> to dataframe
-    def makeOpt10080Info(self, trCode, rQName):
-        repeatCnt = self.getRepeatCnt(trCode, rQName)
+    def makeOpt10080Info(self, rQName):
+        repeatCnt = self.getRepeatCnt("opt10080", rQName)
         currentTimeStr  = None 
         for i in range(repeatCnt):
             line = []
@@ -460,7 +560,7 @@ class KiwoomConditon(QObject):
                 if( list == "종목명" ):
                     line.append(self.getMasterCodeName(rQName))
                     continue
-                result = self.getCommData(trCode, rQName, i, list)
+                result = self.getCommData("opt10080", rQName, i, list)
                 if( list == "체결시간"):
                     currentTimeStr = result.strip()
                 line.append(result.strip())
@@ -530,68 +630,67 @@ class KiwoomConditon(QObject):
 
 
     def processStopLoss(self, jongmokCode):
-        if( self.isTradeAvailable() ) :
-            df = None
-            jongmokName = self.getMasterCodeName(jongmokCode)
-            isTimeCut = False
-            try: 
-                df = self.dfStockInfoList["잔고정보"]
-                df.loc[jongmokName]
-            except KeyError:
-                return
-            maesu_time_str = df.loc[jongmokName, "발생시간"]
-            jangosuryang = int( df.loc[jongmokName, "주문가능수량"] )
+        df = None
+        jongmokName = self.getMasterCodeName(jongmokCode)
+        isTimeCut = False
+        try: 
+            df = self.dfStockInfoList["잔고정보"]
+            df.loc[jongmokName]
+        except KeyError:
+            return
+        maesu_time_str = df.loc[jongmokName, "발생시간"]
+        jangosuryang = int( df.loc[jongmokName, "주문가능수량"] )
 
-            currentTime = datetime.datetime.strptime(util.cur_date_time(),  "%Y-%m-%d %H:%M:%S")
-            maesu_time =  datetime.datetime.strptime(maesu_time_str, "%Y-%m-%d %H:%M:%S")
+        currentTime = datetime.datetime.strptime(util.cur_date_time(),  "%Y-%m-%d %H:%M:%S")
+        maesu_time =  datetime.datetime.strptime(maesu_time_str, "%Y-%m-%d %H:%M:%S")
 
-            time_span = (currentTime - maesu_time).total_seconds()
-            # 타임컷을 넘은 경우 매입단가로 손절가를 높임 
-            if( time_span > 60 * TIME_CUT_MIN ):
-                isTimeCut = True
-                stop_loss = int(df.loc[jongmokName, "매입단가"])
+        time_span = (currentTime - maesu_time).total_seconds()
+        # 타임컷을 넘은 경우 매입단가로 손절가를 높임 
+        if( time_span > 60 * TIME_CUT_MIN ):
+            isTimeCut = True
+            stop_loss = int(df.loc[jongmokName, "매입단가"])
+        else:
+            stop_loss = int(df.loc[jongmokName, "손절가"])
+        
+        df.loc[jongmokName, "손절가"] = stop_loss
+        stop_plus = int(df.loc[jongmokName, "이익실현가"])
+
+
+        # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
+        df = self.dfStockInfoList["실시간-주식호가잔량"]
+        maesuHoga1 =  abs(int(df.loc[jongmokName, '매수호가1']))
+        maesuHogaAmount1 =  int(df.loc[jongmokName, '매수호가수량1'])
+        maesuHoga2 =  abs(int(df.loc[jongmokName, '매수호가2']))
+        maesuHogaAmount2 =  int(df.loc[jongmokName, '매수호가수량2'])
+        #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
+        totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2
+        # print( util.whoami() + jongmokName + " " + str(sum))
+
+        isSell = False
+        printData = ""
+        if( stop_loss >= maesuHoga1 ) :
+            if( isTimeCut == True ) :
+                printData += "타임컷 손절매도주문: "
             else:
-                stop_loss = int(df.loc[jongmokName, "손절가"])
-            
-            df.loc[jongmokName, "손절가"] = stop_loss
-            stop_plus = int(df.loc[jongmokName, "이익실현가"])
+                printData += "손절매도주문: "
+            isSell = True
+        if( stop_plus < maesuHoga1 ) :
+            if( totalAmount >= TOTAL_BUY_AMOUNT):
+                printData += "익절매도문주문: " 
+                isSell = True 
 
-
-            # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
-            df = self.dfStockInfoList["실시간-주식호가잔량"]
-            maesuHoga1 =  abs(int(df.loc[jongmokName, '매수호가1']))
-            maesuHogaAmount1 =  int(df.loc[jongmokName, '매수호가수량1'])
-            maesuHoga2 =  abs(int(df.loc[jongmokName, '매수호가2']))
-            maesuHogaAmount2 =  int(df.loc[jongmokName, '매수호가수량2'])
-            #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
-            totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2
-            # print( util.whoami() + jongmokName + " " + str(sum))
-
-            isSell = False
-            printData = ""
-            if( stop_loss >= maesuHoga1 ) :
-                if( isTimeCut == True ) :
-                    printData += "타임컷 손절매도주문: "
-                else:
-                    printData += "손절매도주문: "
-                isSell = True
-            if( stop_plus < maesuHoga1 ) :
-                if( totalAmount >= TOTAL_BUY_AMOUNT):
-                    printData += "익절매도문주문: " 
-                    isSell = True 
-
-            printData += jongmokCode + " " + jongmokName + " 잔고수량 " + str(jangosuryang) 
-            if( isSell == True ):
-                result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-                                    jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
-                util.save_log(printData, '손절', 'log')
-                print("S " + str(result), sep= "")
-                pass
+        printData += jongmokCode + " " + jongmokName + " 잔고수량 " + str(jangosuryang) 
+        if( isSell == True ):
+            result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+                                jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
+            util.save_log(printData, '손절', 'log')
+            print("S " + str(result), sep= "")
+            pass
         pass
 
 
     def processBuy(self, jongmokCode):
-        if( self.isTradeAvailable() ):        
+        if( self.isTradeAvailable(jongmokCode) ):        
             # 기존 매수한 종목인 경우 매수 금지 
             if( len(self.buyCodeList) ):
                 return
@@ -803,8 +902,8 @@ class KiwoomConditon(QObject):
         if( typeName == '진입'):
             printLog = '{}, status: {}'.format( self.getMasterCodeName(code), typeName)
             self.makeConditionOccurInfo(code)
-            if( self.isTradeAvailable() == False ) :
-                util.save_log(printLog, "조건진입(거래시간오버)", folder = "log" )
+            if( self.isTradeAvailable(code) == False ) :
+                util.save_log(printLog, "조건진입(거래불가능)", folder = "log" )
                 return
             if( len(self.buyCodeList) == 0 ):
                 self.insertJanRyangCodeList(code)
@@ -883,6 +982,11 @@ class KiwoomConditon(QObject):
     @pyqtSlot(str, str)
     def setInputValue(self, id, value):
         self.ocx.dynamicCall("SetInputValue(QString, QString)", id, value)
+
+
+    @pyqtSlot(str, result=str)
+    def getCodeListByMarket(self, sMarket):
+        return self.ocx.dynamicCall("GetCodeListByMarket(QString)", sMarket)
 
     # 통신 데이터를 송신한다.
     # 0이면 정상
@@ -1134,6 +1238,21 @@ if __name__ == "__main__":
         pass
     def test_condition():
         objKiwoom._OnReceiveRealCondition("044180", "I",  "단타 추세", 1)
+        pass
+    def test_yupjong():
+        objKiwoom.requestOpt20003("1")
+        objKiwoom.requestOpt20003("101")
+        pass 
+    def test_getCodeList():
+        # 코스피 코드 리스트
+        result = objKiwoom.getCodeListByMarket('0')
+        print(result)
+        # 코스닥 코드 리스트 
+        result = objKiwoom.getCodeListByMarket('10')
+        print(result)
+        pass
+    def test_jusikGibon():
+        objKiwoom.requestOpt10001("044180")
         pass
     sys.exit(myApp.exec_())
 
