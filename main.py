@@ -166,7 +166,9 @@ class KiwoomConditon(QObject):
                             minute = stop[1])
             if( self.currentTime >= start_time and self.currentTime <= stop_time ):
                 result = True
-            
+        # 가능한 시간이 아니라면 바로 리턴     
+        if( result == False ):
+            return False
         # 종목 코드를 확인해 현재 업종 지수가 + 인경우만 거래 가능하도록 함  
         # 종합(KOSDAQ) or 종합(KOSPI)
         df = None
