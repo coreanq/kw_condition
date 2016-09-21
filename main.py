@@ -17,7 +17,7 @@ from PyQt5.QAxContainer import QAxWidget
 STOCK_TRADE_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]
 
 TIME_CUT_MIN = 10  
-STOP_PLUS_PERCENT = 3
+STOP_PLUS_PERCENT = 3.5
 STOP_LOSS_PERCENT = 2.5
 # 5000만 이상 안되면 구매 안함 (슬리피지 최소화) 
 TOTAL_BUY_AMOUNT = 50000000
@@ -680,6 +680,9 @@ class KiwoomConditon(QObject):
             if( totalAmount >= TOTAL_BUY_AMOUNT):
                 printData += "익절매도문주문: " 
                 isSell = True 
+            else:
+                printData += "익절시도수량부족: " 
+                isSell = True
 
         printData += jongmokCode + " " + jongmokName + " 잔고수량 " + str(jangosuryang) 
         if( isSell == True ):
