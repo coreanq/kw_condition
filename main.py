@@ -14,13 +14,14 @@ from PyQt5.QtQml import QQmlApplicationEngine
 from PyQt5.QAxContainer import QAxWidget
 
 
-STOCK_TRADE_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]
-
+# STOCK_TRADE_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]
+STOCK_TRADE_TIME = [ [ [9, 10], [15, 10] ]]
 TIME_CUT_MIN = 10  
 STOP_PLUS_PERCENT = 3.5
-STOP_LOSS_PERCENT = 2.5
+STOP_LOSS_PERCENT = 2.5 * 2 # 초반 TIME_CUT_MIN 동안은 한번 믿고 가는 식으로 (거의 급등만 검색되므로 잠깐의 큰 하락 있을 수 있음)
 # 5000만 이상 안되면 구매 안함 (슬리피지 최소화) 
 TOTAL_BUY_AMOUNT = 50000000
+STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 검증 루틴 넣음 
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 STOCK_INFO_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() +"_stock.xlsx"
@@ -682,7 +683,8 @@ class KiwoomConditon(QObject):
                 isSell = True 
             else:
                 printData += "익절시도수량부족: " 
-                isSell = True
+                printData += jongmokCode + " " + jongmokName + " 잔고수량 " + str(jangosuryang) 
+                util.save_log(printData, '손절시도만!', 'log')
 
         printData += jongmokCode + " " + jongmokName + " 잔고수량 " + str(jangosuryang) 
         if( isSell == True ):
@@ -729,12 +731,13 @@ class KiwoomConditon(QObject):
                     .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
 
             if( totalAmount >= TOTAL_BUY_AMOUNT):
-                util.save_log(jongmokName, "매수주문", folder= "log")
-                result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-                        jongmokCode, 1, 0 , kw_util.dict_order["시장가"], "")
-                print("B " + str(result) , sep="")
-                # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
-                self.insertBuyCodeList(jongmokCode)
+                if( maedoHoga1 >= STOCK_PRICE_MIN_MAX['min'] and maedoHoga1 <= STOCK_PRICE_MIN_MAX['max']):
+                    util.save_log(jongmokName, "매수주문", folder= "log")
+                    result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+                            jongmokCode, 1, 0 , kw_util.dict_order["시장가"], "")
+                    print("B " + str(result) , sep="")
+                    # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
+                    self.insertBuyCodeList(jongmokCode)
         pass
 
 
