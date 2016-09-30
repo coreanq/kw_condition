@@ -186,10 +186,13 @@ class KiwoomConditon(QObject):
         try:
             df = self.dfStockInfoList['전업종지수']
             updownPercent = df.loc[yupjong, '등락률']
+            print(yupjong, updownPercent)
             if( '+' in updownPercent):
                 result = True
+            else:
+                result = False
         except KeyError:
-            return False 
+            result = False 
 
         return result 
         pass
@@ -523,8 +526,8 @@ class KiwoomConditon(QObject):
             df = self.dfStockInfoList['주식기본정보']
             df.loc[jongmokName] = line 
         except KeyError:
-            self.dfStockInfoList['전업종지수']= pd.DataFrame(columns = kw_util.dict_jusik['TR:주식기본정보'])
-            df = self.dfStockInfoList['전업종지수']
+            self.dfStockInfoList['주식기본정보']= pd.DataFrame(columns = kw_util.dict_jusik['TR:주식기본정보'])
+            df = self.dfStockInfoList['주식기본정보']
             df.loc[jongmokName] = line
         # print(df)
         pass
