@@ -15,12 +15,11 @@ from PyQt5.QAxContainer import QAxWidget
 
 
 # STOCK_TRADE_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]
-STOCK_TRADE_TIME = [ [ [9, 10], [15, 10] ]]
-TIME_CUT_MIN = 10  
+STOCK_TRADE_TIME = [ [ [9, 5], [15, 10] ]]
+TIME_CUT_MIN = 20  
 STOP_PLUS_PERCENT = 3.5
-STOP_LOSS_PERCENT = 2.5 * 2 # 초반 TIME_CUT_MIN 동안은 한번 믿고 가는 식으로 (거의 급등만 검색되므로 잠깐의 큰 하락 있을 수 있음)
-# 5000만 이상 안되면 구매 안함 (슬리피지 최소화) 
-TOTAL_BUY_AMOUNT = 50000000
+STOP_LOSS_PERCENT = 2.5 
+TOTAL_BUY_AMOUNT = 50000000 # 5000만 이상 안되면 구매 안함 (슬리피지 최소화) 
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 검증 루틴 넣음 
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
@@ -186,7 +185,7 @@ class KiwoomConditon(QObject):
         try:
             df = self.dfStockInfoList['전업종지수']
             updownPercent = df.loc[yupjong, '등락률']
-            print(yupjong, updownPercent)
+            # print(yupjong, updownPercent)
             if( '+' in updownPercent):
                 result = True
             else:
@@ -654,7 +653,8 @@ class KiwoomConditon(QObject):
         # 타임컷을 넘은 경우 매입단가로 손절가를 높임 
         if( time_span > 60 * TIME_CUT_MIN ):
             isTimeCut = True
-            stop_loss = int(df.loc[jongmokName, "매입단가"])
+            # 타임컷을 넘고 매입단가 근처서 왔다갔다 하는것을 막기 위해 바로 매도
+            stop_loss = int(df.loc[jongmokName, "매입단가"] ) * 100
         else:
             stop_loss = int(df.loc[jongmokName, "손절가"])
         
