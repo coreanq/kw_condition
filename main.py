@@ -14,13 +14,16 @@ from PyQt5.QtQml import QQmlApplicationEngine
 from PyQt5.QAxContainer import QAxWidget
 
 
-# STOCK_TRADE_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]
-STOCK_TRADE_TIME = [ [ [9, 5], [15, 10] ]]
-TIME_CUT_MIN = 20  
-STOP_PLUS_PERCENT = 3.5
-STOP_LOSS_PERCENT = 2.5 
-TOTAL_BUY_AMOUNT = 50000000 # 5000만 이상 안되면 구매 안함 (슬리피지 최소화) 
-STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 검증 루틴 넣음 
+# STOCK_TRADE_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
+STOCK_TRADE_TIME = [ [ [9, 5], [15, 10] ]] #해당 시스템 동작 시간 설정 -->  9시 5분 부터 15시 10분까지만 동작
+CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 이름
+TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
+TOTAL_BUY_AMOUNT = 50000000 #  매도 호가1, 매도 호가 2의 총 수량이 5000만원 이상 안되면 매수금지  (슬리피지 최소화)
+TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 
+STOP_PLUS_PERCENT = 3.5 # 익절 퍼센티지 
+STOP_LOSS_PERCENT = 2.5 # 손절 퍼센티지  
+STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
+
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 STOCK_INFO_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() +"_stock.xlsx"
@@ -311,21 +314,12 @@ class KiwoomConditon(QObject):
         tempDict = dict(findList)
         print(tempDict)
         
-        # for condition_num, condition_name in tempDict.items():
-        #     df = self.modelCondition._data
-        #     df.loc[len(self.modelCondition)] = (condition_num, condition_name)
-        #     self.modelCondition.refresh()
-             
-        # print(self.modelCondition)
-        
-        # name = self.dictCondition['001']
-        # print(util.whoami() + str(self.dictCondition) +' ' + name)
-        conditionNum = 0 
+        condition_num = 0 
         for number, condition in tempDict.items():
-            if condition == kw_util.selectConditionName:
-                    conditionNum = int(number)
-        print("select condition" + kw_util.sendConditionScreenNo, kw_util.selectConditionName, conditionNum)
-        self.sendCondition(kw_util.sendConditionScreenNo, kw_util.selectConditionName, conditionNum,  1)
+            if condition == CONDITION_NAME:
+                    condition_num = int(number)
+        print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
+        self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
         
         self.sigSelectCondition.emit()
 
@@ -733,11 +727,17 @@ class KiwoomConditon(QObject):
             util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
                     .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
 
+            maesu_count = 0 
+            if( TEST_MODE == True ):
+                maesu_count = 1
+            else:
+                maesu_count = round((TOTAL_BUY_AMOUNT / maedoHogaAmount2) - 0.5) # 첫번째 자리수 버림 
             if( totalAmount >= TOTAL_BUY_AMOUNT):
                 if( maedoHoga1 >= STOCK_PRICE_MIN_MAX['min'] and maedoHoga1 <= STOCK_PRICE_MIN_MAX['max']):
                     util.save_log(jongmokName, "매수주문", folder= "log")
-                    result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-                            jongmokCode, 1, 0 , kw_util.dict_order["시장가"], "")
+                    result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
+                    objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
+                    maesu_count, 0 , kw_util.dict_order["시장가"], "")
                     print("B " + str(result) , sep="")
                     # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
                     self.insertBuyCodeList(jongmokCode)
