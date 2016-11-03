@@ -9,7 +9,8 @@ sendRealRegScreenNo = "002"
 send1minTrScreenNo = "003"
 sendOrderScreenNo = "004"
 sendReqYupjongScreenNo = "005"
-sendJusikGobonScreenNo = "006"
+sendJusikGibonScreenNo = "006"
+sendJusikHogaScreenNo = "007"
 
 
 dict_order = {
@@ -48,23 +49,26 @@ dict_jusik = {
                             "체결시간", 
                             "시가",
                             "고가",
-                            "저가"
-                            ),
+                            "저가"),
                'TR:전업종지수': ( '종목코드', 
                                  '종목명', 
                                  '현재가', 
                                  '등락률', 
-                                 '거래량'
-                              ),
+                                 '거래량'),
                'TR:주식기본정보': ( '종목코드', 
                                    '종목명', 
+                                   '등락율',
                                    '시가', 
                                    '고가', 
                                    '저가', 
                                    '상한가', 
                                    '하한가', 
-                                   '기준가'
-                                   ),
+                                   '기준가'),
+                'TR:주식호가요청': ( '호가잔량기준시간',
+                                    '매도최우선잔량',
+                                    '매도최우선호가',
+                                    '매도2차선잔량',
+                                    '매도2차선호가'),
                "실시간-주식체결":("종목코드", 
                             "종목명",
                             "체결시간", 
