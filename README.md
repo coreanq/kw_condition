@@ -4,7 +4,7 @@
  - 키움증권의 조건 검색 기능을 이용하여 조건 검색에 해당하는 종목리스트를 얻어와 매매 수행
  - 현재는 하루에 모든 매매를 끝내는 단타로 구현
  - <a href="https://www.youtube.com/watch?v=QnnO4kIj51c" target="_blank"><img src="http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg" 
-alt="키움증권 조건검색 사용 가이드" width="240" height="180" border="10" /></a>
+alt="키움증권 조건검색 사용 가이드" width="300" height="" border="10" /></a>
 
 ## 개발 환경  
  - Windows 32bit 권장
@@ -21,8 +21,9 @@ alt="키움증권 조건검색 사용 가이드" width="240" height="180" border
  > python main.py 
 ~~~~
 
-> main.py 내의 변수 설정 내용 
-> STOCK_TRADE_TIME = [ [ [9, 5], [15, 10] ]] #해당 시스템 동작 시간 설정 -->  9시 5분 부터 15시 10분까지만 동작
+> main.py 내의  변수 설정 내용 
+STOCK_TRADE_TIME = [ [ [9, 5], [15, 10] ]] 
+:  해당 시스템 동작 시간 설정 -->  9시 5분 부터 15시 10분까지만 동작
 > CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
 > TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  

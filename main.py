@@ -16,12 +16,12 @@ from PyQt5.QAxContainer import QAxWidget
 
 # STOCK_TRADE_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
 STOCK_TRADE_TIME = [ [ [9, 5], [15, 10] ]] #해당 시스템 동작 시간 설정 -->  9시 5분 부터 15시 10분까지만 동작
-CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 이름
+CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
-TOTAL_BUY_AMOUNT = 50000000 #  매도 호가1, 매도 호가 2의 총 수량이 5000만원 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 
-STOP_PLUS_PERCENT = 3.5 # 익절 퍼센티지 
-STOP_LOSS_PERCENT = 2.5 # 손절 퍼센티지  
+TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1 총 수량이 3000만원 이상 안되면 매수금지  (슬리피지 최소화)
+TIME_CUT_MIN = 5 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 
+STOP_PLUS_PERCENT = 2.5# 익절 퍼센티지 
+STOP_LOSS_PERCENT = 1.5 # 손절 퍼센티지  
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
 
@@ -41,6 +41,13 @@ class KiwoomConditon(QObject):
     sigPrepare1minTrListComplete = pyqtSignal()
     sigStateStop = pyqtSignal()
     sigStockComplete = pyqtSignal()
+    sigConditionOccur = pyqtSignal()
+    sigGetBasicInfo = pyqtSignal()
+    sigGetHogaInfo = pyqtSignal()
+    sigBuy = pyqtSignal()
+    sigNoBuy = pyqtSignal()
+    sigRequestRealHogaComplete = pyqtSignal()
+    
 
     def __init__(self):
         super().__init__()
@@ -72,18 +79,14 @@ class KiwoomConditon(QObject):
         initState = QState(mainState)
         disconnectedState = QState(mainState)
         connectedState = QState(QtCore.QState.ParallelStates, mainState)
-        
-        conditionState = QState(connectedState)
-        purchaseState = QState(connectedState)
-        
-        initConditionState = QState(conditionState)
-        waitingSelectConditionState = QState(conditionState)
-        standbyConditionState = QState(conditionState)
-        prepare1minTrListState = QState(conditionState)
-        request1minTrState = QState(conditionState)
 
-        initPurchaseState = QState(purchaseState)
+        systemState = QState(connectedState)
         
+        initSystemState = QState(systemState)
+        waitingSelectSystemState = QState(systemState)
+        standbySystemState = QState(systemState)
+        prepare1minTrListState = QState(systemState)
+        request1minTrState = QState(systemState)
         
         #transition defition
         mainState.setInitialState(initState)
@@ -95,16 +98,14 @@ class KiwoomConditon(QObject):
         disconnectedState.addTransition(self.sigTryConnect,  disconnectedState)
         connectedState.addTransition(self.sigDisconnected, disconnectedState)
         
-        conditionState.setInitialState(initConditionState)
-        initConditionState.addTransition(self.sigGetConditionCplt, waitingSelectConditionState)
-        waitingSelectConditionState.addTransition(self.sigSelectCondition, standbyConditionState)
-        standbyConditionState.addTransition(self.sigRefreshCondition, initConditionState)
-        standbyConditionState.addTransition(self.sigRequest1minTr,prepare1minTrListState ) 
+        systemState.setInitialState(initSystemState)
+        initSystemState.addTransition(self.sigGetConditionCplt, waitingSelectSystemState)
+        waitingSelectSystemState.addTransition(self.sigSelectCondition, standbySystemState)
+        standbySystemState.addTransition(self.sigRefreshCondition, initSystemState)
+        standbySystemState.addTransition(self.sigRequest1minTr,prepare1minTrListState ) 
         prepare1minTrListState.addTransition(self.sigPrepare1minTrListComplete, request1minTrState) 
         request1minTrState.addTransition(self.sigGetTrCplt, request1minTrState) 
         
-        purchaseState.setInitialState(initPurchaseState)
-
         #state entered slot connect
         mainState.entered.connect(self.mainStateEntered)
         stockCompleteState.entered.connect(self.stockCompleteStateEntered)
@@ -112,20 +113,39 @@ class KiwoomConditon(QObject):
         disconnectedState.entered.connect(self.disconnectedStateEntered)
         connectedState.entered.connect(self.connectedStateEntered)
         
-        conditionState.entered.connect(self.conditionStateEntered)
-        purchaseState.entered.connect(self.trStateEntered)
-        
-        initConditionState.entered.connect(self.initConditionStateEntered)
-        waitingSelectConditionState.entered.connect(self.waitingSelectConditionStateEntered)
-        standbyConditionState.entered.connect(self.standbyConditionStateEntered)
+        systemState.entered.connect(self.systemStateEntered)
+        initSystemState.entered.connect(self.initSystemStateEntered)
+        waitingSelectSystemState.entered.connect(self.waitingSelectSystemStateEntered)
+        standbySystemState.entered.connect(self.standbySystemStateEntered)
         prepare1minTrListState.entered.connect(self.prepare1minTrListStateEntered)
-        request1minTrState.entered.connect(self.request1minTrStateEntered) 
+        request1minTrState.entered.connect(self.request1minTrStateEntered)        
+    
 
-        initPurchaseState.entered.connect(self.initPurchaseStateEntered)
-        
-        finalState.entered.connect(self.finalStateEntered)
+        # processBuy definition
+        processBuyState = QState(connectedState)
+        standbyProcessBuyState = QState(processBuyState)
+        requestBasicInfoProcessBuyState = QState(processBuyState)
+        requestHogaInfoProcessBuyState = QState(processBuyState)
+        determineBuyProcessBuyState = QState(processBuyState)
+        requestRealTimeHogaInfoProcessBuyState = QState(processBuyState)
+
+        processBuyState.setInitialState(standbyProcessBuyState)
+        standbyProcessBuyState.addTransition(self.sigConditionOccur, requestBasicInfoProcessBuyState)
+        requestBasicInfoProcessBuyState.addTransition(self.sigGetBasicInfo, requestHogaInfoProcessBuyState)
+        requestHogaInfoProcessBuyState.addTransition(self.sigGetHogaInfo, determineBuyProcessBuyState)
+        determineBuyProcessBuyState.addTransition(self.sigNoBuy, standbyProcessBuyState)
+        determineBuyProcessBuyState.addTransition(self.sigBuy, requestRealTimeHogaInfoProcessBuyState)
+        requestRealTimeHogaInfoProcessBuyState.addTransition(self.sigRequestRealHogaComplete, standbyProcessBuyState)
+
+        processBuyState.entered.connect(self.processBuyStateEntered)
+        standbyProcessBuyState.entered.connect(self.standbyProcessBuyStateEntered)
+        requestBasicInfoProcessBuyState.entered.connect(self.requestBasicInfoProcessBuyStateEntered)
+        requestHogaInfoProcessBuyState.entered.connect(self.requestHogaInfoProcessBuyStateEntered)
+        determineBuyProcessBuyState.entered.connect(self.determineBuyProcessBuyStateEntered)
+        requestRealTimeHogaInfoProcessBuyState.entered.connect(self.requestRealTimeHogaInfoProcessBuyStateEntered)
         
         #fsm start
+        finalState.entered.connect(self.finalStateEntered)
         self.fsm.start()
 
     def initQmlEngine(self):
@@ -184,6 +204,8 @@ class KiwoomConditon(QObject):
         
         if( yupjong == "" ):
             return False
+        
+        return True
 
         try:
             df = self.dfStockInfoList['전업종지수']
@@ -290,18 +312,18 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def conditionStateEntered(self):
+    def systemStateEntered(self):
         pass
 
     @pyqtSlot()
-    def initConditionStateEntered(self):
+    def initSystemStateEntered(self):
         print(util.whoami() )
         # get 조건 검색 리스트
         self.getConditionLoad()
         pass
 
     @pyqtSlot()
-    def waitingSelectConditionStateEntered(self):
+    def waitingSelectSystemStateEntered(self):
         print(util.whoami() )
         # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
         # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
@@ -326,7 +348,7 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def standbyConditionStateEntered(self):
+    def standbySystemStateEntered(self):
         print(util.whoami() )
         jangoList = [] 
         try: 
@@ -404,12 +426,35 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def initPurchaseStateEntered(self):
+    def processBuyStateEntered(self):
         pass
      
     @pyqtSlot()
-    def trStateEntered(self):
+    def standbyProcessBuyStateEntered(self):
+        print(util.whoami())
         pass
+
+    @pyqtSlot()
+    def requestBasicInfoProcessBuyStateEntered(self):
+        print(util.whoami())
+        pass
+
+    @pyqtSlot()
+    def requestHogaInfoProcessBuyStateEntered(self):
+        print(util.whoami())
+        pass
+
+    @pyqtSlot()
+    def determineBuyProcessBuyStateEntered(self):
+        print(util.whoami())
+        pass
+
+    @pyqtSlot()
+    def requestRealTimeHogaInfoProcessBuyStateEntered(self):
+        print(util.whoami())
+        pass
+
+        
 
     @pyqtSlot()
     def finalStateEntered(self):
@@ -722,7 +767,7 @@ class KiwoomConditon(QObject):
             maedoHoga2 =  abs(int(dfHoga.loc[jongmokName, '매도호가2']))
             maedoHogaAmount2 =  int(dfHoga.loc[jongmokName, '매도호가수량2'])
             #    print( util.whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
-            totalAmount =  maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2 
+            totalAmount =  maedoHoga1 * maedoHogaAmount1  
             # print( util.whoami() + jongmokName + " " + str(sum) + (" won") ) 
             util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
                     .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
