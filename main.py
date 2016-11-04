@@ -15,13 +15,13 @@ from PyQt5.QAxContainer import QAxWidget
 
 
 # STOCK_TRADE_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-STOCK_TRADE_TIME = [ [ [9, 5], [15, 10] ]] #해당 시스템 동작 시간 설정 -->  9시 5분 부터 15시 10분까지만 동작
+STOCK_TRADE_TIME = [ [ [9, 1], [15, 10] ]] #해당 시스템 동작 시간 설정 -->  9시 5분 부터 15시 10분까지만 동작
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1 총 수량이 3000만원 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 15 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 
+TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 
 STOP_PLUS_PERCENT = 3.5# 익절 퍼센티지 
-STOP_LOSS_PERCENT = 2.5 # 손절 퍼센티지  
+STOP_LOSS_PERCENT = 2.0 # 손절 퍼센티지  
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
 
@@ -478,7 +478,7 @@ class KiwoomConditon(QObject):
         if( len(self.conditionOccurList )):
             jongmokInfo_dict = self.conditionOccurList[0]
         else:
-            util.save_log(printLog, "조건진입(조건리스트없음)", folder = "log")
+            printLog += '(조건리스트없음)'
             return_vals.append(False)
             return
 
@@ -488,20 +488,19 @@ class KiwoomConditon(QObject):
         jongmokCode = jongmokInfo_dict['종목코드']
         print(jongmokInfo_dict)
 
+        printLog += ' ' + jongmokName + " " + jongmokCode + ' '
+
         # 이미 매수한 종목이 있는지 확인
         if( len(self.buyCodeList) == 0 ):
             pass
         else:
-            printLog = jongmokName + " " + jongmokCode
-            util.save_log(printLog, "조건진입(보유)", folder = "log")
+            printLog += "(보유중)"
             return_vals.append(False)
-
 
         if( self.isTradeAvailable(jongmokCode) ):  
             pass
         else:
-            printLog = jongmokName + " " + jongmokCode
-            util.save_log(printLog, "거래시간X", folder = "log")
+            printLog += "(거래시간X)"
             return_vals.append(False)
             
         # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
@@ -512,23 +511,21 @@ class KiwoomConditon(QObject):
         #    print( util.whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
         totalAmount =  maedoHoga1 * maedoHogaAmount1  
         # print( util.whoami() + jongmokName + " " + str(sum) + (" won") ) 
-        util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
-                .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
+        # util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
+                # .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
 
         # 가격조건 확인 
         if( maedoHoga1 >= STOCK_PRICE_MIN_MAX['min'] and maedoHoga1 <= STOCK_PRICE_MIN_MAX['max']):
             pass
         else:
-            printLog = jongmokName + " " + jongmokCode
-            util.save_log(printLog, "조건진입(종목가격미충족)", folder = "log" ) 
+            printLog += "(종목가격미충족)" 
             return_vals.append(False)
 
-        # 호가 전량이 살만큼 있는 경우  
+        # 호가 잔량이 살만큼 있는 경우  
         if( totalAmount >= TOTAL_BUY_AMOUNT):
             pass 
         else:
-            printLog = jongmokName + " " + jongmokCode
-            util.save_log(printLog, "조건진입(호가미충족)", folder = "log" )
+            printLog += "(호가수량부족)"
             return_vals.append(False)
     
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
@@ -537,18 +534,24 @@ class KiwoomConditon(QObject):
         if( stock_price > 0 and stock_price < 25):
             pass
         else:
-            printLog = jongmokName + " " + jongmokCode
-            util.save_log(printLog, "조건진입(등락률미충족)", folder = "log" )
+            printLog += "(등락률미충족)"
             return_vals.append(False)
 
-
+        # 기준가 미달인 경우 매수 하지 않음 
+        base_price = jongmokInfo_dict['기준가']
+        if( maedoHoga1 >= base_price):
+            pass
+        else:
+            printLog += "(기준가미충족)"
+            return_vals.append(False)
 
         # 매수 
         try: 
             return_vals.index(False)
-            print('remove janrynag'+ jongmokCode)
+            print('remove janrynag '+ jongmokCode)
             self.removeJanRyangCodeList(jongmokCode)
             self.sigNoBuy.emit()
+            util.save_log(printLog, '조건진입매수실패', folder = "log")
   
         except ValueError:
             util.save_log(jongmokName, "매수주문", folder= "log")
@@ -587,9 +590,10 @@ class KiwoomConditon(QObject):
                 self.sigRequest1minTr.emit()
                 pass
             else :
+                pass
                 # 코스피 코스닥 업종 현재가 요청 
-                self.requestOpt20003('001')
-                self.requestOpt20003('101')
+               # self.requestOpt20003('001')
+              #  self.requestOpt20003('101')
         pass
 
     @pyqtSlot()
@@ -768,7 +772,9 @@ class KiwoomConditon(QObject):
         # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
         if( realType == "주식호가잔량"):
-            print(util.whoami() + 'jongmokCode: {}, realType: {}'.format(jongmokCode, realType) )
+#print(util.whoami() + 'jongmokCode: {}, realType: {}'.format(jongmokCode, realType) )
+            print('?',end ='')
+          
             # TODO: 엉뚱한 종목코드의 주식 호가 잔량이 넘어 오는 경우가 있으므로 확인해야함 
             self.makeHogaJanRyangInfo(jongmokCode)                
             self.processStopLoss(jongmokCode)
