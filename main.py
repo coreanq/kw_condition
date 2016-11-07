@@ -461,9 +461,9 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
     
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
-        stock_price = float(jongmokInfo_dict['등락율'] )
+        updown_percentage = float(jongmokInfo_dict['등락율'] )
         
-        if( stock_price > 0 and stock_price < 25):
+        if( updown_percentage > 0 and updown_percentage < 30 - (STOP_PLUS_PERCENT * 1.5) ):
             pass
         else:
             printLog += '(등락률미충족)'
@@ -475,6 +475,15 @@ class KiwoomConditon(QObject):
             pass
         else:
             printLog += '(기준가미충족)'
+            return_vals.append(False)
+        
+        # 저가가 시가 밑으로 내려간적 있는 지 확인 
+        start_price = int(jongmokInfo_dict['시가'])
+        low_price = int(jongmokInfo_dict['저가'])
+        if( low_price >= start_price ):
+            pass
+        else:
+            printLog += '(저가가시가보다낮음)'
             return_vals.append(False)
 
         # 매수 
