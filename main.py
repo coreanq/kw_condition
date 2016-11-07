@@ -64,9 +64,10 @@ class KiwoomConditon(QObject):
         self.account_list = []
         self.timerSystem = QTimer()
         self.buyCodeList = []
-        self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 분봉 저장용으로 사용 
+        self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 
+        self.stopplusList = [] # 익절 발생한 종목 리스트 저장 
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
-        # 종목번호를 key 로 하여 pandas dataframe 을 value 로 함 
+        self.oneMinCandleJongmokList = [] 
         self.df1minCandleStickList = {}
         self.dfStockInfoList ={}
         self.kospiCodeList = () 
@@ -347,12 +348,12 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def prepare1minTrListStateEntered(self):
         print(util.whoami() )
-        self.conditionOccurList = [] 
+        self.oneMinCandleJongmokList = [] 
         # 조건 진입 정보를 읽어 종목 코드 값을 빼낸 뒤 tr 요청 
         try:
             df = self.dfStockInfoList['체결정보'].drop_duplicates("종목코드")
             for index, series in df.iterrows():
-                self.conditionOccurList.append(series["종목코드"])
+                self.oneMinCandleJongmokList.append(series["종목코드"])
         except KeyError:
             pass  
         self.sigPrepare1minTrListComplete.emit()
@@ -360,10 +361,10 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def request1minTrStateEntered(self):
         print(util.whoami() )
-        if( len(self.conditionOccurList) == 0 ):
+        if( len(self.oneMinCandleJongmokList) == 0 ):
             self.sigStockComplete.emit()
             return
-        self.requestOpt10080(self.conditionOccurList[0])
+        self.requestOpt10080(self.oneMinCandleJongmokList[0])
         pass
 
     @pyqtSlot()
@@ -490,6 +491,13 @@ class KiwoomConditon(QObject):
             pass
         else:
             printLog += '(저가가전일종가보다낮음)'
+            return_vals.append(False)
+
+        # 기존에 이미 수익이 한번 발생한 종목이라면  
+        if( self.stopplusList.count(jongmokCode) == 0 ):
+            pass
+        else:
+            printLog += '(수익발생종목)'
             return_vals.append(False)
 
         # 매수 
@@ -756,8 +764,8 @@ class KiwoomConditon(QObject):
         # 주식 분봉 
         elif( trCode == "opt10080"):     
             self.makeOpt10080Info(rQName)
-            if( rQName in self.conditionOccurList):
-                self.conditionOccurList.remove(rQName)
+            if( rQName in self.oneMinCandleJongmokList):
+                self.oneMinCandleJongmokList.remove(rQName)
                 QTimer.singleShot(200, self.sigGetTrCplt)
             pass
         # 업종 지수 요청 ex) 코스피 코스닥 
@@ -846,6 +854,7 @@ class KiwoomConditon(QObject):
             isSell = True
         if( stop_plus < maesuHoga1 ) :
             if( totalAmount >= TOTAL_BUY_AMOUNT):
+                self.stopPlusList.append(jongmokCode)
                 printData += "(익절매도문주문)" 
                 isSell = True 
             else:
