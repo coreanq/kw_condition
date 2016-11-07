@@ -24,7 +24,7 @@ TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1 총 수량이 TOTAL_BUY_AMOUNT 이
 # TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
 STOP_PLUS_PERCENT = 4 # 익절 퍼센티지 # 손절은 자동으로 기준가로 정해지고 매수시 기준가 + STOP_PLUS_PERCENT 이상이 아니면 매수하지 않음  
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
-STOCK_POSSESION_COUNT = 5 # 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 하루에 기회가 많지 않으므로 5개 이상 금지 
+STOCK_POSSESION_COUNT = 2 # 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 하루에 기회가 많지 않으므로 5개 이상 금지 
 
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
@@ -249,13 +249,13 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def initStateEntered(self):
-        print(util.whoami())
+        # print(util.whoami())
         self.sigInitOk.emit()
         pass
 
     @pyqtSlot()
     def disconnectedStateEntered(self):
-        print(util.whoami())
+        # print(util.whoami())
         if( self.getConnectState() == 0 ):
             self.commConnect()
             QTimer.singleShot(90000, self.sigTryConnect)
@@ -439,10 +439,10 @@ class KiwoomConditon(QObject):
                 # .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
 
         # 이미 보유한 종목 구매 금지 
-        if( self.buyCodeList.count(jongmokCode) != 0 ):
+        if( self.buyCodeList.count(jongmokCode) == 0 ):
             pass
         else:
-            printLog += '(이미보유종목)'
+            printLog += '( !이미보유종목! )'
             return_vals.append(False)
             pass
 
@@ -470,7 +470,7 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
 
         # 기준가 + 익절 퍼센티지 미달인 경우 매수 하지 않음 
-        base_price = jongmokInfo_dict['기준가']
+        base_price = int(jongmokInfo_dict['기준가'])
         if( maedoHoga1 >= base_price * (1 + STOP_PLUS_PERCENT / 100)):
             pass
         else:
@@ -478,7 +478,7 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
 
         # 매수 
-        if( return_vals.count(False) ):
+        if( return_vals.count(False) == 0 ):
             util.save_log(jongmokName, '매수주문', folder= "log")
             maesu_count = 0 
             if( TEST_MODE == True ):
@@ -753,8 +753,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
         #         .format(jongmokCode, realType, realData))
         if( realType == "주식호가잔량"):
-#print(util.whoami() + 'jongmokCode: {}, realType: {}'.format(jongmokCode, realType) )
-            print('?',end ='')
+            print(jongmokCode,end =' ')
           
             # TODO: 엉뚱한 종목코드의 주식 호가 잔량이 넘어 오는 경우가 있으므로 확인해야함 
             self.makeHogaJanRyangInfo(jongmokCode)                
@@ -1042,8 +1041,20 @@ class KiwoomConditon(QObject):
 
     #주식 호가 잔량 정보 요청리스트 삭제 
     def removeJanRyangCodeList(self, jongmokCode):
-        if( jongmokCode not in self.buyCodeList ):
-            self.setRealRemove(kw_util.sendRealRegScreenNo, jongmokCode)
+        #setRealReg 동작 안해서 이걸로 구현 
+        codeList  = []
+        for code in self.buyCodeList:
+            codeList.append(code)
+        # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
+        if( len(codeList) ):
+           tmp = self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
+           print(util.whoami() + str(tmp) )
+        else:
+           tmp =  self.setRealRemove(kw_util.sendRealRegScreenNo, "ALL")
+           print( util.whoami() + str(type(tmp)))
+
+        # if( jongmokCode not in self.buyCodeList ):
+        #     self.setRealRemove(kw_util.sendRealRegScreenNo, jongmokCode)
         # setRealReg의 경우 "0" 은 이전거 제외 하고 새로 요청,  리스트가 없는 경우는 아무것도 안함 
         # if( len(codeList ) ):
         #     self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
@@ -1232,9 +1243,10 @@ class KiwoomConditon(QObject):
     # 화면의 종목별로 실시간 해제하려면 파라메터에 해당화면번호와 해제할
     # 종목코드를 입력하시면 됩니다.
     # SetRealRemove(“0001”, “039490”);
+    # 문서와는 달리 리턴값이 없음 !
     @pyqtSlot(str, str)
-    def setRealRemove(self, scrNo, delCode):
-        self.ocx.dynamicCall("SetRealRemove(QString, QString)", scrNo, delCode)
+    def setRealRemove(self, scrNo, delCode, result = int):
+       return self.ocx.dynamicCall("SetRealRemove(QString, QString)", scrNo, delCode)
         
         
     # 수신 데이터를 반환한다. 
