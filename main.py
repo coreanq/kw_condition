@@ -1049,24 +1049,15 @@ class KiwoomConditon(QObject):
 
     #주식 호가 잔량 정보 요청리스트 삭제 
     def removeJanRyangCodeList(self, jongmokCode):
-        #setRealReg 동작 안해서 이걸로 구현 
+        # 버그로 모두 지우고 새로 등록하게 함 
+        self.setRealRemove("ALL", "ALL")
         codeList  = []
         for code in self.buyCodeList:
             codeList.append(code)
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
         if( len(codeList) ):
            tmp = self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
-           print(util.whoami() + str(tmp) )
-        else:
-           tmp =  self.setRealRemove(kw_util.sendRealRegScreenNo, "ALL")
-           print( util.whoami() + str(type(tmp)))
-
-        # if( jongmokCode not in self.buyCodeList ):
-        #     self.setRealRemove(kw_util.sendRealRegScreenNo, jongmokCode)
-        # setRealReg의 경우 "0" 은 이전거 제외 하고 새로 요청,  리스트가 없는 경우는 아무것도 안함 
-        # if( len(codeList ) ):
-        #     self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
-        # else :
+           print(util.whoami() + ' return  ' + tmp)
 
     # method 
     # 로그인
@@ -1251,10 +1242,10 @@ class KiwoomConditon(QObject):
     # 화면의 종목별로 실시간 해제하려면 파라메터에 해당화면번호와 해제할
     # 종목코드를 입력하시면 됩니다.
     # SetRealRemove(“0001”, “039490”);
-    # 문서와는 달리 리턴값이 없음 !
+    # 문서와는 달리 return 없음 
     @pyqtSlot(str, str)
-    def setRealRemove(self, scrNo, delCode, result = int):
-       return self.ocx.dynamicCall("SetRealRemove(QString, QString)", scrNo, delCode)
+    def setRealRemove(self, scrNo, delCode):
+        self.ocx.dynamicCall("SetRealRemove(QString, QString)", scrNo, delCode)
         
         
     # 수신 데이터를 반환한다. 
