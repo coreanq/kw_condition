@@ -24,7 +24,7 @@ TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1 총 수량이 TOTAL_BUY_AMOUNT 이
 # TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
 STOP_PLUS_PERCENT = 4 # 익절 퍼센티지 # 손절은 자동으로 기준가로 정해지고 매수시 기준가 + STOP_PLUS_PERCENT 이상이 아니면 매수하지 않음  
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
-STOCK_POSSESION_COUNT = 2 # 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 하루에 기회가 많지 않으므로 5개 이상 금지 
+STOCK_POSSESION_COUNT = 5 # 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 하루에 기회가 많지 않으므로 5개 이상 금지 
 
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
@@ -477,13 +477,12 @@ class KiwoomConditon(QObject):
             printLog += '(기준가미충족)'
             return_vals.append(False)
         
-        # 저가가 시가 밑으로 내려간적 있는 지 확인 
-        start_price = int(jongmokInfo_dict['시가'])
+        # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
         low_price = int(jongmokInfo_dict['저가'])
-        if( low_price >= start_price ):
+        if( low_price >= base_price ):
             pass
         else:
-            printLog += '(저가가시가보다낮음)'
+            printLog += '(저가가전일종가보다낮음)'
             return_vals.append(False)
 
         # 매수 
