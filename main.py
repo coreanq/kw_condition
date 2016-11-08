@@ -15,9 +15,9 @@ from PyQt5.QAxContainer import QAxWidget
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 15] ]] #해당 시스템 동작 시간 설정 -->  9시 5분 부터 15시 10분까지만 동작
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [12, 00] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
 AUTO_TRADING_END_TIME = [15, 15] 
-TRADING_INFO_GETTING_TIME = [15,40] # 트레이딩 정보를 저장하기 시작하는 시간 
+TRADING_INFO_GETTING_TIME = [15,40] # 트레이딩 정보를 저장하기 시작하는 시간o
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
@@ -65,7 +65,7 @@ class KiwoomConditon(QObject):
         self.timerSystem = QTimer()
         self.buyCodeList = []
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 
-        self.stopplusList = [] # 익절 발생한 종목 리스트 저장 
+        self.stopPlusList = [] # 익절 발생한 종목 리스트 저장 
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         self.oneMinCandleJongmokList = [] 
         self.df1minCandleStickList = {}
@@ -373,7 +373,7 @@ class KiwoomConditon(QObject):
      
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
-        print(util.whoami())
+        # print(util.whoami())
         pass
 
     @pyqtSlot()
@@ -402,7 +402,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def determineBuyProcessBuyStateEntered(self):
-        print(util.whoami())
+        print('!')
         jongmokInfo_dict = []
         return_vals = []
         printLog = ''
@@ -418,7 +418,7 @@ class KiwoomConditon(QObject):
             
         jongmokName = jongmokInfo_dict['종목명']
         jongmokCode = jongmokInfo_dict['종목코드']
-        print(jongmokInfo_dict)
+        # print(jongmokInfo_dict)
 
         printLog += ' ' + jongmokName + ' '  + jongmokCode + ' '
 
@@ -494,7 +494,7 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
 
         # 기존에 이미 수익이 한번 발생한 종목이라면  
-        if( self.stopplusList.count(jongmokCode) == 0 ):
+        if( self.stopPlusList.count(jongmokCode) == 0 ):
             pass
         else:
             printLog += '(수익발생종목)'
@@ -860,7 +860,7 @@ class KiwoomConditon(QObject):
             else:
                 printData += "(익절시도호가수량부족 손절시도만함)" 
                 util.save_log(printData, '손절시도만!', 'log')
-        printData += '매입단가: ' + maeip_danga + ' 잔고수량: ' + str(jangosuryang) 
+        printData += '매입단가: ' + str(maeip_danga) + ' 잔고수량: ' + str(jangosuryang) 
 
         if( isSell == True ):
             result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
@@ -987,7 +987,7 @@ class KiwoomConditon(QObject):
     def removeBuyCodeList(self, jongmokCode):
         if( jongmokCode in self.buyCodeList ):
             self.buyCodeList.remove(jongmokCode)
-        self.refreshRealRyang()
+        self.refreshRealJanRyang()
         # 잔고 df frame 삭제 
         df = None
         try: 
@@ -1067,7 +1067,7 @@ class KiwoomConditon(QObject):
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
         if( len(codeList) ):
            tmp = self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
-           print(util.whoami() + ' return  ' + tmp)
+        #    print(util.whoami() + ' return  ' + str(tmp))
 
     # method 
     # 로그인
