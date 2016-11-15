@@ -12,6 +12,7 @@ from PyQt5.QtCore import QStateMachine, QState, QTimer, QFinalState
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtQml import QQmlApplicationEngine
 from PyQt5.QAxContainer import QAxWidget
+import copy
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
@@ -57,6 +58,7 @@ class KiwoomConditon(QObject):
     sigRequestRealHogaComplete = pyqtSignal()
     sigError = pyqtSignal()
     sigRequestJangoComplete = pyqtSignal()
+    sigCalculateStoplossComplete = pyqtSignal()
     
 
     def __init__(self):
@@ -99,6 +101,7 @@ class KiwoomConditon(QObject):
         waitingSelectSystemState = QState(systemState)
         standbySystemState = QState(systemState)
         requestingJangoSystemState = QState(systemState)
+        calculateStoplossSystemState = QState(systemState)
         prepare1minTrListState = QState(systemState)
         request1minTrState = QState(systemState)
         
@@ -115,7 +118,8 @@ class KiwoomConditon(QObject):
         systemState.setInitialState(initSystemState)
         initSystemState.addTransition(self.sigGetConditionCplt, waitingSelectSystemState)
         waitingSelectSystemState.addTransition(self.sigSelectCondition, requestingJangoSystemState)
-        requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, standbySystemState)
+        requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, calculateStoplossSystemState)
+        calculateStoplossSystemState.addTransition(self.sigCalculateStoplossComplete, standbySystemState)
         standbySystemState.addTransition(self.sigRefreshCondition, initSystemState)
         standbySystemState.addTransition(self.sigRequest1minTr,prepare1minTrListState ) 
         prepare1minTrListState.addTransition(self.sigPrepare1minTrListComplete, request1minTrState) 
@@ -132,6 +136,7 @@ class KiwoomConditon(QObject):
         initSystemState.entered.connect(self.initSystemStateEntered)
         waitingSelectSystemState.entered.connect(self.waitingSelectSystemStateEntered)
         requestingJangoSystemState.entered.connect(self.requestingJangoSystemStateEntered)
+        calculateStoplossSystemState.entered.connect(self.calculateStoplossSystemStateEntered)
         standbySystemState.entered.connect(self.standbySystemStateEntered)
         prepare1minTrListState.entered.connect(self.prepare1minTrListStateEntered)
         request1minTrState.entered.connect(self.request1minTrStateEntered)        
@@ -342,6 +347,18 @@ class KiwoomConditon(QObject):
         print(util.whoami() )
         self.requestOpw00018(self.account_list[0])
         pass 
+    
+    @pyqtSlot()
+    def calculateStoplossSystemStateEntered(self):
+        print(util.whoami())
+        print(self.jangoInfo.keys())
+        funcs = []
+        # 요청은 1초에 5개뿐이므로 200 ms 나눠서 함 
+        for index, jongmokCode in enumerate(self.jangoInfo.keys()):
+            print(jongmokCode)
+            func = lambda : self.requestOpt10081(jongmokCode)
+            QTimer.singleShot(200 * index, copy.deepcopy(func))
+        pass
 
     @pyqtSlot()
     def standbySystemStateEntered(self):
@@ -566,11 +583,28 @@ class KiwoomConditon(QObject):
         ret = self.commRqData(jongmokCode, "opt10001", 0, kw_util.sendJusikGibonScreenNo) 
         errorString = None
         if( ret != 0 ):
-            errorString =   jongmokCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            errorString = jongmokCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
             print(util.whoami() + errorString ) 
             util.save_log(errorString, util.whoami(), folder = "log" )
             return False
         return True
+    
+    # 주식 1일봉 요청 
+    def requestOpt10081(self, jongmokCode):
+        # print(util.cur_time_msec() )
+        datetime_str = datetime.datetime.now().strftime('%Y%m%d')
+        self.setInputValue("종목코드", jongmokCode)
+        self.setInputValue("기준일자", datetime_str)    
+        self.setInputValue('수정주가구분', '0')
+        ret = self.commRqData(jongmokCode, "opt10081", 0, kw_util.sendJusikGibonScreenNo) 
+        errorString = None
+        if( ret != 0 ):
+            errorString = jongmokCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            print(util.whoami() + errorString ) 
+            util.save_log(errorString, util.whoami(), folder = "log" )
+            return False
+        return True
+        
 
     # 주식 호가 잔량 요청
     def requestOpt10004(self, jongmokCode):
@@ -644,6 +678,25 @@ class KiwoomConditon(QObject):
 
         print(self.jangoInfo)
         return True 
+    # 주식 일봉 정보
+    def makeOpt10081Info(self, rQName):
+        repeatCnt = self.getRepeatCnt("opt10081", rQName)
+        currentTimeStr  = None 
+        for i in range(repeatCnt):
+            line = []
+            for item_name in kw_util.dict_jusik['TR:일봉']:
+                if( item_name == "종목명" ):
+                    line.append(self.getMasterCodeName(rQName))
+                    continue
+                result = self.getCommData("opt10081", rQName, i, item_name)
+                line.append(result.strip())
+                # if( item_name == '일자 ')
+
+            print(line)
+            # 오늘 이전 데이터는 받지 않는다
+            # resultTime = time.strptime(currentTimeStr,  "%Y%m%d")
+            # currentTime = time.localtime()
+        pass
     # 주식 기본 정보 
     def makeOpt10001Info(self, rQName):
         if( len(self.conditionOccurList) ):
@@ -814,6 +867,11 @@ class KiwoomConditon(QObject):
             else:
                 self.sigError.emit()
             pass
+        elif( trCode =='opt10081'):
+            if( self.makeOpt10081Info(rQName) ):
+                self.sigCalculateStoplossComplete.emit()
+            else:
+                self.sigError.emit()
 
         #주식 기본 정보 요청 
         # rQName 은 개별 종목 코드임

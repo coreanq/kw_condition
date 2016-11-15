@@ -27,6 +27,9 @@ def cur_date_time():
     return cur_time
 
 def cur_time_msec():
+    '''
+    [%H:%M:%S.%f"]
+    '''
     cur_time = datetime.now().strftime("%H:%M:%S.%f") 
     return cur_time
 
