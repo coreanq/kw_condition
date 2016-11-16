@@ -59,6 +59,7 @@ class KiwoomConditon(QObject):
     sigError = pyqtSignal()
     sigRequestJangoComplete = pyqtSignal()
     sigCalculateStoplossComplete = pyqtSignal()
+    sigStartProcessBuy = pyqtSignal()
     
 
     def __init__(self):
@@ -141,15 +142,16 @@ class KiwoomConditon(QObject):
         prepare1minTrListState.entered.connect(self.prepare1minTrListStateEntered)
         request1minTrState.entered.connect(self.request1minTrStateEntered)        
     
-
         # processBuy definition
         processBuyState = QState(connectedState)
+        initProcessBuyState = QState(processBuyState)
         standbyProcessBuyState = QState(processBuyState)
         requestBasicInfoProcessBuyState = QState(processBuyState)
         requestHogaInfoProcessBuyState = QState(processBuyState)
         determineBuyProcessBuyState = QState(processBuyState)
         
-        processBuyState.setInitialState(standbyProcessBuyState)
+        processBuyState.setInitialState(initProcessBuyState)
+        initProcessBuyState.addTransition(self.sigStartProcessBuy, standbyProcessBuyState)
         standbyProcessBuyState.addTransition(self.sigConditionOccur, requestBasicInfoProcessBuyState)
         requestBasicInfoProcessBuyState.addTransition(self.sigGetBasicInfo, requestHogaInfoProcessBuyState)
         requestBasicInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState )
@@ -161,6 +163,7 @@ class KiwoomConditon(QObject):
         determineBuyProcessBuyState.addTransition(self.sigBuy, standbyProcessBuyState)
         
         processBuyState.entered.connect(self.processBuyStateEntered)
+        initProcessBuyState.entered.connect(self.initProcessBuyStateEntered)
         standbyProcessBuyState.entered.connect(self.standbyProcessBuyStateEntered)
         requestBasicInfoProcessBuyState.entered.connect(self.requestBasicInfoProcessBuyStateEntered)
         requestHogaInfoProcessBuyState.entered.connect(self.requestHogaInfoProcessBuyStateEntered)
@@ -198,22 +201,20 @@ class KiwoomConditon(QObject):
     def isTradeAvailable(self, jongmokCode):
         # 시간을 확인해 거래 가능한지 여부 판단 
         ret_vals= []
+        current_time = self.currentTime.time()
         for start, stop in AUTO_TRADING_OPERATION_TIME:
-            start_time =  datetime.datetime( year = self.currentTime.year,
-                            month = self.currentTime.month, 
-                            day = self.currentTime.day, 
+            start_time =  datetime.time(
+
                             hour = start[0],
                             minute = start[1])
-            stop_time =   datetime.datetime( year = self.currentTime.year,
-                            month = self.currentTime.month, 
-                            day = self.currentTime.day, 
+            stop_time =   datetime.time( 
                             hour = stop[0],
                             minute = stop[1])
-            if( self.currentTime >= start_time and self.currentTime <= stop_time ):
+            if( current_time >= start_time and current_time <= stop_time ):
                 ret_vals.append(True)
             else:
-                pass
                 ret_vals.append(False)
+                pass
 
         # 하나라도 True 였으면 거래 가능시간임  
         if( ret_vals.count(True) ):
@@ -350,14 +351,16 @@ class KiwoomConditon(QObject):
     
     @pyqtSlot()
     def calculateStoplossSystemStateEntered(self):
-        print(util.whoami())
-        print(self.jangoInfo.keys())
-        funcs = []
-        # 요청은 1초에 5개뿐이므로 200 ms 나눠서 함 
+        # print(self.jangoInfo.keys())
+        def requestFunc(jongmokCode):
+            def inner():
+                self.requestOpt10081(jongmokCode)
+            return inner
+
+        # 요청은 1초에 5개뿐이므로 200 ms 나눠서 함 너무 200 딱맞추면 오류 나므로 여유 줌  
         for index, jongmokCode in enumerate(self.jangoInfo.keys()):
-            print(jongmokCode)
-            func = lambda : self.requestOpt10081(jongmokCode)
-            QTimer.singleShot(200 * index, copy.deepcopy(func))
+            func = requestFunc(jongmokCode) 
+            QTimer.singleShot(250 * index, func)
         pass
 
     @pyqtSlot()
@@ -369,6 +372,7 @@ class KiwoomConditon(QObject):
         for jongmokCode in jango_list:
             self.insertBuyCodeList(jongmokCode) 
         self.refreshRealJanRyang()
+        self.sigStartProcessBuy.emit()
         pass
 
 
@@ -398,6 +402,10 @@ class KiwoomConditon(QObject):
     def processBuyStateEntered(self):
         pass
      
+    @pyqtSlot()
+    def initProcessBuyStateEntered(self):
+        print(util.whoami())
+        pass
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
         # print(util.whoami())
@@ -670,32 +678,41 @@ class KiwoomConditon(QObject):
         
             jongmokCode = info_dict['종목번호']
             info_dict['이익실현가'] = info_dict['매입가'] * (1 + STOP_PLUS_PERCENT /100 )
-            info_dict['손절가'] = info_dict['전일종가']
+            # info_dict['손절가'] = info_dict['전일종가']
             
             # 장기 보유종목인 경우 제외 
             if( jongmokCode not in DAY_TRADNIG_EXCEPTION_LIST):
                 self.jangoInfo[jongmokCode] = info_dict
 
-        print(self.jangoInfo)
+        # print(self.jangoInfo)
         return True 
+
     # 주식 일봉 정보
     def makeOpt10081Info(self, rQName):
         repeatCnt = self.getRepeatCnt("opt10081", rQName)
-        currentTimeStr  = None 
+        jongmokCode = rQName
+        price_list = [] # 몇봉중 저가, 고가 를 뽑아내기 위함?
+
         for i in range(repeatCnt):
-            line = []
+            line = {} 
             for item_name in kw_util.dict_jusik['TR:일봉']:
                 if( item_name == "종목명" ):
-                    line.append(self.getMasterCodeName(rQName))
+                    line[item_name] = self.getMasterCodeName(rQName)
                     continue
                 result = self.getCommData("opt10081", rQName, i, item_name)
-                line.append(result.strip())
-                # if( item_name == '일자 ')
+                line[item_name] = result.strip()
 
-            print(line)
-            # 오늘 이전 데이터는 받지 않는다
-            # resultTime = time.strptime(currentTimeStr,  "%Y%m%d")
-            # currentTime = time.localtime()
+            # 일자가 맨 마지막 리스트 
+            saved_date_str = line['일자']
+            time_span = datetime.timedelta(days = 1) # 전날 일봉 말고 받지 않음 
+            saved_date = datetime.datetime.strptime(saved_date_str, '%Y%m%d').date()
+            current_date = self.currentTime.date()
+            price_list.append(line['저가'])
+            if( saved_date <=  current_date - time_span):
+                self.jangoInfo[jongmokCode]['손절가'] = min(price_list)
+                # print(self.jangoInfo[jongmokCode]['종목명'], line['저가'])
+                break
+        return True
         pass
     # 주식 기본 정보 
     def makeOpt10001Info(self, rQName):
@@ -869,7 +886,14 @@ class KiwoomConditon(QObject):
             pass
         elif( trCode =='opt10081'):
             if( self.makeOpt10081Info(rQName) ):
-                self.sigCalculateStoplossComplete.emit()
+                # 잔고 정보를 뒤져서 손절가 책정이 되었는지 확인 
+                ret_vals = []
+                for jangoInfo in self.jangoInfo.values():
+                    if( '손절가' not in jangoInfo.keys() ):
+                        ret_vals.append(False)
+                if( ret_vals.count(False) == 0 ):
+                    print(self.jangoInfo)
+                    self.sigCalculateStoplossComplete.emit()
             else:
                 self.sigError.emit()
 
