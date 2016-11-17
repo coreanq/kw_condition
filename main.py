@@ -60,6 +60,7 @@ class KiwoomConditon(QObject):
     sigRequestJangoComplete = pyqtSignal()
     sigCalculateStoplossComplete = pyqtSignal()
     sigStartProcessBuy = pyqtSignal()
+    sigRequestJangoInfo = pyqtSignal()
     
 
     def __init__(self):
@@ -72,7 +73,7 @@ class KiwoomConditon(QObject):
 
         self.buyCodeList = []
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
-        self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 
+        self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 {'종목코드': code} 
         self.stopPlusList = [] # 익절 발생한 종목 리스트 저장 
         self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         self.oneMinCandleJongmokList = [] 
@@ -149,6 +150,8 @@ class KiwoomConditon(QObject):
         requestBasicInfoProcessBuyState = QState(processBuyState)
         requestHogaInfoProcessBuyState = QState(processBuyState)
         determineBuyProcessBuyState = QState(processBuyState)
+        requestingJangoProcessBuyState = QState(processBuyState)
+        calculateStoplossProcessBuyState = QState(processBuyState)
         
         processBuyState.setInitialState(initProcessBuyState)
         initProcessBuyState.addTransition(self.sigStartProcessBuy, standbyProcessBuyState)
@@ -160,7 +163,11 @@ class KiwoomConditon(QObject):
         requestHogaInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState)
 
         determineBuyProcessBuyState.addTransition(self.sigNoBuy, standbyProcessBuyState)
-        determineBuyProcessBuyState.addTransition(self.sigBuy, standbyProcessBuyState)
+        determineBuyProcessBuyState.addTransition(self.sigBuy, requestingJangoProcessBuyState)
+
+        requestingJangoProcessBuyState.addTransition(self.sigRequestJangoComplete, calculateStoplossProcessBuyState)
+
+        calculateStoplossProcessBuyState.addTransition(self.sigCalculateStoplossComplete, standbyProcessBuyState)
         
         processBuyState.entered.connect(self.processBuyStateEntered)
         initProcessBuyState.entered.connect(self.initProcessBuyStateEntered)
@@ -168,6 +175,8 @@ class KiwoomConditon(QObject):
         requestBasicInfoProcessBuyState.entered.connect(self.requestBasicInfoProcessBuyStateEntered)
         requestHogaInfoProcessBuyState.entered.connect(self.requestHogaInfoProcessBuyStateEntered)
         determineBuyProcessBuyState.entered.connect(self.determineBuyProcessBuyStateEntered)
+        requestBasicInfoProcessBuyState.entered.connect(self.requestingJangoSystemStateEntered)
+        calculateStoplossProcessBuyState.entered.connect(self.calculateStoplossSystemStateEntered)
                 
         #fsm start
         finalState.entered.connect(self.finalStateEntered)
@@ -345,7 +354,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def requestingJangoSystemStateEntered(self):
-        print(util.whoami() )
+        # print(util.whoami() )
         self.requestOpw00018(self.account_list[0])
         pass 
     
@@ -356,11 +365,16 @@ class KiwoomConditon(QObject):
             def inner():
                 self.requestOpt10081(jongmokCode)
             return inner
+        request_jongmok_codes = []
+        for jongmok_code in self.jangoInfo.keys():
+            jango_info = self.jangoInfo[jongmok_code]
+            if( '손절가' not in jango_info.keys() ):
+                request_jongmok_codes.append( jongmok_code )
 
         # 요청은 1초에 5개뿐이므로 200 ms 나눠서 함 너무 200 딱맞추면 오류 나므로 여유 줌  
-        for index, jongmokCode in enumerate(self.jangoInfo.keys()):
-            func = requestFunc(jongmokCode) 
-            QTimer.singleShot(250 * index, func)
+        for index, jongmok_code in enumerate(request_jongmok_codes):
+            func = requestFunc(jongmok_code) 
+            QTimer.singleShot(220 * (index + 1), func)
         pass
 
     @pyqtSlot()
@@ -682,7 +696,11 @@ class KiwoomConditon(QObject):
             
             # 장기 보유종목인 경우 제외 
             if( jongmokCode not in DAY_TRADNIG_EXCEPTION_LIST):
-                self.jangoInfo[jongmokCode] = info_dict
+                if( jongmokCode not in self.jangoInfo.keys() ):
+                    self.jangoInfo[jongmokCode] = info_dict
+                else:
+                    # 기존에 가지고 있는 종목이면 update
+                    self.jangoInfo[jongmokCode].update(info_dict)
 
         # print(self.jangoInfo)
         return True 
@@ -1016,7 +1034,7 @@ class KiwoomConditon(QObject):
             result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
                                 jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
             util.save_log(printData, '손절', 'log')
-            print("S " + str(result), sep= "")
+            print("S " + jongmokCode + ' ' + str(result), sep= "")
             pass
         pass
 
@@ -1040,7 +1058,8 @@ class KiwoomConditon(QObject):
             if( boyouSuryang == 0 ):
                 self.removeBuyCodeList(jongmokCode)
             else:
-                self.requestOpw00018(self.account_list[0])
+                # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
+                self.sigRequestJangoInfo.emit()
             pass
 
         elif ( gubun == "0"):
