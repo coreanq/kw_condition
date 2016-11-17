@@ -34,6 +34,8 @@ STOCK_TRADE_TIME = [ [ [9, 5], [15, 10] ]]
 > STOP_LOSS_PERCENT = 2.5 # 손절 퍼센티지  
 > STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 끔 발생하므로 매수 범위 가격 입력
 
+## StateMachine 정의 
+![alt tag](https://cloud.githubusercontent.com/assets/15916783/20374411/cd649e8e-acbb-11e6-98ba-fab4518b92d3.png)
 
 ## License
 Licensed under MIT:
