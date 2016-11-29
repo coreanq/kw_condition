@@ -1,10 +1,12 @@
 # -*-coding: utf-8 -*-
 import inspect
 from datetime import datetime
+import os
 import os.path
 
 def save_log(contents, subject="None", folder=""):
-    filePath = folder + os.sep + cur_date() + ".txt"
+    current_dir = os.getcwd()
+    filePath = current_dir + os.sep + folder + os.sep + cur_date() + ".txt"
     openMode = ""
     if (os.path.isfile(filePath)):
         openMode = 'a'

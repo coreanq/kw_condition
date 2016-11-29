@@ -16,8 +16,11 @@ import copy
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [12, 00] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
-AUTO_TRADING_END_TIME = [15, 19] 
+AUTO_TRADING_OPERATION_TIME = [ [ [10, 00], [12, 00] ], [ [12, 00], [15, 00] ] ] #해당 시스템 동작 시간 설정
+
+# for day trading 
+DAY_TRADING_ENABLE = False
+DAY_TRADING_END_TIME = [15, 19] 
 TRADING_INFO_GETTING_TIME = [15,40] # 트레이딩 정보를 저장하기 시작하는 시간
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
@@ -278,8 +281,9 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def initStateEntered(self):
-        # print(util.whoami())
-        self.sigInitOk.emit()
+        print(util.whoami())
+        QTimer.singleShot(10000, self.sigInitOk)
+        # self.sigInitOk.emit()
         pass
 
     @pyqtSlot()
@@ -422,7 +426,7 @@ class KiwoomConditon(QObject):
         pass
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
-        # print(util.whoami())
+        print(util.whoami())
         pass
 
     @pyqtSlot()
@@ -994,16 +998,16 @@ class KiwoomConditon(QObject):
         jangosuryang = int( current_jango['매매가능수량'] )
         stop_loss, stop_plus = 0,0
 
-        # # 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
-        if( datetime.time(*AUTO_TRADING_END_TIME) <  self.currentTime.time() ):
-            # 바로 매도 해야 하므로 큰 값을 넣도록 함 
-            # stop_loss = int(current_jango['매입가'] ) * 100
-            return
-
         # 손절가는 매수시 기준가(전일종가)로 책정되어 있음 
         stop_loss = int(current_jango['손절가'])
         stop_plus = int(current_jango['이익실현가'])
         maeipga = int(current_jango['매입가'])
+
+        # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
+        if( DAY_TRADING_ENABLE == True ):
+            if( datetime.time(*DAY_TRADING_END_TIME) <  self.currentTime.time() ):
+                # 바로 매도 해야 하므로 큰 값을 넣도록 함 
+                stop_loss = int(current_jango['매입가'] ) * 100
 
         # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
         df = self.dfStockInfoList["실시간-주식호가잔량"]
