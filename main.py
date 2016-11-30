@@ -16,7 +16,7 @@ import copy
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [10, 00], [12, 00] ], [ [12, 00], [15, 00] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [9, 30] ], [ [14, 40], [15, 00] ] ] #해당 시스템 동작 시간 설정
 
 # for day trading 
 DAY_TRADING_ENABLE = False
@@ -178,7 +178,7 @@ class KiwoomConditon(QObject):
         requestBasicInfoProcessBuyState.entered.connect(self.requestBasicInfoProcessBuyStateEntered)
         requestHogaInfoProcessBuyState.entered.connect(self.requestHogaInfoProcessBuyStateEntered)
         determineBuyProcessBuyState.entered.connect(self.determineBuyProcessBuyStateEntered)
-        requestBasicInfoProcessBuyState.entered.connect(self.requestingJangoSystemStateEntered)
+        requestingJangoProcessBuyState.entered.connect(self.requestingJangoSystemStateEntered)
         calculateStoplossProcessBuyState.entered.connect(self.calculateStoplossSystemStateEntered)
                 
         #fsm start
@@ -358,7 +358,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def requestingJangoSystemStateEntered(self):
-        # print(util.whoami() )
+        print(util.whoami() )
         self.requestOpw00018(self.account_list[0])
         pass 
     
@@ -997,6 +997,10 @@ class KiwoomConditon(QObject):
 
         jangosuryang = int( current_jango['매매가능수량'] )
         stop_loss, stop_plus = 0,0
+
+        # after buy command, before stoploss calculate this routine can run 
+        if( '손절가' not in current_jango):
+            return
 
         # 손절가는 매수시 기준가(전일종가)로 책정되어 있음 
         stop_loss = int(current_jango['손절가'])
