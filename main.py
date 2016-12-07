@@ -10,13 +10,13 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
 from PyQt5.QtCore import QStateMachine, QState, QTimer, QFinalState
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtQml import QQmlApplicationEngine
+from PyQt5.QtQml import QQmlApplicationEngine 
 from PyQt5.QAxContainer import QAxWidget
 import copy
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [14, 40] ], [ [14, 40], [15, 00] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 00] ], [ [14, 00], [15, 00] ] ] #해당 시스템 동작 시간 설정
 
 # for day trading 
 DAY_TRADING_ENABLE = False
@@ -85,8 +85,9 @@ class KiwoomConditon(QObject):
         self.kosdaqCodeList = () 
         self.createState()
         self.createConnection()
-
         self.currentTime = datetime.datetime.now()
+
+        self.qmlEngine = QQmlApplicationEngine()
         
     def createState(self):
         # state defintion
@@ -185,9 +186,36 @@ class KiwoomConditon(QObject):
         self.fsm.start()
 
     def initQmlEngine(self):
+
+        self.qmlEngine.addImportPath("qml")
+        self.qmlEngine.load(QUrl('qml/main.qml'))        
+
+        self.rootObject = self.qmlEngine.rootObjects()[0]
+        self.rootObject.startClicked.connect(self.onStartClicked)
+        self.rootObject.stopClicked.connect(self.onStopClicked)
+        self.rootObject.requestJangoClicked.connect(self.onRequestJangoClicked)
+        self.rootObject.testClicked.connect(self.onTestClicked)
+
         rootContext = self.qmlEngine.rootContext()
-        # rootContext.setContextProperty("cppModelCondition", self.modelCondition)
-        self.qmlEngine.load(QUrl('main.qml'))
+        rootContext.setContextProperty("model", self)
+        pass
+    
+    @pyqtSlot()
+    def onStartClicked(self):
+        print(util.whoami())
+        self.sigInitOk.emit()
+        
+    @pyqtSlot()
+    def onStopClicked(self):
+        print(util.whoami())
+
+    @pyqtSlot()
+    def onRequestJangoClicked(self):
+        self.printStockInfo()
+
+    @pyqtSlot(str)
+    def onTestClicked(self, arg):
+        print(util.whoami() + ' ' + arg)
         pass
 
     def createConnection(self):
@@ -281,8 +309,8 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def initStateEntered(self):
         print(util.whoami())
+        self.initQmlEngine()
         QTimer.singleShot(1000, self.sigInitOk)
-        # self.sigInitOk.emit()
         pass
 
     @pyqtSlot()
@@ -297,8 +325,6 @@ class KiwoomConditon(QObject):
             
     @pyqtSlot()
     def connectedStateEntered(self):
-        # ui 현시
-        # self.initQmlEngine()
         # get 계좌 정보
         account_cnt = self.getLoginInfo("ACCOUNT_CNT")
         acc_num = self.getLoginInfo("ACCNO")

@@ -1,28 +1,72 @@
 import QtQuick 2.5
-import QtQuick.Controls 1.2
+import QtQuick.Controls 2.0
 
 ApplicationWindow {
+    id: main
     visible: true
-    width: 640
-    height: 480
-    title: qsTr("Hello World")
+    title: "automated st"
+    width: 200
+    height: 80
+    signal startClicked()
+    signal stopClicked()
+    signal requestJangoClicked()
+    signal testClicked(string arg)
 
-    menuBar: MenuBar {
-        Menu {
-            title: qsTr("File")
-            MenuItem {
-                text: qsTr("&Open")
-                onTriggered: console.log("Open action triggered");
+    Grid{
+        anchors.fill: parent
+        columns: 2
+        spacing: 2
+        Button{
+            id: btnStart
+            text: "시작"
+            Rectangle{
+                anchors.fill: parent
+                color: "blue"
+                opacity: 0.5
             }
-            MenuItem {
-                text: qsTr("Exit")
-                onTriggered: Qt.quit();
+            onClicked: {
+                console.log('startClicked')
+                main.startClicked()
+            }
+
+        }
+        Button {
+            id: btnStop
+            text: "종료"
+            Rectangle{
+                anchors.fill: parent
+                color: "red"
+                opacity: 0.5
+            }
+            onClicked: {
+                console.log('stopClicked')
+                main.stopClicked()
+            }
+
+
+        }
+        Button {
+            id: btnRequestJango
+            text: "정보요청"
+            Rectangle{
+                anchors.fill: parent
+                color: "yellow"
+                opacity: 0.5
+            }
+            onClicked: {
+                console.log('requestJangoClicked')
+                main.requestJangoClicked()
+            }
+        }
+        Button{
+            id: btnTest
+            text: "테스트"
+            onClicked: {
+                console.log('testClicked')
+                main.testClicked("dummy")
             }
         }
     }
 
-    MainForm {
-        anchors.fill: parent
-    }
 }
 
