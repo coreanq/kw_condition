@@ -1,8 +1,8 @@
 # -*-coding: utf-8 -*-
 import sys, os, re, time, datetime, math
 
-import pandasmodel
 import util 
+import json
 import kw_util  
 import pandas as pd
 
@@ -16,7 +16,7 @@ import copy
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [9, 10] ], [ [14, 40], [15, 00] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [14, 40] ], [ [14, 40], [15, 00] ] ] #해당 시스템 동작 시간 설정
 
 # for day trading 
 DAY_TRADING_ENABLE = False
@@ -78,7 +78,6 @@ class KiwoomConditon(QObject):
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 {'종목코드': code} 
         self.stopPlusList = [] # 익절 발생한 종목 리스트 저장 
-        self.modelCondition = pandasmodel.PandasModel(pd.DataFrame(columns = ('조건번호', '조건명')))
         self.oneMinCandleJongmokList = [] 
         self.df1minCandleStickList = {}
         self.dfStockInfoList ={}
@@ -187,7 +186,7 @@ class KiwoomConditon(QObject):
 
     def initQmlEngine(self):
         rootContext = self.qmlEngine.rootContext()
-        rootContext.setContextProperty("cppModelCondition", self.modelCondition)
+        # rootContext.setContextProperty("cppModelCondition", self.modelCondition)
         self.qmlEngine.load(QUrl('main.qml'))
         pass
 
@@ -282,7 +281,7 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def initStateEntered(self):
         print(util.whoami())
-        QTimer.singleShot(10000, self.sigInitOk)
+        QTimer.singleShot(1000, self.sigInitOk)
         # self.sigInitOk.emit()
         pass
 
@@ -364,7 +363,7 @@ class KiwoomConditon(QObject):
     
     @pyqtSlot()
     def calculateStoplossSystemStateEntered(self):
-        # print(self.jangoInfo.keys())
+        print(util.whoami() )
         def requestFunc(jongmokCode):
             def inner():
                 self.requestOpt10081(jongmokCode)
@@ -375,11 +374,14 @@ class KiwoomConditon(QObject):
             if( '손절가' not in jango_info.keys() ):
                 request_jongmok_codes.append( jongmok_code )
 
-        # 요청은 1초에 5개뿐이므로 200 ms 나눠서 함 너무 200 딱맞추면 오류 나므로 여유 줌  
-        for index, jongmok_code in enumerate(request_jongmok_codes):
-            func = requestFunc(jongmok_code) 
-            QTimer.singleShot(220 * (index + 1), func)
-        pass
+        if( len(request_jongmok_codes) == 0 ):
+            self.sigCalculateStoplossComplete.emit()
+        else:
+            # 요청은 1초에 5개뿐이므로 200 ms 나눠서 함 너무 200 딱맞추면 오류 나므로 여유 줌  
+            for index, jongmok_code in enumerate(request_jongmok_codes):
+                func = requestFunc(jongmok_code) 
+                QTimer.singleShot(220 * (index + 1), func)
+            pass
 
     @pyqtSlot()
     def standbySystemStateEntered(self):
@@ -389,7 +391,7 @@ class KiwoomConditon(QObject):
         # 잔고 리스트 추가 및 잔고리스트의 실시간 체결 정보를 받도록 함 
         for jongmokCode in jango_list:
             self.insertBuyCodeList(jongmokCode) 
-        self.refreshRealJanRyang()
+        self.refreshRealRequest()
         self.sigStartProcessBuy.emit()
         pass
 
@@ -577,13 +579,20 @@ class KiwoomConditon(QObject):
             pass
         else:
             util.save_log(printLog, '조건진입매수실패', folder = "log")
-            self.refreshRealJanRyang()
+            self.refreshRealRequest()
             self.sigNoBuy.emit()
         pass
      
     @pyqtSlot()
     def finalStateEntered(self):
         print(util.whoami())
+        pass
+
+    def printStockInfo(self, jongmokCode = 'all'):
+        if( jongmokCode == 'all'):
+            print(json.dumps(self.jangoInfo, ensure_ascii= False, indent =2))
+        else:
+            print(json.dumps(self.jangoInfo[jongmokCode], ensure_ascii= False, indent =2))
         pass
 
     # 주식 잔고정보 요청 
@@ -896,8 +905,9 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
-        # .format(scrNo, rQName, trCode, recordName, prevNext))
+        print('')
+        print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
+        .format(scrNo, rQName, trCode, recordName, prevNext))
 
         # rQName 은 계좌번호임 
         if ( trCode == 'opw00018' ):
@@ -914,7 +924,7 @@ class KiwoomConditon(QObject):
                     if( '손절가' not in jangoInfo.keys() ):
                         ret_vals.append(False)
                 if( ret_vals.count(False) == 0 ):
-                    print(self.jangoInfo)
+                    self.printStockInfo()
                     self.sigCalculateStoplossComplete.emit()
             else:
                 self.sigError.emit()
@@ -957,35 +967,22 @@ class KiwoomConditon(QObject):
           
             # TODO: 엉뚱한 종목코드의 주식 호가 잔량이 넘어 오는 경우가 있으므로 확인해야함 
             self.makeHogaJanRyangInfo(jongmokCode)                
+        if( realType == "주식체결"):
             self.processStopLoss(jongmokCode)
+            # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+            #     .format(jongmokCode, realType, realData))
             pass
 
-    # 실시간 호가 잔량 정보를 토대로 stoploss 수행         
+    # 실시간 호가 잔량 정보         
     def makeHogaJanRyangInfo(self, jongmokCode):
         #주식 호가 잔량 정보 요청 
-        jongmokName = None 
-        line = [] 
-        df = None
         result = None 
-        for list in kw_util.dict_jusik['실시간-주식호가잔량']:
-            if( list == "종목명" ):
-                jongmokName = self.getMasterCodeName(jongmokCode)
-                line.append(jongmokName)
-                continue
-            result = self.getCommRealData(jongmokCode, kw_util.dict_name_fid[list] ) 
-            line.append(result.strip())
-
-        try:
-            df = self.dfStockInfoList["실시간-주식호가잔량"]
-            df.loc[jongmokName] = line
-        except KeyError:
-            self.dfStockInfoList["실시간-주식호가잔량"] = pd.DataFrame(columns = kw_util.dict_jusik["실시간-주식호가잔량"])
-            df = self.dfStockInfoList["실시간-주식호가잔량"]
-            df.loc[jongmokName] = line
-
-        # print(line)
+        for col_name in kw_util.dict_jusik['실시간-주식호가잔량']:
+            result = self.getCommRealData(jongmokCode, kw_util.dict_name_fid[col_name] ) 
+            if( jongmokCode not in self.jangoInfo):
+                break
+            self.jangoInfo[jongmokCode][col_name] = result.strip()
         pass 
-
 
 
     def processStopLoss(self, jongmokCode):
@@ -1014,11 +1011,10 @@ class KiwoomConditon(QObject):
                 stop_loss = int(current_jango['매입가'] ) * 100
 
         # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
-        df = self.dfStockInfoList["실시간-주식호가잔량"]
-        maesuHoga1 =  abs(int(df.loc[jongmokName, '매수호가1']))
-        maesuHogaAmount1 =  int(df.loc[jongmokName, '매수호가수량1'])
-        maesuHoga2 =  abs(int(df.loc[jongmokName, '매수호가2']))
-        maesuHogaAmount2 =  int(df.loc[jongmokName, '매수호가수량2'])
+        maesuHoga1 =  abs(int(current_jango['매수호가1']))
+        maesuHogaAmount1 =  int(current_jango['매수호가수량1'])
+        maesuHoga2 =  abs(int(current_jango['매수호가2']))
+        maesuHogaAmount2 =  int(current_jango['매수호가수량2'])
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
         totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2
         # print( util.whoami() + jongmokName + " " + str(sum))
@@ -1117,14 +1113,14 @@ class KiwoomConditon(QObject):
     def insertBuyCodeList(self, jongmokCode):
         if( jongmokCode not in self.buyCodeList ):
             self.buyCodeList.append(jongmokCode)
-            self.refreshRealJanRyang()
+            self.refreshRealRequest()
         pass
 
     #주식 호가 잔량 정보 요청리스트 삭제 
     def removeBuyCodeList(self, jongmokCode):
         if( jongmokCode in self.buyCodeList ):
             self.buyCodeList.remove(jongmokCode)
-        self.refreshRealJanRyang()
+        self.refreshRealRequest()
         # 잔고 정보 삭제 
         self.jangoInfo.pop(jongmokCode)
         pass
@@ -1188,8 +1184,8 @@ class KiwoomConditon(QObject):
             df.loc[df.shape[0]] = line
         pass
 
-     # 실시간 주식 호가 잔량 정보 요청리스트 갱신  
-    def refreshRealJanRyang(self):
+     # 실시간  주식 정보 요청 요청리스트 갱신  
+    def refreshRealRequest(self):
         # 버그로 모두 지우고 새로 등록하게 함 
         self.setRealRemove("ALL", "ALL")
         codeList  = []
@@ -1198,7 +1194,9 @@ class KiwoomConditon(QObject):
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
         if( len(codeList) ):
            tmp = self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
-        #    print(util.whoami() + ' return  ' + str(tmp))
+        #    print(util.whoami() + '실시간 주식호가잔량  return  ' + str(tmp))
+           tmp = self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식체결'], "0")
+        #    print(util.whoami() + '실시간 주식체결  return  ' + str(tmp))
 
     # method 
     # 로그인
