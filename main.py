@@ -22,11 +22,13 @@ AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 00] ], [ [14, 00], [15, 00] ] ] #
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 19] 
 TRADING_INFO_GETTING_TIME = [15,40] # 트레이딩 정보를 저장하기 시작하는 시간
+STOP_LOSS_VALUE_DAY_RANGE = 1 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 # TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
 STOP_PLUS_PERCENT = 4 # 익절 퍼센티지 # 손절은 자동으로 기준가로 정해지고 매수시 기준가 + STOP_PLUS_PERCENT 이상이 아니면 매수하지 않음  
+SLIPPAGE = 1.5
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 # 장기 보유 종목 번호 리스트 
 DAY_TRADNIG_EXCEPTION_LIST = ['117930']
@@ -77,16 +79,15 @@ class KiwoomConditon(QObject):
         self.buyCodeList = []
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 {'종목코드': code} 
-        self.stopPlusList = [] # 익절 발생한 종목 리스트 저장 
         self.oneMinCandleJongmokList = [] 
         self.df1minCandleStickList = {}
         self.dfStockInfoList ={}
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
+
         self.createState()
         self.createConnection()
         self.currentTime = datetime.datetime.now()
-
         self.qmlEngine = QQmlApplicationEngine()
         
     def createState(self):
@@ -761,7 +762,7 @@ class KiwoomConditon(QObject):
 
             # 일자가 맨 마지막 리스트 
             saved_date_str = line['일자']
-            time_span = datetime.timedelta(days = 1) # 전날 일봉 말고 받지 않음 
+            time_span = datetime.timedelta(days = STOP_LOSS_VALUE_DAY_RANGE) # ? 중 저가 계산
             saved_date = datetime.datetime.strptime(saved_date_str, '%Y%m%d').date()
             current_date = self.currentTime.date()
             price_list.append(line['저가'])

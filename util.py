@@ -19,28 +19,25 @@ def save_log(contents, subject="None", folder=""):
     pass
 
 def whoami():
-    return '* ' + inspect.stack()[1][3] + ' '
+    return '* ' + cur_time_msec() + inspect.stack()[1][3] + ' '
     
 def whosdaddy():
-    return '*' + inspect.stack()[2][3] + ' '
+    return '*' + cur_time_msec() + inspect.stack()[2][3] + ' '
     
 def cur_date_time():
-    cur_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    cur_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S ')
     return cur_time
 
 def cur_time_msec():
-    '''
-    [%H:%M:%S.%f"]
-    '''
-    cur_time = datetime.now().strftime("%H:%M:%S.%f") 
+    cur_time = datetime.now().strftime('%H:%M:%S.%f ') 
     return cur_time
 
 def cur_date():
-    cur_time = datetime.now().strftime('%Y-%m-%d')
+    cur_time = datetime.now().strftime('%Y-%m-%d ')
     return cur_time
 
 def cur_time():
-    cur_time = datetime.now().strftime('%H:%M:%S')
+    cur_time = datetime.now().strftime('%H:%M:%S ')
     return cur_time
 
 if __name__ == "__main__":
