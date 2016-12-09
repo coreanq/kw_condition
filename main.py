@@ -84,6 +84,7 @@ class KiwoomConditon(QObject):
         self.dfStockInfoList ={}
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
+        self.stopPlusList = []
 
         self.createState()
         self.createConnection()
