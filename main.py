@@ -28,7 +28,7 @@ CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 �
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 # TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
 STOP_PLUS_PERCENT = 4 # 익절 퍼센티지 # 손절은 자동으로 기준가로 정해지고 매수시 기준가 + STOP_PLUS_PERCENT 이상이 아니면 매수하지 않음  
-SLIPPAGE = 1.5
+SLIPPAGE = 2.0 # 기본 매수 매도시 슬리피지는 1.0 이므로 + 0.5 하고 수수료 포함하여 2.0 
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 # 장기 보유 종목 번호 리스트 
 DAY_TRADNIG_EXCEPTION_LIST = ['117930']
@@ -732,7 +732,7 @@ class KiwoomConditon(QObject):
                     info_dict[item_name] = int(result)
         
             jongmokCode = info_dict['종목번호']
-            info_dict['이익실현가'] = info_dict['매입가'] * (1 + STOP_PLUS_PERCENT /100 )
+            info_dict['이익실현가'] = info_dict['매입가'] * (1 + STOP_PLUS_PERCENT /100 + SLIPPAGE / 100 )
             # info_dict['손절가'] = info_dict['전일종가']
             
             # 장기 보유종목인 경우 제외 
@@ -1027,7 +1027,6 @@ class KiwoomConditon(QObject):
         if( '손절가' not in current_jango or '매수호가1' not in current_jango):
             return
 
-
         # 손절가는 매수시 기준가(전일종가)로 책정되어 있음 
         stop_loss = int(current_jango['손절가'])
         stop_plus = int(current_jango['이익실현가'])
@@ -1059,8 +1058,10 @@ class KiwoomConditon(QObject):
                 printData += "(익절매도문주문)" 
                 isSell = True 
             else:
-                printData += "(익절시도호가수량부족 손절시도만함)" 
-                util.save_log(printData, '손절시도만!', 'log')
+                printData += "(익절시도호가수량부족 손절)" 
+                util.save_log(printData, '익절시도호가수량부족', 'log')
+                isSell = True
+
         printData += '매입가: ' + str(maeipga) + ' 잔고수량: ' + str(jangosuryang) 
 
         if( isSell == True ):
