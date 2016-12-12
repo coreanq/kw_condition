@@ -194,7 +194,7 @@ class KiwoomConditon(QObject):
 
         self.rootObject = self.qmlEngine.rootObjects()[0]
         self.rootObject.startClicked.connect(self.onStartClicked)
-        self.rootObject.stopClicked.connect(self.onStopClicked)
+        self.rootObject.restartClicked.connect(self.onRestartClicked)
         self.rootObject.requestJangoClicked.connect(self.onRequestJangoClicked)
         self.rootObject.testClicked.connect(self.onTestClicked)
 
@@ -208,7 +208,7 @@ class KiwoomConditon(QObject):
         self.sigInitOk.emit()
         
     @pyqtSlot()
-    def onStopClicked(self):
+    def onRestartClicked(self):
         print(util.whoami())
 
     @pyqtSlot()
@@ -1024,8 +1024,9 @@ class KiwoomConditon(QObject):
         stop_loss, stop_plus = 0,0
 
         # after buy command, before stoploss calculate this routine can run 
-        if( '손절가' not in current_jango):
+        if( '손절가' not in current_jango or '매수호가1' not in current_jango):
             return
+
 
         # 손절가는 매수시 기준가(전일종가)로 책정되어 있음 
         stop_loss = int(current_jango['손절가'])

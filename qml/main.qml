@@ -8,7 +8,7 @@ ApplicationWindow {
     width: 200
     height: 180
     signal startClicked()
-    signal stopClicked()
+    signal restartClicked()
     signal requestJangoClicked()
     signal testClicked(string arg)
 
@@ -38,7 +38,7 @@ ApplicationWindow {
             Button {
                 id: btnStop
                 width: parent.width/grid.columns
-                text: "종료"
+                text: "재시작"
                 Rectangle{
                     anchors.fill: parent
                     color: "red"
@@ -46,7 +46,7 @@ ApplicationWindow {
                 }
                 onClicked: {
                     console.log('stopClicked')
-                    main.stopClicked()
+                    main.restartClicked()
                 }
 
 
