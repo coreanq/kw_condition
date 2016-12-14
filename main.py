@@ -560,7 +560,7 @@ class KiwoomConditon(QObject):
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmokInfo_dict['등락율'] )
         
-        if( updown_percentage > 0 and updown_percentage < 30 - (STOP_PLUS_PERCENT * 1.5) ):
+        if( updown_percentage > 0 and updown_percentage < 30 - (STOP_PLUS_PERCENT * 2) ):
             pass
         else:
             printLog += '(등락률미충족)'
