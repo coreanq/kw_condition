@@ -21,7 +21,7 @@ AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 00] ], [ [14, 00], [15, 00] ] ] #
 # for day trading 
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 19] 
-TRADING_INFO_GETTING_TIME = [15,40] # 트레이딩 정보를 저장하기 시작하는 시간
+TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 정보를 저장하기 시작하는 시간
 STOP_LOSS_VALUE_DAY_RANGE = 1 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
@@ -566,21 +566,22 @@ class KiwoomConditon(QObject):
             printLog += '(등락률미충족)'
             return_vals.append(False)
 
-        # 기준가 + 익절 퍼센티지 미달인 경우 매수 하지 않음 
-        base_price = int(jongmokInfo_dict['기준가'])
-        if( maedoHoga1 >= base_price * (1 + STOP_PLUS_PERCENT / 100)):
-            pass
-        else:
-            printLog += '(기준가미충족)'
-            return_vals.append(False)
+        # 기준가(전일종가) + 익절 사이에 가격이 형성된 경우  경우 매수 하지 않음 
+        # 6 % 이상 종목만 사겠다는데 정배열인거 사는게 더 나을듯 함 
+        # base_price = int(jongmokInfo_dict['기준가'])
+        # if( maedoHoga1 >= base_price * (1 + STOP_PLUS_PERCENT / 100)):
+        #     pass
+        # else:
+        #     printLog += '(기준가미충족)'
+        #     return_vals.append(False)
         
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
-        low_price = int(jongmokInfo_dict['저가'])
-        if( low_price >= base_price ):
-            pass
-        else:
-            printLog += '(저가가전일종가보다낮음)'
-            return_vals.append(False)
+        # low_price = int(jongmokInfo_dict['저가'])
+        # if( low_price >= base_price ):
+        #     pass
+        # else:
+        #     printLog += '(저가가전일종가보다낮음)'
+        #     return_vals.append(False)
 
         # 기존에 이미 수익이 한번 발생한 종목이라면  
         if( self.stopPlusList.count(jongmokCode) == 0 ):
