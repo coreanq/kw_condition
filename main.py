@@ -539,7 +539,7 @@ class KiwoomConditon(QObject):
         if( self.buyCodeList.count(jongmokCode) == 0 ):
             pass
         else:
-            printLog += '(____이미보유종목____)'
+            printLog += '(____기보유종목____: {0})'.format(jongmokName)
             return_vals.append(False)
             pass
 
@@ -547,14 +547,14 @@ class KiwoomConditon(QObject):
         if( maedoHoga1 >= STOCK_PRICE_MIN_MAX['min'] and maedoHoga1 <= STOCK_PRICE_MIN_MAX['max']):
             pass
         else:
-            printLog += '(종목가격미충족)' 
+            printLog += '(종목가격미충족: 매도호가1 {0})'.format(maedoHoga1)
             return_vals.append(False)
 
         # 호가 잔량이 살만큼 있는 경우  
         if( totalAmount >= TOTAL_BUY_AMOUNT):
             pass 
         else:
-            printLog += '(호가수량부족)'
+            printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
             return_vals.append(False)
     
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
@@ -563,7 +563,7 @@ class KiwoomConditon(QObject):
         if( updown_percentage > 0 and updown_percentage < 30 - (STOP_PLUS_PERCENT * 2) ):
             pass
         else:
-            printLog += '(등락률미충족)'
+            printLog += '(등락률미충족: 등락율{0})'.format(updown_percentage)
             return_vals.append(False)
 
         # 기준가(전일종가) + 익절 사이에 가격이 형성된 경우  경우 매수 하지 않음 
