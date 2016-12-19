@@ -936,8 +936,8 @@ class KiwoomConditon(QObject):
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
         print('')
-        print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext: {}' 
-        .format(scrNo, rQName, trCode, recordName, prevNext))
+        print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
+        .format(scrNo, rQName, trCode))
 
         # rQName 은 계좌번호임 
         if ( trCode == 'opw00018' ):
@@ -1052,24 +1052,30 @@ class KiwoomConditon(QObject):
         isSell = False
         printData = jongmokCode + ' ' + jongmokName + ' ' 
         if( stop_loss >= maesuHoga1 ) :
-            printData += "(손절매도주문)"
+            printData += "(손절)"
             isSell = True
         if( stop_plus < maesuHoga1 ) :
             if( totalAmount >= TOTAL_BUY_AMOUNT):
                 self.stopPlusList.append(jongmokCode)
-                printData += "(익절매도문주문)" 
+                printData += "(익절)" 
                 isSell = True 
             else:
-                printData += "(익절시도호가수량부족 손절)" 
-                util.save_log(printData, '익절시도호가수량부족', 'log')
+                printData += "(익절조건미달)" 
                 isSell = True
 
-        printData += '매입가: ' + str(maeipga) + ' 잔고수량: ' + str(jangosuryang) 
+        printData +=    ' 손절가: ' + str(stop_loss) + \
+                        ' 이익실현가: ' + str(stop_plus) + \
+                        ' 매입가: ' + str(maeipga) + \
+                        ' 매수호가1' + str(maesuHoga1) + \
+                        ' 매수호가수량1' + str(maesuHogaAmount1) + \
+                        ' 매수호가2'  + str(maesuHoga2) + \
+                        ' 매수호가수량2' + str(maesuHogaAmount2) + \
+                        ' 잔고수량: ' + str(jangosuryang) 
 
         if( isSell == True ):
             result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
                                 jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
-            util.save_log(printData, '손절', 'log')
+            util.save_log(printData, '매도', 'log')
             print("S " + jongmokCode + ' ' + str(result), sep= "")
             pass
         pass
