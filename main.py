@@ -21,8 +21,8 @@ AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 00] ], [ [14, 00], [15, 00] ] ] #
 # for day trading 
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 19] 
-TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 정보를 저장하기 시작하는 시간
-STOP_LOSS_VALUE_DAY_RANGE = 1 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
+TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 2정보를 저장하기 시작하는 시간
+STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
@@ -765,11 +765,11 @@ class KiwoomConditon(QObject):
 
             # 일자가 맨 마지막 리스트 
             saved_date_str = line['일자']
-            time_span = datetime.timedelta(days = STOP_LOSS_VALUE_DAY_RANGE) # ? 중 저가 계산
+            time_span = datetime.timedelta(days = STOP_LOSS_VALUE_DAY_RANGE) # 몇일 중  저가 계산
             saved_date = datetime.datetime.strptime(saved_date_str, '%Y%m%d').date()
             current_date = self.currentTime.date()
             price_list.append(line['저가'])
-            if( saved_date <=  current_date - time_span):
+            if( saved_date <  current_date - time_span):
                 self.jangoInfo[jongmokCode]['손절가'] = min(price_list)
                 # print(self.jangoInfo[jongmokCode]['종목명'], line['저가'])
                 break
@@ -1050,7 +1050,8 @@ class KiwoomConditon(QObject):
         # print( util.whoami() + jongmokName + " " + str(sum))
 
         isSell = False
-        printData = jongmokCode + ' ' + jongmokName + ' ' 
+        printData = jongmokCode + ' {0:20} '.format(jongmokName) 
+
         if( stop_loss >= maesuHoga1 ) :
             printData += "(손절)"
             isSell = True
@@ -1063,14 +1064,14 @@ class KiwoomConditon(QObject):
                 printData += "(익절조건미달)" 
                 isSell = True
 
-        printData +=    ' 손절가: ' + str(stop_loss) + \
-                        ' 이익실현가: ' + str(stop_plus) + \
-                        ' 매입가: ' + str(maeipga) + \
-                        ' 매수호가1' + str(maesuHoga1) + \
-                        ' 매수호가수량1' + str(maesuHogaAmount1) + \
-                        ' 매수호가2'  + str(maesuHoga2) + \
-                        ' 매수호가수량2' + str(maesuHogaAmount2) + \
-                        ' 잔고수량: ' + str(jangosuryang) 
+        printData +=    ' 손절가: {0:7}/'.format(str(stop_loss)) + \
+                        ' 이익실현가: {0:7}/'.format(str(stop_plus)) + \
+                        ' 매입가: {0:7}/'.format(str(maeipga)) + \
+                        ' 잔고수량: {0:7}'.format(str(jangosuryang)) +\
+                        ' 매수호가1 {0:7}/'.format(str(maesuHoga1)) + \
+                        ' 매수호가수량1 {0:7}/'.format(str(maesuHogaAmount1)) + \
+                        ' 매수호가2 {0:7}/'.format(str(maesuHoga2)) + \
+                        ' 매수호가수량2 {0:7}/'.format(str(maesuHogaAmount2)) 
 
         if( isSell == True ):
             result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
