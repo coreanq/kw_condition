@@ -78,7 +78,7 @@ class KiwoomConditon(QObject):
 
         self.buyCodeList = []
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
-        self.chegyeolInfo = {} # { 'jongmokCoee': [ {'주문구분': '매도', '주문/체결시간': ??, '체결가': ? , '체결수량': ? , '미체결수량'} ] }
+        self.chegyeolInfo = {} # { '날짜' : { jongmokCode': [ {'주문구분': '매도', '주문/체결시간': ??, '체결가': ? , '체결수량': ? , '미체결수량'} ] } }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 {'종목코드': code} 
         self.oneMinCandleJongmokList = [] 
         self.df1minCandleStickList = {}
@@ -352,14 +352,12 @@ class KiwoomConditon(QObject):
             with open(CHEGYEOL_INFO_FILE_PATH, 'r', encoding='utf8') as f:
                 file_contents = f.read()
                 self.chegyeolInfo = json.loads(file_contents)
-            for code_num, contents in self.chegyeolInfo.items():
-                for content in contents: 
-                    for col_name, value in content.items():
-                        if( col_name == '주문/체결시간'):
-                            # 오늘부 거래 내역이 있다면 ?
-                            saved_date = datetime.datetime.strptime(value, ("%y%m%d-%H%M%S") ).date()
-                            if( saved_date == self.currentTime.date() ):
-                                self.currentlyTradedCodeList.append(content['종목코드'] )
+
+            for trade_date, data_chunk in self.chegyeolInfo.items():
+                if( datetime.datetime.strptime(trade_date, "%y%m%d").date() == self.currentTime.date() ): 
+                    for jongmok_code, contents in data_chunk.items(): 
+                        self.currentlyTradedCodeList.append(jongmok_code)
+
         # get 조건 검색 리스트
         self.getConditionLoad()
         pass
@@ -500,7 +498,8 @@ class KiwoomConditon(QObject):
             printLog += '(조건리스트없음)'
             return_vals.append(False)
             return
-
+        
+        # TODO: condition 발생 리스트를 따로 저장하여 1분봉 정보를 엑셀에 저장할수 있도록 함 
         self.conditionOccurList.remove(jongmokInfo_dict)
             
         jongmokName = jongmokInfo_dict['종목명']
@@ -1131,16 +1130,18 @@ class KiwoomConditon(QObject):
                 
             if( str(nFid) in fids):
                 result = str(self.getChejanData(nFid)).strip()
-                if( col_name == '주문/체결시간'):
-                    info_dict[col_name] = datetime.datetime.now().strftime("%y%m%d") + '-' + result
-                else:
-                    info_dict[col_name] = result
+                info_dict[col_name] = result
                 printData += col_name + ": " + result + ", " 
         
-        if( jongmok_code not in self.chegyeolInfo ):
-            self.chegyeolInfo[jongmok_code] = []
+        current_date = self.currentTime.time().strftime("%y%m%d")
 
-        self.chegyeolInfo[jongmok_code].append(info_dict)
+        if( current_date not in self.cheyeolInfo) :
+            self.chegyeolInfo[current_date] =  {}
+        if( jongmok_code not in self.chegyeolInfo[current_date]):
+            self.chegyeolInfo[current_date][jongmok_code] = []
+
+        self.chegyeolInfo[current_date][jongmok_code].append(info_dict)
+
         with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
             f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent=2))
         util.save_log(printData, "*체결정보", folder= "log")
