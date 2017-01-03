@@ -1,5 +1,5 @@
 # -*-coding: utf-8 -*-
-import sys, os, re, time, datetime, math
+import sys, os, re, time, datetime
 
 import util 
 import json
@@ -16,7 +16,7 @@ import copy
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 00] ], [ [14, 00], [15, 00] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 00] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
 
 # for day trading 
 DAY_TRADING_ENABLE = False
@@ -39,9 +39,8 @@ TODO: 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 �
 '''
 STOCK_POSSESION_COUNT = 5 
 
-
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
-STOCK_INFO_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() +"_stock.xlsx"
+CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep + util.cur_month() + "_chegyeol.json"
 
 class KiwoomConditon(QObject):
     sigInitOk = pyqtSignal()
@@ -79,13 +78,14 @@ class KiwoomConditon(QObject):
 
         self.buyCodeList = []
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
+        self.chegyeolInfo = {} # { 'jongmokCoee': [ {'주문구분': '매도', '주문/체결시간': ??, '체결가': ? , '체결수량': ? , '미체결수량'} ] }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 {'종목코드': code} 
         self.oneMinCandleJongmokList = [] 
         self.df1minCandleStickList = {}
         self.dfStockInfoList ={}
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
-        self.stopPlusList = []
+        self.currentlyTradedCodeList = []
 
         self.createState()
         self.createConnection()
@@ -197,6 +197,7 @@ class KiwoomConditon(QObject):
         self.rootObject.startClicked.connect(self.onStartClicked)
         self.rootObject.restartClicked.connect(self.onRestartClicked)
         self.rootObject.requestJangoClicked.connect(self.onRequestJangoClicked)
+        self.rootObject.chegyeolClicked.connect(self.onChegyeolClicked)
         self.rootObject.testClicked.connect(self.onTestClicked)
 
         rootContext = self.qmlEngine.rootContext()
@@ -215,6 +216,11 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def onRequestJangoClicked(self):
         self.printStockInfo()
+
+    @pyqtSlot()
+    def onChegyeolClicked(self):
+        print(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent = 2))
+
 
     @pyqtSlot(str)
     def onTestClicked(self, arg):
@@ -267,21 +273,12 @@ class KiwoomConditon(QObject):
   
     @pyqtSlot()
     def mainStateEntered(self):
-        self.loadStockInfoExcel()
         pass
-
-    def loadStockInfoExcel(self):
-        if( os.path.isfile( STOCK_INFO_EXCEL_FILE_PATH) == True):
-            xls_file = pd.ExcelFile(STOCK_INFO_EXCEL_FILE_PATH)
-            for sheetName in xls_file.sheet_names:
-                self.dfStockInfoList[sheetName] = xls_file.parse(sheetName)
-            pass
 
     @pyqtSlot()
     def stockCompleteStateEntered(self):
         print(util.whoami())
         self.save1minCandleStickInfo()
-        self.saveStockInfo()
         self.sigStateStop.emit()
         pass
 
@@ -302,13 +299,6 @@ class KiwoomConditon(QObject):
         writer.save()
         pass
         
-    def saveStockInfo(self):
-        writer = pd.ExcelWriter(STOCK_INFO_EXCEL_FILE_PATH, engine='xlsxwriter')
-        for sheetName, df in self.dfStockInfoList.items():
-            df.to_excel(writer, sheet_name=sheetName )
-        writer.save()
-        pass
-
     @pyqtSlot()
     def initStateEntered(self):
         print(util.whoami())
@@ -357,6 +347,19 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def initSystemStateEntered(self):
+        # 체결정보 로드 
+        if( os.path.isfile(CHEGYEOL_INFO_FILE_PATH) == True ):
+            with open(CHEGYEOL_INFO_FILE_PATH, 'r', encoding='utf8') as f:
+                file_contents = f.read()
+                self.chegyeolInfo = json.loads(file_contents)
+            for code_num, contents in self.chegyeolInfo.items():
+                for content in contents: 
+                    for col_name, value in content.items():
+                        if( col_name == '주문/체결시간'):
+                            # 오늘부 거래 내역이 있다면 ?
+                            saved_date = datetime.datetime.strptime(value, ("%y%m%d-%H%M%S") ).date()
+                            if( saved_date == self.currentTime.date() ):
+                                self.currentlyTradedCodeList.append(content['종목코드'] )
         # get 조건 검색 리스트
         self.getConditionLoad()
         pass
@@ -584,10 +587,10 @@ class KiwoomConditon(QObject):
         #     return_vals.append(False)
 
         # 기존에 이미 수익이 한번 발생한 종목이라면  
-        if( self.stopPlusList.count(jongmokCode) == 0 ):
+        if( self.currentlyTradedCodeList.count(jongmokCode) == 0 ):
             pass
         else:
-            printLog += '(수익발생종목)'
+            printLog += '(금일거래종목)'
             return_vals.append(False)
 
         # 매수 
@@ -1057,7 +1060,6 @@ class KiwoomConditon(QObject):
             isSell = True
         if( stop_plus < maesuHoga1 ) :
             if( totalAmount >= TOTAL_BUY_AMOUNT):
-                self.stopPlusList.append(jongmokCode)
                 printData += "(익절)" 
                 isSell = True 
             else:
@@ -1077,6 +1079,7 @@ class KiwoomConditon(QObject):
             result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
                                 jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
             util.save_log(printData, '매도', 'log')
+            self.currentlyTradedCodeList.append(jongmokCode)
             print("S " + jongmokCode + ' ' + str(result), sep= "")
             pass
         pass
@@ -1107,45 +1110,39 @@ class KiwoomConditon(QObject):
 
         elif ( gubun == "0"):
             jumun_sangtae =  self.getChejanData(913)
-            jongmokCode = self.getChejanData(9001)[1:]
-            jumun_gubun = self.getChejanData(905)[1:]
+            jongmok_code = self.getChejanData(9001)[1:]
             if( jumun_sangtae == "체결"):
-                if( jumun_gubun == "매수"):
-                    pass
-                elif(jumun_gubun == "매도"):
-                    pass
-                self.makeChegyelInfo(jongmokCode, fidList)
+                self.makeChegyeolInfo(jongmok_code, fidList)
                 pass
             pass
-    def makeChegyelInfo(self, jongmokCode, fidList):
-        fids = fidList.split(";")
-        lineData = []
-        printData = "" 
-        keyIndex = util.cur_time_msec() 
 
-        for chegyelDfColumn in kw_util.dict_jusik["체결정보"]:
+    def makeChegyeolInfo(self, jongmok_code, fidList):
+        fids = fidList.split(";")
+        printData = "" 
+        info_dict = {}
+
+        for col_name in kw_util.dict_jusik["체결정보"]:
             nFid = None
             result = ""
             try:
-                nFid = kw_util.dict_name_fid[chegyelDfColumn]
+                nFid = kw_util.dict_name_fid[col_name]
             except KeyError:
                 continue
                 
             if( str(nFid) in fids):
-                if( chegyelDfColumn == '종목코드'):
-                    result = self.getChejanData(nFid)[1:]
-                else: 
-                    result = self.getChejanData(nFid)
-            lineData.append(result.strip())
-            printData += chegyelDfColumn + ": " + result + ", " 
+                result = str(self.getChejanData(nFid)).strip()
+                if( col_name == '주문/체결시간'):
+                    info_dict[col_name] = datetime.datetime.now().strftime("%y%m%d") + '-' + result
+                else:
+                    info_dict[col_name] = result
+                printData += col_name + ": " + result + ", " 
         
-        try:
-            df = self.dfStockInfoList["체결정보"]
-            df.loc[keyIndex] = lineData
-        except KeyError:
-            self.dfStockInfoList["체결정보"] = pd.DataFrame(columns = kw_util.dict_jusik['체결정보'])
-            df = self.dfStockInfoList['체결정보']
-            df.loc[keyIndex] = lineData
+        if( jongmok_code not in self.chegyeolInfo ):
+            self.chegyeolInfo[jongmok_code] = []
+
+        self.chegyeolInfo[jongmok_code].append(info_dict)
+        with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
+            f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent=2))
         util.save_log(printData, "*체결정보", folder= "log")
         pass
 
@@ -1204,23 +1201,15 @@ class KiwoomConditon(QObject):
         if( typeName == '진입'):
             printLog = '{}, status: {}'.format( self.getMasterCodeName(code), typeName)
             self.makeConditionOccurInfo(code) # 조건 발생한 경우 무조건 df 저장
-            self.conditionOccurList.append({'종목코드': code}) 
             self.sigConditionOccur.emit()
         pass 
 
-    def makeConditionOccurInfo(self, jongmokCode):
-        line = []
+    def makeConditionOccurInfo(self, jongmok_code):
+
         #발생시간, 종목코드,  종목명
-        line.append(util.cur_date_time().strip() )
-        line.append(jongmokCode)
-        line.append(self.getMasterCodeName(jongmokCode))
-        try:
-            df = self.dfStockInfoList["조건진입"]
-            df.loc[df.shape[0]] = line 
-        except KeyError:
-            self.dfStockInfoList["조건진입"] = pd.DataFrame(columns = kw_util.dict_jusik['조건진입'])
-            df = self.dfStockInfoList['조건진입']
-            df.loc[df.shape[0]] = line
+        time = util.cur_date_time()
+        jongmok_name = self.getMasterCodeName(jongmok_code)
+        self.conditionOccurList.append( {'발생시간': time, '종목이름': jongmok_name, '종목코드': jongmok_code} )
         pass
 
      # 실시간  주식 정보 요청 요청리스트 갱신  
@@ -1522,9 +1511,6 @@ if __name__ == "__main__":
         # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
         # "044180", 1, 0 , kw_util.dict_order["시장가"], "")
         # Execute the Application and Exit
-        pass
-    def test_save():
-        objKiwoom.saveStockInfo()
         pass
     def test_condition():
         objKiwoom._OnReceiveRealCondition("044180", "I",  "단타 추세", 1)

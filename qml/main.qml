@@ -10,6 +10,7 @@ ApplicationWindow {
     signal startClicked()
     signal restartClicked()
     signal requestJangoClicked()
+    signal chegyeolClicked()
     signal testClicked(string arg)
 
     Column {
@@ -63,6 +64,15 @@ ApplicationWindow {
                 onClicked: {
                     console.log('requestJangoClicked')
                     main.requestJangoClicked()
+                }
+            }
+            Button {
+                id: btnChegyeol
+                width: parent.width/grid.columns
+                text: "체결내역"
+                onClicked: {
+                    console.log('chegyeolClicked')
+                    main.chegyeolClicked()
                 }
             }
             Button {
