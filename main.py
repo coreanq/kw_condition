@@ -79,7 +79,7 @@ class KiwoomConditon(QObject):
         self.buyCodeList = []
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
         self.chegyeolInfo = {} # { '날짜' : { jongmokCode': [ {'주문구분': '매도', '주문/체결시간': ??, '체결가': ? , '체결수량': ? , '미체결수량'} ] } }
-        self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장 {'종목코드': code} 
+        self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
         self.oneMinCandleJongmokList = [] 
         self.df1minCandleStickList = {}
         self.dfStockInfoList ={}
