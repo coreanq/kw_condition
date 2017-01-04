@@ -4,7 +4,6 @@ import sys, os, re, time, datetime
 import util 
 import json
 import kw_util  
-import pandas as pd
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
@@ -80,9 +79,6 @@ class KiwoomConditon(QObject):
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
         self.chegyeolInfo = {} # { '날짜' : { jongmokCode': [ {'주문구분': '매도', '주문/체결시간': ??, '체결가': ? , '체결수량': ? , '미체결수량'} ] } }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
-        self.oneMinCandleJongmokList = [] 
-        self.df1minCandleStickList = {}
-        self.dfStockInfoList ={}
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
         self.currentlyTradedCodeList = []
@@ -219,7 +215,9 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def onChegyeolClicked(self):
-        print(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent = 2))
+        current_date = self.currentTime.date().strftime("%y%m%d")
+        if( current_date in self.chegyeolInfo):
+            print(json.dumps(self.chegyeolInfo[current_date], ensure_ascii= False, indent = 2, sort_keys = True))
 
 
     @pyqtSlot(str)
@@ -283,20 +281,20 @@ class KiwoomConditon(QObject):
         pass
 
     def save1minCandleStickInfo(self):
-        writer = pd.ExcelWriter(ONE_MIN_CANDLE_EXCEL_FILE_PATH, engine='xlsxwriter')
-        tempDf = None 
-        sheetName = None
-        jongmokName = None
-        for jongmokCode, df in self.df1minCandleStickList.items():
-            jongmokName = self.getMasterCodeName(jongmokCode)
-            # 종목 이름을 sheet name 으로 해서 1분봉 데이터 저장 
-            if( jongmokName != ""):
-                tempDf = df.sort_values(by=['체결시간'])
-                sheetName = jongmokName
-            else:
-                continue
-            tempDf.to_excel(writer, sheet_name=sheetName )
-        writer.save()
+        # writer = pd.ExcelWriter(ONE_MIN_CANDLE_EXCEL_FILE_PATH, engine='xlsxwriter')
+        # tempDf = None 
+        # sheetName = None
+        # jongmokName = None
+        # for jongmokCode, df in self.df1minCandleStickList.items():
+        #     jongmokName = self.getMasterCodeName(jongmokCode)
+        #     # 종목 이름을 sheet name 으로 해서 1분봉 데이터 저장 
+        #     if( jongmokName != ""):
+        #         tempDf = df.sort_values(by=['체결시간'])
+        #         sheetName = jongmokName
+        #     else:
+        #         continue
+        #     tempDf.to_excel(writer, sheet_name=sheetName )
+        # writer.save()
         pass
         
     @pyqtSlot()
@@ -429,23 +427,14 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def prepare1minTrListStateEntered(self):
         print(util.whoami() )
-        self.oneMinCandleJongmokList = [] 
+        # TODO: 조건 진입 정보를 통해 1분봉 데이터 요청하기 
         # 조건 진입 정보를 읽어 종목 코드 값을 빼낸 뒤 tr 요청 
-        try:
-            df = self.dfStockInfoList['체결정보'].drop_duplicates("종목코드")
-            for index, series in df.iterrows():
-                self.oneMinCandleJongmokList.append(series["종목코드"])
-        except KeyError:
-            pass  
         self.sigPrepare1minTrListComplete.emit()
 
     @pyqtSlot()
     def request1minTrStateEntered(self):
         print(util.whoami() )
-        if( len(self.oneMinCandleJongmokList) == 0 ):
-            self.sigStockComplete.emit()
-            return
-        self.requestOpt10080(self.oneMinCandleJongmokList[0])
+        self.sigStockComplete.emit()
         pass
 
     @pyqtSlot()
@@ -622,9 +611,9 @@ class KiwoomConditon(QObject):
 
     def printStockInfo(self, jongmokCode = 'all'):
         if( jongmokCode == 'all'):
-            print(json.dumps(self.jangoInfo, ensure_ascii= False, indent =2))
+            print(json.dumps(self.jangoInfo, ensure_ascii= False, indent =2, sort_keys = True))
         else:
-            print(json.dumps(self.jangoInfo[jongmokCode], ensure_ascii= False, indent =2))
+            print(json.dumps(self.jangoInfo[jongmokCode], ensure_ascii= False, indent =2, sort_keys = True))
         pass
 
     # 주식 잔고정보 요청 
@@ -806,7 +795,7 @@ class KiwoomConditon(QObject):
         pass
     
             
-    # 1분봉 데이터 생성 --> to dataframe
+    # 1분봉 데이터 생성 
     def makeOpt10080Info(self, rQName):
         repeatCnt = self.getRepeatCnt("opt10080", rQName)
         currentTimeStr  = None 
@@ -826,21 +815,22 @@ class KiwoomConditon(QObject):
             resultTime = time.strptime(currentTimeStr,  "%Y%m%d%H%M%S")
             currentTime = time.localtime()
             if( resultTime.tm_mday == currentTime.tm_mday ):
+                pass
                 # 기존에 저장되어 있는 않는 데이터만 저장하고 이미 데이터가 있는 경우 리턴한다. 
-                try:
-                    df = self.df1minCandleStickList[rQName]
-                    # any 를 해야 dataframe 이 리턴되지 않고 True, False 로 리턴됨 
-                    if((df['체결시간'] == currentTimeStr).any() ):
-                        #중복 나올시 바로 나옴 
-                        break
-                    else:
-                        # print(line)
-                        df.loc[df.shape[0]] = line 
-                except KeyError:
-                    self.df1minCandleStickList[rQName] = pd.DataFrame(columns = kw_util.dict_jusik['TR:분봉'])
-                    df = self.df1minCandleStickList[rQName]
-                    df.loc[df.shape[0]] = line
-                    # print(line)
+                # try:
+                #     df = self.df1minCandleStickList[rQName]
+                #     # any 를 해야 dataframe 이 리턴되지 않고 True, False 로 리턴됨 
+                #     if((df['체결시간'] == currentTimeStr).any() ):
+                #         #중복 나올시 바로 나옴 
+                #         break
+                #     else:
+                #         # print(line)
+                #         df.loc[df.shape[0]] = line 
+                # except KeyError:
+                #     self.df1minCandleStickList[rQName] = pd.DataFrame(columns = kw_util.dict_jusik['TR:분봉'])
+                #     df = self.df1minCandleStickList[rQName]
+                #     df.loc[df.shape[0]] = line
+                #     # print(line)
             else:
                 break
 
@@ -851,21 +841,13 @@ class KiwoomConditon(QObject):
         index = 0
         line = []
         jongmokName = ""
+        # TODO: 전업종 지수 데이터 저장하는 루틴 dict 로 구현하기 
         for item_name in kw_util.dict_jusik['TR:전업종지수']:
             result = self.getCommData("opt20003", rQName, index, item_name)
             if( item_name == '종목명'):
                 jongmokName = result.strip()
             line.append(result.strip())
       # print(line)
-        df = None
-        try:
-            df = self.dfStockInfoList['전업종지수']
-            df.loc[jongmokName] = line 
-        except KeyError:
-            self.dfStockInfoList['전업종지수']= pd.DataFrame(columns = kw_util.dict_jusik['TR:전업종지수'])
-            df = self.dfStockInfoList['전업종지수']
-            df.loc[jongmokName] = line
-        # print(df)
         pass
    
     @pyqtSlot()
@@ -1130,12 +1112,14 @@ class KiwoomConditon(QObject):
                 
             if( str(nFid) in fids):
                 result = str(self.getChejanData(nFid)).strip()
+                if( col_name == '종목코드'):
+                    result = result[1:] 
                 info_dict[col_name] = result
                 printData += col_name + ": " + result + ", " 
         
-        current_date = self.currentTime.time().strftime("%y%m%d")
+        current_date = self.currentTime.date().strftime("%y%m%d")
 
-        if( current_date not in self.cheyeolInfo) :
+        if( current_date not in self.chegyeolInfo) :
             self.chegyeolInfo[current_date] =  {}
         if( jongmok_code not in self.chegyeolInfo[current_date]):
             self.chegyeolInfo[current_date][jongmok_code] = []
@@ -1143,7 +1127,7 @@ class KiwoomConditon(QObject):
         self.chegyeolInfo[current_date][jongmok_code].append(info_dict)
 
         with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
-            f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent=2))
+            f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent=2, sort_keys = True))
         util.save_log(printData, "*체결정보", folder= "log")
         pass
 
