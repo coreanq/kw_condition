@@ -48,6 +48,7 @@ class KiwoomConditon(QObject):
     sigTryConnect = pyqtSignal()
     sigGetConditionCplt = pyqtSignal()
     sigSelectCondition = pyqtSignal()
+    sigWaitingTrade = pyqtSignal()
     sigRefreshCondition = pyqtSignal()
     sigRequest1minTr = pyqtSignal()
     sigGetTrCplt = pyqtSignal()
@@ -102,7 +103,7 @@ class KiwoomConditon(QObject):
         systemState = QState(connectedState)
         
         initSystemState = QState(systemState)
-        waitingSelectSystemState = QState(systemState)
+        waitingTradeSystemState = QState(systemState)
         standbySystemState = QState(systemState)
         requestingJangoSystemState = QState(systemState)
         calculateStoplossSystemState = QState(systemState)
@@ -120,8 +121,9 @@ class KiwoomConditon(QObject):
         connectedState.addTransition(self.sigDisconnected, disconnectedState)
         
         systemState.setInitialState(initSystemState)
-        initSystemState.addTransition(self.sigGetConditionCplt, waitingSelectSystemState)
-        waitingSelectSystemState.addTransition(self.sigSelectCondition, requestingJangoSystemState)
+        initSystemState.addTransition(self.sigGetConditionCplt, waitingTradeSystemState)
+        waitingTradeSystemState.addTransition(self.sigWaitingTrade, waitingTradeSystemState )
+        waitingTradeSystemState.addTransition(self.sigSelectCondition, requestingJangoSystemState)
         requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, calculateStoplossSystemState)
         calculateStoplossSystemState.addTransition(self.sigCalculateStoplossComplete, standbySystemState)
         standbySystemState.addTransition(self.sigRefreshCondition, initSystemState)
@@ -138,7 +140,7 @@ class KiwoomConditon(QObject):
         
         systemState.entered.connect(self.systemStateEntered)
         initSystemState.entered.connect(self.initSystemStateEntered)
-        waitingSelectSystemState.entered.connect(self.waitingSelectSystemStateEntered)
+        waitingTradeSystemState.entered.connect(self.waitingTradeSystemStateEntered)
         requestingJangoSystemState.entered.connect(self.requestingJangoSystemStateEntered)
         calculateStoplossSystemState.entered.connect(self.calculateStoplossSystemStateEntered)
         standbySystemState.entered.connect(self.standbySystemStateEntered)
@@ -301,7 +303,7 @@ class KiwoomConditon(QObject):
     def initStateEntered(self):
         print(util.whoami())
         self.initQmlEngine()
-        QTimer.singleShot(1000, self.sigInitOk)
+        self.sigInitOk.emit()
         pass
 
     @pyqtSlot()
@@ -317,6 +319,7 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def connectedStateEntered(self):
         # get 계좌 정보
+
         account_cnt = self.getLoginInfo("ACCOUNT_CNT")
         acc_num = self.getLoginInfo("ACCNO")
         user_id = self.getLoginInfo("USER_ID")
@@ -353,15 +356,17 @@ class KiwoomConditon(QObject):
 
             for trade_date, data_chunk in self.chegyeolInfo.items():
                 if( datetime.datetime.strptime(trade_date, "%y%m%d").date() == self.currentTime.date() ): 
-                    for jongmok_code, contents in data_chunk.items(): 
-                        self.currentlyTradedCodeList.append(jongmok_code)
+                    for trade_info in data_chunk: 
+                        self.currentlyTradedCodeList.append(trade_info[kw_util.dict_jusik['체결정보'].index('종목코드')])
+                    break
 
         # get 조건 검색 리스트
         self.getConditionLoad()
         pass
 
     @pyqtSlot()
-    def waitingSelectSystemStateEntered(self):
+    def waitingTradeSystemStateEntered(self):
+        self.timerSystem.start()
         # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
         # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
         result = self.getConditionNameList()
@@ -379,7 +384,15 @@ class KiwoomConditon(QObject):
         print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
         self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
         
-        self.sigSelectCondition.emit()
+        time_span = datetime.timedelta(minutes = 10)
+        expected_time = (self.currentTime + time_span).time()
+
+        # 장시작 10분전에 조건이 시작하도록 함 
+        if( expected_time >= datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) ):
+            self.initQmlEngine()
+            self.sigSelectCondition.emit()
+        else:
+            self.sigWaitingTrade.emit()
 
         pass
 
@@ -414,7 +427,6 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def standbySystemStateEntered(self):
         print(util.whoami() )
-        self.timerSystem.start()
         jango_list = self.jangoInfo.keys()
         # 잔고 리스트 추가 및 잔고리스트의 실시간 체결 정보를 받도록 함 
         for jongmokCode in jango_list:
@@ -1100,7 +1112,7 @@ class KiwoomConditon(QObject):
     def makeChegyeolInfo(self, jongmok_code, fidList):
         fids = fidList.split(";")
         printData = "" 
-        info_dict = {}
+        info = [] 
 
         for col_name in kw_util.dict_jusik["체결정보"]:
             nFid = None
@@ -1114,20 +1126,22 @@ class KiwoomConditon(QObject):
                 result = str(self.getChejanData(nFid)).strip()
                 if( col_name == '종목코드'):
                     result = result[1:] 
-                info_dict[col_name] = result
+                if( col_name == '종목명'):
+                    result = '{0:<20}'.format(result)
+                if( col_name == '체결가' or col_name == '체결량' or col_name == '미체결수량'):
+                    result = '{0:<8}'.format(result)
+                info.append(result)
                 printData += col_name + ": " + result + ", " 
         
         current_date = self.currentTime.date().strftime("%y%m%d")
 
         if( current_date not in self.chegyeolInfo) :
-            self.chegyeolInfo[current_date] =  {}
-        if( jongmok_code not in self.chegyeolInfo[current_date]):
-            self.chegyeolInfo[current_date][jongmok_code] = []
+            self.chegyeolInfo[current_date] = [] 
 
-        self.chegyeolInfo[current_date][jongmok_code].append(info_dict)
+        self.chegyeolInfo[current_date].append(info)
 
         with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
-            f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent=2, sort_keys = True))
+            f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, sort_keys = True ))
         util.save_log(printData, "*체결정보", folder= "log")
         pass
 
