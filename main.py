@@ -48,7 +48,7 @@ class KiwoomConditon(QObject):
     sigTryConnect = pyqtSignal()
     sigGetConditionCplt = pyqtSignal()
     sigSelectCondition = pyqtSignal()
-    sigWaitingTrade = pyqtSignal()
+    sigWaittingTrade = pyqtSignal()
     sigRefreshCondition = pyqtSignal()
     sigRequest1minTr = pyqtSignal()
     sigGetTrCplt = pyqtSignal()
@@ -65,7 +65,6 @@ class KiwoomConditon(QObject):
     sigRequestJangoComplete = pyqtSignal()
     sigCalculateStoplossComplete = pyqtSignal()
     sigStartProcessBuy = pyqtSignal()
-    sigRequestJangoInfo = pyqtSignal()
     
 
     def __init__(self):
@@ -78,7 +77,7 @@ class KiwoomConditon(QObject):
 
         self.buyCodeList = []
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
-        self.chegyeolInfo = {} # { '날짜' : { jongmokCode': [ {'주문구분': '매도', '주문/체결시간': ??, '체결가': ? , '체결수량': ? , '미체결수량'} ] } }
+        self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '주문/체결시간', '체결가' , '체결수량', '미체결수량'] ] }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
@@ -103,7 +102,7 @@ class KiwoomConditon(QObject):
         systemState = QState(connectedState)
         
         initSystemState = QState(systemState)
-        waitingTradeSystemState = QState(systemState)
+        waittingTradeSystemState = QState(systemState)
         standbySystemState = QState(systemState)
         requestingJangoSystemState = QState(systemState)
         calculateStoplossSystemState = QState(systemState)
@@ -121,9 +120,9 @@ class KiwoomConditon(QObject):
         connectedState.addTransition(self.sigDisconnected, disconnectedState)
         
         systemState.setInitialState(initSystemState)
-        initSystemState.addTransition(self.sigGetConditionCplt, waitingTradeSystemState)
-        waitingTradeSystemState.addTransition(self.sigWaitingTrade, waitingTradeSystemState )
-        waitingTradeSystemState.addTransition(self.sigSelectCondition, requestingJangoSystemState)
+        initSystemState.addTransition(self.sigGetConditionCplt, waittingTradeSystemState)
+        waittingTradeSystemState.addTransition(self.sigWaittingTrade, waittingTradeSystemState )
+        waittingTradeSystemState.addTransition(self.sigSelectCondition, requestingJangoSystemState)
         requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, calculateStoplossSystemState)
         calculateStoplossSystemState.addTransition(self.sigCalculateStoplossComplete, standbySystemState)
         standbySystemState.addTransition(self.sigRefreshCondition, initSystemState)
@@ -140,7 +139,7 @@ class KiwoomConditon(QObject):
         
         systemState.entered.connect(self.systemStateEntered)
         initSystemState.entered.connect(self.initSystemStateEntered)
-        waitingTradeSystemState.entered.connect(self.waitingTradeSystemStateEntered)
+        waittingTradeSystemState.entered.connect(self.waittingTradeSystemStateEntered)
         requestingJangoSystemState.entered.connect(self.requestingJangoSystemStateEntered)
         calculateStoplossSystemState.entered.connect(self.calculateStoplossSystemStateEntered)
         standbySystemState.entered.connect(self.standbySystemStateEntered)
@@ -302,7 +301,6 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def initStateEntered(self):
         print(util.whoami())
-        self.initQmlEngine()
         self.sigInitOk.emit()
         pass
 
@@ -365,34 +363,35 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def waitingTradeSystemStateEntered(self):
+    def waittingTradeSystemStateEntered(self):
         self.timerSystem.start()
-        # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
-        # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
-        result = self.getConditionNameList()
-        searchPattern = r'(?P<index>[^\/:*?"<>|;]+)\^(?P<name>[^\/:*?"<>|;]+);'
-        fileSearchObj = re.compile(searchPattern, re.IGNORECASE)
-        findList = fileSearchObj.findall(result)
-        
-        tempDict = dict(findList)
-        print(tempDict)
-        
-        condition_num = 0 
-        for number, condition in tempDict.items():
-            if condition == CONDITION_NAME:
-                    condition_num = int(number)
-        print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
-        self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
-        
-        time_span = datetime.timedelta(minutes = 10)
-        expected_time = (self.currentTime + time_span).time()
 
         # 장시작 10분전에 조건이 시작하도록 함 
+        time_span = datetime.timedelta(minutes = 10)
+        expected_time = (self.currentTime + time_span).time()
         if( expected_time >= datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) ):
             self.initQmlEngine()
-            self.sigSelectCondition.emit()
+            self.sigSelectCondition.emit()       
+
+            # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
+            # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
+            result = self.getConditionNameList()
+            searchPattern = r'(?P<index>[^\/:*?"<>|;]+)\^(?P<name>[^\/:*?"<>|;]+);'
+            fileSearchObj = re.compile(searchPattern, re.IGNORECASE)
+            findList = fileSearchObj.findall(result)
+            
+            tempDict = dict(findList)
+            print(tempDict)
+            
+            condition_num = 0 
+            for number, condition in tempDict.items():
+                if condition == CONDITION_NAME:
+                        condition_num = int(number)
+            print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
+            self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
+            
         else:
-            self.sigWaitingTrade.emit()
+            QTimer.singleShot(1000, self.sigWaittingTrade)
 
         pass
 
@@ -606,9 +605,6 @@ class KiwoomConditon(QObject):
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
                                 maesu_count, 0 , kw_util.dict_order["시장가"], "")
             print("B " + str(result) , sep="")
-            # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
-            self.insertBuyCodeList(jongmokCode)
-            self.sigBuy.emit()
             pass
         else:
             util.save_log(printLog, '조건진입매수실패', folder = "log")
@@ -738,7 +734,6 @@ class KiwoomConditon(QObject):
         
             jongmokCode = info_dict['종목번호']
             info_dict['이익실현가'] = info_dict['매입가'] * (1 + STOP_PLUS_PERCENT /100 )
-            # info_dict['손절가'] = info_dict['전일종가']
             
             # 장기 보유종목인 경우 제외 
             if( jongmokCode not in DAY_TRADNIG_EXCEPTION_LIST):
@@ -773,8 +768,8 @@ class KiwoomConditon(QObject):
             current_date = self.currentTime.date()
             price_list.append(line['저가'])
             if( saved_date <  current_date - time_span):
-                self.jangoInfo[jongmokCode]['손절가'] = min(price_list)
-                # print(self.jangoInfo[jongmokCode]['종목명'], line['저가'])
+                self.jangoInfo[jongmokCode]['손절가'] = str(min(int(value) for value in  price_list))
+                # print(util.whoami() + ' ' +  self.jangoInfo[jongmokCode]['종목명'], price_list, min(price_list))
                 break
         return True
         pass
@@ -1098,7 +1093,9 @@ class KiwoomConditon(QObject):
                 self.removeBuyCodeList(jongmokCode)
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
-                self.sigRequestJangoInfo.emit()
+                # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
+                self.insertBuyCodeList(jongmokCode)
+                self.sigBuy.emit()
             pass
 
         elif ( gubun == "0"):
