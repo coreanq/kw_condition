@@ -20,16 +20,18 @@ AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 00] ], [ [14, 00], [15, 15] ] ] #
 # for day trading 
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 19] 
+
 TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 2정보를 저장하기 시작하는 시간
 STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
-TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-# TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
-STOP_PLUS_BASE = 4 
+TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+#WARN: TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
+
+#익절 계산하기 위해서 slappage 추가하며 이를 계산함  
 SLIPPAGE = 2.0 # 기본 매수 매도시 슬리피지는 1.0 이므로 + 0.5 하고 수수료 포함하여 2.0 
-STOP_PLUS_PERCENT = STOP_PLUS_BASE + SLIPPAGE # 익절 퍼센티지 매수시 기준가 + STOP_PLUS_PERCENT 이상이 아니면 매수하지 않음  
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
+
 # 장기 보유 종목 번호 리스트 
 DAY_TRADNIG_EXCEPTION_LIST = ['117930']
 '''
@@ -141,7 +143,7 @@ class KiwoomConditon(QObject):
         initSystemState.entered.connect(self.initSystemStateEntered)
         waittingTradeSystemState.entered.connect(self.waittingTradeSystemStateEntered)
         requestingJangoSystemState.entered.connect(self.requestingJangoSystemStateEntered)
-        calculateStoplossSystemState.entered.connect(self.calculateStoplossSystemStateEntered)
+        calculateStoplossSystemState.entered.connect(self.calculateStoplossPlusStateEntered)
         standbySystemState.entered.connect(self.standbySystemStateEntered)
         prepare1minTrListState.entered.connect(self.prepare1minTrListStateEntered)
         request1minTrState.entered.connect(self.request1minTrStateEntered)        
@@ -179,7 +181,7 @@ class KiwoomConditon(QObject):
         requestHogaInfoProcessBuyState.entered.connect(self.requestHogaInfoProcessBuyStateEntered)
         determineBuyProcessBuyState.entered.connect(self.determineBuyProcessBuyStateEntered)
         requestingJangoProcessBuyState.entered.connect(self.requestingJangoSystemStateEntered)
-        calculateStoplossProcessBuyState.entered.connect(self.calculateStoplossSystemStateEntered)
+        calculateStoplossProcessBuyState.entered.connect(self.calculateStoplossPlusStateEntered)
                 
         #fsm start
         finalState.entered.connect(self.finalStateEntered)
@@ -402,7 +404,7 @@ class KiwoomConditon(QObject):
         pass 
     
     @pyqtSlot()
-    def calculateStoplossSystemStateEntered(self):
+    def calculateStoplossPlusStateEntered(self):
         print(util.whoami() )
         def requestFunc(jongmokCode):
             def inner():
@@ -562,20 +564,13 @@ class KiwoomConditon(QObject):
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmokInfo_dict['등락율'] )
         
-        if( updown_percentage > 0 and updown_percentage < 30 - (STOP_PLUS_PERCENT * 2) ):
+        # 너무 급등한 종목은 사지 않도록 함 
+        if( updown_percentage > 0 and updown_percentage < 30 - 15 ):
             pass
         else:
             printLog += '(등락률미충족: 등락율{0})'.format(updown_percentage)
             return_vals.append(False)
 
-        # 기준가(전일종가) + 익절 사이에 가격이 형성된 경우  경우 매수 하지 않음 
-        # 6 % 이상 종목만 사겠다는데 정배열인거 사는게 더 나을듯 함 
-        # base_price = int(jongmokInfo_dict['기준가'])
-        # if( maedoHoga1 >= base_price * (1 + STOP_PLUS_PERCENT / 100)):
-        #     pass
-        # else:
-        #     printLog += '(기준가미충족)'
-        #     return_vals.append(False)
         
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
         # low_price = int(jongmokInfo_dict['저가'])
@@ -733,7 +728,6 @@ class KiwoomConditon(QObject):
                     info_dict[item_name] = int(result)
         
             jongmokCode = info_dict['종목번호']
-            info_dict['이익실현가'] = info_dict['매입가'] * (1 + STOP_PLUS_PERCENT /100 )
             
             # 장기 보유종목인 경우 제외 
             if( jongmokCode not in DAY_TRADNIG_EXCEPTION_LIST):
@@ -746,11 +740,12 @@ class KiwoomConditon(QObject):
         # print(self.jangoInfo)
         return True 
 
-    # 주식 일봉 정보
+    # 주식 일봉 정보를 통해 손절가와 이익실현가를 계산함 
     def makeOpt10081Info(self, rQName):
         repeatCnt = self.getRepeatCnt("opt10081", rQName)
         jongmokCode = rQName
         price_list = [] # 몇봉중 저가, 고가 를 뽑아내기 위함?
+        info_dict = self.jangoInfo[jongmokCode]
 
         for i in range(repeatCnt):
             line = {} 
@@ -766,11 +761,24 @@ class KiwoomConditon(QObject):
             time_span = datetime.timedelta(days = STOP_LOSS_VALUE_DAY_RANGE) # 몇일 중  저가 계산
             saved_date = datetime.datetime.strptime(saved_date_str, '%Y%m%d').date()
             current_date = self.currentTime.date()
-            price_list.append(line['저가'])
+            price_list.append(int(line['저가']))
             if( saved_date <  current_date - time_span):
-                self.jangoInfo[jongmokCode]['손절가'] = str(min(int(value) for value in  price_list))
-                # print(util.whoami() + ' ' +  self.jangoInfo[jongmokCode]['종목명'], price_list, min(price_list))
                 break
+        
+        info_dict['손절가'] = min(value for value in  price_list)
+
+        # 첫 매수시 설정했던 손절가 설정 없으면 몇일중 최저가에서 설정함  
+        first_stoploss = info_dict.get('첫매입시손절가', 999999999)
+        price_list.append(first_stoploss)
+        first_stoploss = min(price_list)
+        info_dict['첫매입시손절가'] = first_stoploss
+        maeip_price = info_dict['매입가']
+
+        # 가격 변화량에 따라 이익실현가를 달리하기 위함 매입과 손절의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
+        info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
+        # info_dict['이익실현가'] = maeip_price * (1 + STOP_PLUS_PERCENT /100 )
+
+        # print(util.whoami() + ' ' +  info_dict['종목명'], price_list, min(price_list))
         return True
         pass
     # 주식 기본 정보 
@@ -1138,7 +1146,7 @@ class KiwoomConditon(QObject):
         self.chegyeolInfo[current_date].append(info)
 
         with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
-            f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, sort_keys = True ))
+            f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
         util.save_log(printData, "*체결정보", folder= "log")
         pass
 
