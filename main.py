@@ -77,13 +77,17 @@ class KiwoomConditon(QObject):
         self.account_list = []
         self.timerSystem = QTimer()
 
-        self.buyCodeList = []
+        self.buyCodeList = []  # 현재 매수후 보유 종목 
+        self.todayTradedCodeList = [] # 금일 거래 되었던 종목 
+        self.upjongUpdownPercent= {} # 업종 등락율 
+
+
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
         self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '주문/체결시간', '체결가' , '체결수량', '미체결수량'] ] }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
+
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
-        self.currentlyTradedCodeList = []
 
         self.createState()
         self.createConnection()
@@ -357,7 +361,7 @@ class KiwoomConditon(QObject):
             for trade_date, data_chunk in self.chegyeolInfo.items():
                 if( datetime.datetime.strptime(trade_date, "%y%m%d").date() == self.currentTime.date() ): 
                     for trade_info in data_chunk: 
-                        self.currentlyTradedCodeList.append(trade_info[kw_util.dict_jusik['체결정보'].index('종목코드')])
+                        self.todayTradedCodeList.append(trade_info[kw_util.dict_jusik['체결정보'].index('종목코드')])
                     break
 
         # get 조건 검색 리스트
@@ -391,6 +395,9 @@ class KiwoomConditon(QObject):
                         condition_num = int(number)
             print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
             self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
+
+            self.setRealReg(kw_util.sendRealRegScreenNo, '1;101', kw_util.dict_type_fids['업종지수'], "0")
+            self.setRealReg(kw_util.sendRealRegScreenNo, '', kw_util.dict_type_fids['장시작시간'], "0")
             
         else:
             QTimer.singleShot(1000, self.sigWaittingTrade)
@@ -568,10 +575,22 @@ class KiwoomConditon(QObject):
         if( updown_percentage > 0 and updown_percentage < 30 - 15 ):
             pass
         else:
-            printLog += '(등락률미충족: 등락율{0})'.format(updown_percentage)
+            printLog += '(종목등락율미충족: 등락율{0})'.format(updown_percentage)
             return_vals.append(False)
 
-        
+        # 업종 등락율을 살펴서 마이너스 이면 사지 않음 :
+        if( jongmokCode in  self.kospiCodeList):
+            updown_percentage = float(self.upjongUpdownPercent['코스피'])
+            if( updown_percentage < 0 ) :
+                printLog +='(코스피등락율미충족: 등락율{0})'.format(updown_percentage)
+                return_vals.append(False)
+            pass
+        else: 
+            updown_percentage = float(self.upjongUpdownPercent['코스닥'])
+            if( updown_percentage < 0 ) :
+                printLog +='(코스닥등락율미충족: 등락율{0})'.format(updown_percentage)
+                return_vals.append(False)
+
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
         # low_price = int(jongmokInfo_dict['저가'])
         # if( low_price >= base_price ):
@@ -581,7 +600,7 @@ class KiwoomConditon(QObject):
         #     return_vals.append(False)
 
         # 기존에 이미 수익이 한번 발생한 종목이라면  
-        if( self.currentlyTradedCodeList.count(jongmokCode) == 0 ):
+        if( self.todayTradedCodeList.count(jongmokCode) == 0 ):
             pass
         else:
             printLog += '(금일거래종목)'
@@ -992,15 +1011,23 @@ class KiwoomConditon(QObject):
         #         .format(jongmokCode, realType, realData))
         if( realType == "주식호가잔량"):
             if( self.buyCodeList.count(jongmokCode) == 0 ):
-                print(jongmokCode, end =' ')
-          
+                print(util.whoami() + ' ' + jongmokCode, end =' ')
             # TODO: 엉뚱한 종목코드의 주식 호가 잔량이 넘어 오는 경우가 있으므로 확인해야함 
             self.makeHogaJanRyangInfo(jongmokCode)                
+
         if( realType == "주식체결"):
             self.processStopLoss(jongmokCode)
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
+        
+        if( realType == "업종지수" ):
+            print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+                .format(jongmokCode, realType, realData))
             pass
+        
+        if( realType == '장시작시간'):
+            print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+                .format(jongmokCode, realType, realData))
 
     # 실시간 호가 잔량 정보         
     def makeHogaJanRyangInfo(self, jongmokCode):
@@ -1075,7 +1102,6 @@ class KiwoomConditon(QObject):
             result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
                                 jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
             util.save_log(printData, '매도', 'log')
-            self.currentlyTradedCodeList.append(jongmokCode)
             print("S " + jongmokCode + ' ' + str(result), sep= "")
             pass
         pass
@@ -1110,6 +1136,7 @@ class KiwoomConditon(QObject):
             jumun_sangtae =  self.getChejanData(913)
             jongmok_code = self.getChejanData(9001)[1:]
             if( jumun_sangtae == "체결"):
+                self.todayTradedCodeList.append(jongmokCode)
                 self.makeChegyeolInfo(jongmok_code, fidList)
                 pass
             pass
