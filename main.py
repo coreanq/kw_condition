@@ -357,7 +357,6 @@ class KiwoomConditon(QObject):
             with open(CHEGYEOL_INFO_FILE_PATH, 'r', encoding='utf8') as f:
                 file_contents = f.read()
                 self.chegyeolInfo = json.loads(file_contents)
-                self.chegyeolInfo.sort
 
             for trade_date, data_chunk in self.chegyeolInfo.items():
                 if( datetime.datetime.strptime(trade_date, "%y%m%d").date() == self.currentTime.date() ): 
@@ -580,13 +579,13 @@ class KiwoomConditon(QObject):
 
         # 업종 등락율을 살펴서 마이너스 이면 사지 않음 :
         if( jongmokCode in  self.kospiCodeList):
-            updown_percentage = float(self.upjongUpdownPercent.get('코스피', -1) )
+            updown_percentage = float(self.upjongUpdownPercent.get('코스피', -99) )
             if( updown_percentage < 0 ) :
                 printLog +='(코스피등락율미충족: 등락율{0})'.format(updown_percentage)
                 return_vals.append(False)
             pass
         else: 
-            updown_percentage = float(self.upjongUpdownPercent.get('코스닥', -1) )
+            updown_percentage = float(self.upjongUpdownPercent.get('코스닥', -99) )
             if( updown_percentage < 0 ) :
                 printLog +='(코스닥등락율미충족: 등락율{0})'.format(updown_percentage)
                 return_vals.append(False)
@@ -771,16 +770,28 @@ class KiwoomConditon(QObject):
             if( saved_date <  current_date - time_span):
                 break
         
-        info_dict['손절가'] = min(value for value in  price_list)
         # TODO: 첫 매입시 손절가를 json 에서 불러 오는 루틴 구현 필요 
         # 첫매입시 손절가 정보는 체결정보에 위치함
-        current_date = self.currentTime.date().strftime("%y%m%d")
 
         # 첫 매수시 설정했던 손절가 설정 없으면 몇일중 최저가에서 설정함  
-        first_stoploss = info_dict.get('첫매입시손절가', 999999999)
+        first_stoploss =  sys.maxsize 
+
+        date_list = sorted(self.chegyeolInfo, reverse = True)
+        for str_date in date_list:
+            # list 의 list
+            trade_infos = self.chegyeolInfo[str_date]
+
+            for trade_info in trade_infos:
+                search_code = trade_info[kw_util.dict_jusik['체결정보'].index('종목코드')]
+                if( search_code == jongmokCode ):
+                    first_stoploss = trade_info[kw_util.dict_jusik['체결정보'].index('첫매입손절가')]
+                    break
+            if( first_stoploss != sys.maxsize ):
+                break
+
         price_list.append(first_stoploss)
-        first_stoploss = min(price_list)
-        info_dict['첫매입시손절가'] = first_stoploss
+        info_dict['첫매입손절가'] = min(price_list)
+        info_dict['손절가'] = min(price_list)
         maeip_price = info_dict['매입가']
 
         # 가격 변화량에 따라 이익실현가를 달리하기 위함 매입과 손절의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
@@ -1136,14 +1147,14 @@ class KiwoomConditon(QObject):
                 result = str(self.getChejanData(nFid)).strip()
                 if( col_name == '종목코드'):
                     result = result[1:] 
-                if( col_name == '종목명'):
-                    result = '{0:<20}'.format(result)
+                # if( col_name == '종목명'):
+                #     result = '{0:<20}'.format(result)
                 if( col_name == '체결가' or col_name == '체결량' or col_name == '미체결수량'):
                     result = '{0:<8}'.format(result)
                 info.append(result)
                 printData += col_name + ": " + result + ", " 
         
-        info.insert(0, self.jangoInfo[jongmok_code].get('첫매입시손절가', 99999999))
+        info.insert(0, self.jangoInfo[jongmok_code].get('첫매입손절가', sys.maxsize))
         current_date = self.currentTime.date().strftime("%y%m%d")
 
         if( current_date not in self.chegyeolInfo) :
@@ -1232,9 +1243,8 @@ class KiwoomConditon(QObject):
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
         if( len(codeList) ):
            tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
-        #    print(util.whoami() + '실시간 주식호가잔량  return  ' + str(tmp))
            tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
-        #    print(util.whoami() + '실시간 주식체결  return  ' + str(tmp))
+           tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
 
     # method 
     # 로그인
