@@ -11,7 +11,6 @@ from PyQt5.QtCore import QStateMachine, QState, QTimer, QFinalState
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtQml import QQmlApplicationEngine 
 from PyQt5.QAxContainer import QAxWidget
-import copy
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
@@ -88,6 +87,7 @@ class KiwoomConditon(QObject):
 
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
+        self.remainTimeUntilStart = '000000'
 
         self.createState()
         self.createConnection()
@@ -357,6 +357,7 @@ class KiwoomConditon(QObject):
             with open(CHEGYEOL_INFO_FILE_PATH, 'r', encoding='utf8') as f:
                 file_contents = f.read()
                 self.chegyeolInfo = json.loads(file_contents)
+                self.chegyeolInfo.sort
 
             for trade_date, data_chunk in self.chegyeolInfo.items():
                 if( datetime.datetime.strptime(trade_date, "%y%m%d").date() == self.currentTime.date() ): 
@@ -366,12 +367,13 @@ class KiwoomConditon(QObject):
 
         # get 조건 검색 리스트
         self.getConditionLoad()
+        self.setRealReg(kw_util.sendRealRegUpjongScrNo, '1;101', kw_util.type_fidset['업종지수'], "0")
+        self.setRealReg(kw_util.sendRealRegTradeStartScrNo, '', kw_util.type_fidset['장시작시간'], "0")
+        self.timerSystem.start()
         pass
 
     @pyqtSlot()
     def waittingTradeSystemStateEntered(self):
-        self.timerSystem.start()
-
         # 장시작 10분전에 조건이 시작하도록 함 
         time_span = datetime.timedelta(minutes = 10)
         expected_time = (self.currentTime + time_span).time()
@@ -396,8 +398,6 @@ class KiwoomConditon(QObject):
             print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
             self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
 
-            self.setRealReg(kw_util.sendRealRegScreenNo, '1;101', kw_util.dict_type_fids['업종지수'], "0")
-            self.setRealReg(kw_util.sendRealRegScreenNo, '', kw_util.dict_type_fids['장시작시간'], "0")
             
         else:
             QTimer.singleShot(1000, self.sigWaittingTrade)
@@ -580,13 +580,13 @@ class KiwoomConditon(QObject):
 
         # 업종 등락율을 살펴서 마이너스 이면 사지 않음 :
         if( jongmokCode in  self.kospiCodeList):
-            updown_percentage = float(self.upjongUpdownPercent['코스피'])
+            updown_percentage = float(self.upjongUpdownPercent.get('코스피', -1) )
             if( updown_percentage < 0 ) :
                 printLog +='(코스피등락율미충족: 등락율{0})'.format(updown_percentage)
                 return_vals.append(False)
             pass
         else: 
-            updown_percentage = float(self.upjongUpdownPercent['코스닥'])
+            updown_percentage = float(self.upjongUpdownPercent.get('코스닥', -1) )
             if( updown_percentage < 0 ) :
                 printLog +='(코스닥등락율미충족: 등락율{0})'.format(updown_percentage)
                 return_vals.append(False)
@@ -714,19 +714,6 @@ class KiwoomConditon(QObject):
             return False
         return True
 
-    # 업종 현재가 요청 
-    def requestOpt20003(self, yupjongCode):
-        self.setInputValue("업종코드", yupjongCode) 
-        ret = self.commRqData("yupjong_" +  yupjongCode , "opt20003", 0, kw_util.sendReqYupjongScreenNo) 
-        
-        errorString = None
-        if( ret != 0 ):
-            errorString =   yupjongCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
-            print(util.whoami() + errorString ) 
-            util.save_log(errorString, util.whoami(), folder = "log" )
-            return False
-        return True
-
     # 주식 잔고 정보 #rQName 의 경우 계좌 번호로 넘겨줌
     def makeOpw00018Info(self, rQName):
         data_cnt = self.getRepeatCnt('opw00018', rQName)
@@ -785,6 +772,9 @@ class KiwoomConditon(QObject):
                 break
         
         info_dict['손절가'] = min(value for value in  price_list)
+        # TODO: 첫 매입시 손절가를 json 에서 불러 오는 루틴 구현 필요 
+        # 첫매입시 손절가 정보는 체결정보에 위치함
+        current_date = self.currentTime.date().strftime("%y%m%d")
 
         # 첫 매수시 설정했던 손절가 설정 없으면 몇일중 최저가에서 설정함  
         first_stoploss = info_dict.get('첫매입시손절가', 999999999)
@@ -868,22 +858,6 @@ class KiwoomConditon(QObject):
             else:
                 break
 
-    # 전업종 지수
-    def makeOpt20003Info(self, rQName):
-        # repeatCnt = self.getRepeatCnt("opt20003", rQName)
-        # kospi 와 kosdaq 만 얻을 것이므로 몇 첫번째 데이터만 취함 
-        index = 0
-        line = []
-        jongmokName = ""
-        # TODO: 전업종 지수 데이터 저장하는 루틴 dict 로 구현하기 
-        for item_name in kw_util.dict_jusik['TR:전업종지수']:
-            result = self.getCommData("opt20003", rQName, index, item_name)
-            if( item_name == '종목명'):
-                jongmokName = result.strip()
-            line.append(result.strip())
-      # print(line)
-        pass
-   
     @pyqtSlot()
     def onTimerSystemTimeout(self):
         print(".", end='') 
@@ -998,43 +972,47 @@ class KiwoomConditon(QObject):
                 self.oneMinCandleJongmokList.remove(rQName)
                 QTimer.singleShot(200, self.sigGetTrCplt)
             pass
-        # 업종 지수 요청 ex) 코스피 코스닥 
-        elif( trCode == "opt20003"):
-            self.makeOpt20003Info(rQName)
-            pass
-        
 
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
-        # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
-        #         .format(jongmokCode, realType, realData))
+        # print(util.whoami() + 'jongmokCode: {}, {}, realType: {}'
+        #         .format(jongmokCode, self.getMasterCodeName(jongmokCode),  realType))
         if( realType == "주식호가잔량"):
+            # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+            #     .format(jongmokCode, realType, realData))
             if( self.buyCodeList.count(jongmokCode) == 0 ):
-                print(util.whoami() + ' ' + jongmokCode, end =' ')
-            # TODO: 엉뚱한 종목코드의 주식 호가 잔량이 넘어 오는 경우가 있으므로 확인해야함 
+                jongmokName = self.getMasterCodeName(jongmokCode) 
+                print(util.whoami() + 'error: ' + jongmokCode + ' ' + jongmokName, end =' ')
             self.makeHogaJanRyangInfo(jongmokCode)                
 
         if( realType == "주식체결"):
-            self.processStopLoss(jongmokCode)
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
+            self.processStopLoss(jongmokCode)
         
         if( realType == "업종지수" ):
-            print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
-                .format(jongmokCode, realType, realData))
-            pass
+            result = '' 
+            for col_name in kw_util.dict_jusik['실시간-업종지수']:
+                result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
+                if( col_name == '등락율'):
+                    if( jongmokCode == '001'):
+                        self.upjongUpdownPercent['코스피'] = result
+                    else:
+                        self.upjongUpdownPercent['코스닥'] = result 
+            pass 
         
         if( realType == '장시작시간'):
-            print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
-                .format(jongmokCode, realType, realData))
+            pass
+            # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+            #     .format(jongmokCode, realType, realData))
 
     # 실시간 호가 잔량 정보         
     def makeHogaJanRyangInfo(self, jongmokCode):
         #주식 호가 잔량 정보 요청 
         result = None 
         for col_name in kw_util.dict_jusik['실시간-주식호가잔량']:
-            result = self.getCommRealData(jongmokCode, kw_util.dict_name_fid[col_name] ) 
+            result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
             if( jongmokCode not in self.jangoInfo):
                 break
             self.jangoInfo[jongmokCode][col_name] = result.strip()
@@ -1136,7 +1114,7 @@ class KiwoomConditon(QObject):
             jumun_sangtae =  self.getChejanData(913)
             jongmok_code = self.getChejanData(9001)[1:]
             if( jumun_sangtae == "체결"):
-                self.todayTradedCodeList.append(jongmokCode)
+                self.todayTradedCodeList.append(jongmok_code)
                 self.makeChegyeolInfo(jongmok_code, fidList)
                 pass
             pass
@@ -1149,11 +1127,11 @@ class KiwoomConditon(QObject):
         for col_name in kw_util.dict_jusik["체결정보"]:
             nFid = None
             result = ""
-            try:
-                nFid = kw_util.dict_name_fid[col_name]
-            except KeyError:
+            if( col_name not in kw_util.name_fid ):
                 continue
-                
+
+            nFid = kw_util.name_fid[col_name]
+
             if( str(nFid) in fids):
                 result = str(self.getChejanData(nFid)).strip()
                 if( col_name == '종목코드'):
@@ -1165,6 +1143,7 @@ class KiwoomConditon(QObject):
                 info.append(result)
                 printData += col_name + ": " + result + ", " 
         
+        info.insert(0, self.jangoInfo[jongmok_code].get('첫매입시손절가', 99999999))
         current_date = self.currentTime.date().strftime("%y%m%d")
 
         if( current_date not in self.chegyeolInfo) :
@@ -1252,9 +1231,9 @@ class KiwoomConditon(QObject):
             codeList.append(code)
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
         if( len(codeList) ):
-           tmp = self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식호가잔량'], "0")
+           tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
         #    print(util.whoami() + '실시간 주식호가잔량  return  ' + str(tmp))
-           tmp = self.setRealReg(kw_util.sendRealRegScreenNo, ';'.join(codeList), kw_util.dict_type_fids['주식체결'], "0")
+           tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
         #    print(util.whoami() + '실시간 주식체결  return  ' + str(tmp))
 
     # method 

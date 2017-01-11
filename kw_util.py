@@ -5,13 +5,18 @@
         만약 사용하는 화면번호가 200개를 넘는 경우 조회결과나 주문결과에 다른 데이터가 섞이거나 원하지 않는 결과를 나타날 수 있습니다.
 '''
 sendConditionScreenNo = "001"
-sendRealRegScreenNo = "002"
-send1minTrScreenNo = "003"
-sendOrderScreenNo = "004"
-sendReqYupjongScreenNo = "005"
-sendJusikGibonScreenNo = "006"
-sendJusikHogaScreenNo = "007"
-sendJusikAccountInfoScreenNo = '008'
+
+sendRealRegHogaScrNo = "002"
+sendRealRegUpjongScrNo = '003'
+sendRealRegChegyeolScrNo = '004'
+sendRealRegTradeStartScrNo = '005'
+
+send1minTrScreenNo = "006"
+sendOrderScreenNo = "007"
+sendReqYupjongScreenNo = "008"
+sendJusikGibonScreenNo = "009"
+sendJusikHogaScreenNo = "010"
+sendJusikAccountInfoScreenNo = '0l1'
 
 
 dict_order = {
@@ -38,7 +43,9 @@ dict_order = {
 
 # 저장시 필요한 리스트만 나열한것임 
 dict_jusik = {
-               "체결정보": ( '종목코드', '주문구분', '종목명', '체결가', '체결량', '미체결수량', '주문/체결시간'), 
+               # 체결 정보는 파일에 저장됨 
+               "체결정보": ( '첫매입손절가', # 원래 없는 멤버  
+                            '종목코드', '주문구분', '종목명', '체결가', '체결량', '미체결수량', '주문/체결시간'), 
                "조건진입": ( "발생시간", "종목코드", "종목명"),
                'TR:계좌평가잔고내역요청': (   '이익실현가', '손절가', #원래 없는 멤버 
                                             '종목명', '종목번호', '평가손익', '수익률(%)', '매입가', '전일종가', '보유수량', 
@@ -97,16 +104,8 @@ dict_jusik = {
                                     ),
             '실시간-업종지수': (     '체결시간',
                                     '현재가', 
-                                    '전일대비',
-                                    '등략율',
-                                    '거래량', 
-                                    '누적거래량', 
-                                    '누적거래대금',
-                                    '시가',
-                                    '고가',
-                                    '저가',
+                                    '등락율',
                                     '전일대비기호',
-                                    '전일거래량대비(계약,주)'
                                  ),
             '실시간-장시작시간':(
                                     '장운영구문', 
@@ -116,13 +115,13 @@ dict_jusik = {
 
 }
 # fid 는 다 넣을 필요 없음 
-dict_type_fids = {
+type_fidset = {
                 "주식체결": "20;10;11;12;27;28;15;13;14;16;17;18;25;26;29;30;31;32;311;290;691;567;568",
                 "주식호가잔량":"21;41;61;81;51;71;91",
                 '업종지수': "20;10;11;12;15;13;14;16;17;18;25;26",
                 '장시작시간': "215;20;214"
 }
-dict_name_fid ={
+name_fid ={
                                     '호가시간': 21,
                                     '매도호가1': 41 ,
                                     '매도호가수량1': 61,
@@ -203,7 +202,11 @@ dict_name_fid ={
                                     "파생상품거래단위": 397, 
                                     "상한가":   305,
                                     "하한가": 306,
-                                    "기준가": 307 
+                                    "기준가": 307,
+
+                                    "등락율": 12, 
+                                    "체결시간": 20, 
+                                    "전일대비기호":   25
 }
 
 def parseErrorCode(code):
