@@ -374,7 +374,7 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def waittingTradeSystemStateEntered(self):
         # 장시작 10분전에 조건이 시작하도록 함 
-        time_span = datetime.timedelta(minutes = 10)
+        time_span = datetime.timedelta(minutes = 20)
         expected_time = (self.currentTime + time_span).time()
         if( expected_time >= datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) ):
             self.initQmlEngine()
@@ -770,33 +770,36 @@ class KiwoomConditon(QObject):
             if( saved_date <  current_date - time_span):
                 break
         
-        # TODO: 첫 매입시 손절가를 json 에서 불러 오는 루틴 구현 필요 
-        # 첫매입시 손절가 정보는 체결정보에 위치함
+        # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
+        info_dict['손절가'] = min(price_list)
 
+        # 첫매입시 손절가 정보는 체결정보에 위치함
         # 첫 매수시 설정했던 손절가 설정 없으면 몇일중 최저가에서 설정함  
         first_stoploss =  sys.maxsize 
-
         date_list = sorted(self.chegyeolInfo, reverse = True)
         for str_date in date_list:
             # list 의 list
             trade_infos = self.chegyeolInfo[str_date]
 
-            for trade_info in trade_infos:
+            for index, trade_info in enumerate(trade_infos):
                 search_code = trade_info[kw_util.dict_jusik['체결정보'].index('종목코드')]
                 if( search_code == jongmokCode ):
                     first_stoploss = trade_info[kw_util.dict_jusik['체결정보'].index('첫매입손절가')]
+                    # 첫 매수시 체결정보의 첫매입손절가는 sys.maxsize 므로 그러면 몇일중 최저가를 첫매입 손절로 넣어줌 
+                    if( first_stoploss == sys.maxsize ):
+                        self.chegyeolInfo[str_date][index] = min(price_list)
                     break
             if( first_stoploss != sys.maxsize ):
                 break
 
         price_list.append(first_stoploss)
-        info_dict['첫매입손절가'] = min(price_list)
-        info_dict['손절가'] = min(price_list)
+        first_stoploss = min(price_list)
+        # 첫 매수시 체결정보에도 첫매입 손절가를 입력해줌 
+        info_dict['첫매입손절가'] = first_stoploss 
         maeip_price = info_dict['매입가']
 
-        # 가격 변화량에 따라 이익실현가를 달리하기 위함 매입과 손절의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
+        # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
         info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
-        # info_dict['이익실현가'] = maeip_price * (1 + STOP_PLUS_PERCENT /100 )
 
         # print(util.whoami() + ' ' +  info_dict['종목명'], price_list, min(price_list))
         return True
@@ -1153,8 +1156,9 @@ class KiwoomConditon(QObject):
                     result = '{0:<8}'.format(result)
                 info.append(result)
                 printData += col_name + ": " + result + ", " 
-        
-        info.insert(0, self.jangoInfo[jongmok_code].get('첫매입손절가', sys.maxsize))
+    
+        # 체결 정보를 받은 시점에서는 아직 손절가 책정등의 프로세스가 수행되지 않으므로 최고가 넣어둠 
+        info.insert(0, sys.maxsize)
         current_date = self.currentTime.date().strftime("%y%m%d")
 
         if( current_date not in self.chegyeolInfo) :
@@ -1482,34 +1486,6 @@ if __name__ == "__main__":
     myApp = QApplication(sys.argv)
     objKiwoom = KiwoomConditon()
 
-    def test_add_jongmok_save():
-        objKiwoom.makeConditionOccurInfo('068330') 
-        objKiwoom.makeConditionOccurInfo('021080') 
-        objKiwoom.makeConditionOccurInfo('036620') 
-        objKiwoom.makeConditionOccurInfo('127710') 
-        objKiwoom.makeConditionOccurInfo('127710') 
-        objKiwoom.makeConditionOccurInfo('033340') 
-        objKiwoom.makeConditionOccurInfo('102280') 
-        objKiwoom.makeConditionOccurInfo('065060') 
-        objKiwoom.makeConditionOccurInfo('006910') 
-        objKiwoom.makeConditionOccurInfo('005110') 
-        objKiwoom.makeConditionOccurInfo('091590') 
-        objKiwoom.makeConditionOccurInfo('093380') 
-        objKiwoom.makeConditionOccurInfo('065240') 
-        objKiwoom.makeConditionOccurInfo('064260') 
-        objKiwoom.makeConditionOccurInfo('020560') 
-        objKiwoom.makeConditionOccurInfo('014910') 
-        objKiwoom.makeConditionOccurInfo('033340') 
-        objKiwoom.makeConditionOccurInfo('115610') 
-        objKiwoom.makeConditionOccurInfo('040350') 
-        objKiwoom.makeConditionOccurInfo('049480') 
-        objKiwoom.makeConditionOccurInfo('102280') 
-        objKiwoom.makeConditionOccurInfo('065060') 
-        objKiwoom.makeConditionOccurInfo('006910') 
-        objKiwoom.makeConditionOccurInfo('005110') 
-        objKiwoom.makeConditionOccurInfo('091590') 
-        objKiwoom.makeConditionOccurInfo('035720') 
-        objKiwoom.sigRequest1minTr.emit()
     def test_buy():
         # 정상 매수 - 우리종금 1주 
         # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
@@ -1535,10 +1511,6 @@ if __name__ == "__main__":
     def test_condition():
         objKiwoom._OnReceiveRealCondition("044180", "I",  "단타 추세", 1)
         pass
-    def test_yupjong():
-        objKiwoom.requestOpt20003("1")
-        objKiwoom.requestOpt20003("101")
-        pass 
     def test_getCodeList():
         # 코스피 코드 리스트
         result = objKiwoom.getCodeListByMarket('0')
