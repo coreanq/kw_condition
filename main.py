@@ -780,14 +780,12 @@ class KiwoomConditon(QObject):
         for str_date in date_list:
             # list 의 list
             trade_infos = self.chegyeolInfo[str_date]
-
-            for index, trade_info in enumerate(trade_infos):
+            for trade_info in trade_infos:
                 search_code = trade_info[kw_util.dict_jusik['체결정보'].index('종목코드')]
-                if( search_code == jongmokCode ):
-                    first_stoploss = trade_info[kw_util.dict_jusik['체결정보'].index('첫매입손절가')]
+                first_stoploss = trade_info[kw_util.dict_jusik['체결정보'].index('첫매입손절가')]
+                if( search_code == jongmokCode and first_stoploss == sys.maxsize ):
                     # 첫 매수시 체결정보의 첫매입손절가는 sys.maxsize 므로 그러면 몇일중 최저가를 첫매입 손절로 넣어줌 
-                    if( first_stoploss == sys.maxsize ):
-                        self.chegyeolInfo[str_date][index] = min(price_list)
+                    trade_info[kw_util.dict_jusik['체결정보'].index('첫매입손절가')]= min(price_list)
                     break
             if( first_stoploss != sys.maxsize ):
                 break
@@ -962,6 +960,8 @@ class KiwoomConditon(QObject):
                 if( ret_vals.count(False) == 0 ):
                     self.printStockInfo()
                     self.sigCalculateStoplossComplete.emit()
+                    with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
+                        f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
             else:
                 self.sigError.emit()
 
@@ -1166,8 +1166,6 @@ class KiwoomConditon(QObject):
 
         self.chegyeolInfo[current_date].append(info)
 
-        with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
-            f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
         util.save_log(printData, "*체결정보", folder= "log")
         pass
 
