@@ -960,8 +960,7 @@ class KiwoomConditon(QObject):
                 if( ret_vals.count(False) == 0 ):
                     self.printStockInfo()
                     self.sigCalculateStoplossComplete.emit()
-                    with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
-                        f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
+                    self.makeChegyeolInfoToFile()
             else:
                 self.sigError.emit()
 
@@ -1117,6 +1116,8 @@ class KiwoomConditon(QObject):
             boyouSuryang = int(self.getChejanData(930))
             if( boyouSuryang == 0 ):
                 self.removeBuyCodeList(jongmokCode)
+                # 매도시 체결 정보 파일로 저장하게 함 
+                self.makeChegyeolInfoToFile()
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
                 # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
@@ -1133,6 +1134,11 @@ class KiwoomConditon(QObject):
                 pass
             pass
 
+    def makeChegyeolInfoToFile(self):
+        print(util.whoami())
+        with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
+            f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
+        pass
     def makeChegyeolInfo(self, jongmok_code, fidList):
         fids = fidList.split(";")
         printData = "" 
