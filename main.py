@@ -1,9 +1,7 @@
 # -*-coding: utf-8 -*-
-import sys, os, re, time, datetime
+import sys, os, re, time, datetime, copy, json
 
-import util 
-import json
-import kw_util  
+import util, kw_util
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
@@ -795,12 +793,12 @@ class KiwoomConditon(QObject):
         if( jongmok_code in self.jangoInfoFromFile ):
             # 매입가를 비교하는 이유는 서버 데이터와 파일 데이터가 날짜가 일치 하는지 확인하기 위한 편법 
             if( self.jangoInfoFromFile[jongmok_code]['매입가'] == self.jangoInfo[jongmok_code]['매입가'] ):
-                first_stoploss = int(self.jangoInfoFromFile[jongmok_code]['첫매입손절가'])
+                first_stoploss = self.jangoInfoFromFile[jongmok_code]['첫매입손절가']
 
         price_list.append(first_stoploss)
         first_stoploss = min(price_list)
         # 첫 매수시 체결정보에도 첫매입 손절가를 입력해줌 
-        info_dict['첫매입손절가'] = str(first_stoploss)
+        info_dict['첫매입손절가'] = first_stoploss
         maeip_price = info_dict['매입가']
 
         # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
@@ -1130,7 +1128,7 @@ class KiwoomConditon(QObject):
                 self.insertBuyCodeList(jongmok_code)
                 self.sigBuy.emit()
             
-            self.makeJangoInfoToFile()
+            self.makeJangoInfoFile()
             pass
 
         elif ( gubun == "0"):
@@ -1138,20 +1136,30 @@ class KiwoomConditon(QObject):
             jongmok_code = self.getChejanData(9001)[1:]
             if( jumun_sangtae == "체결"):
                 self.makeChegyeolInfo(jongmok_code, fidList)
-                self.makeChegyeolInfoToFile()
+                self.makeChegyeolInfoFile()
                 pass
             pass
 
-    def makeChegyeolInfoToFile(self):
+    def makeChegyeolInfoFile(self):
         print(util.whoami())
         with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
             f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
         pass
 
-    def makeJangoInfoToFile(self):
+    def makeJangoInfoFile(self):
         print(util.whoami())
+        remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가촐잔량',
+                        '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가총잔량',
+                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호' ]
+        temp = copy.deepcopy(self.jangoInfo)
+        # 불필요 필드 제거 
+        for jongmok_code, contents in temp.items():
+            for key in remove_keys:
+                if( key in contents):
+                    del contents[key]
+
         with open(JANGO_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
-            f.write(json.dumps(self.jangoInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
+            f.write(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys = True ))
         pass
 
     def makeChegyeolInfo(self, jongmok_code, fidList):
@@ -1512,18 +1520,10 @@ if __name__ == "__main__":
     objKiwoom = KiwoomConditon()
 
     def test_buy():
-        # 정상 매수 - 우리종금 1주 
-        # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-        # "010050", 1, 0 , kw_util.dict_order["시장가"], "")
-
         # 비정상 매수 (시장가에 단가 넣기 ) 우리종금 1주  
         # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
         # "010050", 1, 900 , kw_util.dict_order["시장가"], "")
 
-        # 정상 매도 - 우리 종금 1주 
-        # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-        # "010050", 1, 0 , kw_util.dict_order["시장가"], "")
-        
         # 정상 매수 - kd 건설 1주 
         objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
         "044180", 1, 0 , kw_util.dict_order["시장가"], "")
@@ -1551,6 +1551,12 @@ if __name__ == "__main__":
     def test_jusik_condition_occur():
         objKiwoom.conditionOccurList.append({'종목코드': '044180'}) 
         objKiwoom.sigConditionOccur.emit()
+        pass
+    def test_make_jangoInfo():
+        objKiwoom.makeJangoInfoFile()
+        pass
+    def test_make_chegyeolInfo():
+        objKiwoom.makeChegyeolInfoFile()
         pass
     sys.exit(myApp.exec_())
 
