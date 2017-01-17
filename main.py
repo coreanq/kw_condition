@@ -41,6 +41,7 @@ STOCK_POSSESION_COUNT = 5
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep + util.cur_month() + "_chegyeol.json"
+JANGO_INFO_FILE_PATH =  "log" + os.path.sep + util.cur_month() + "_jango.json"
 
 class KiwoomConditon(QObject):
     sigInitOk = pyqtSignal()
@@ -82,6 +83,7 @@ class KiwoomConditon(QObject):
 
 
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
+        self.jangoInfoFromFile = {} # 첫매입 손절가등 데이터를 보존해야되는 데이터가 파일로 저장되어 있으며 첫 실행시 이 데이터를 로드함 
         self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '주문/체결시간', '체결가' , '체결수량', '미체결수량'] ] }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
 
@@ -222,14 +224,13 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def onChegyeolClicked(self):
-        current_date = self.currentTime.date().strftime("%y%m%d")
-        if( current_date in self.chegyeolInfo):
-            print(json.dumps(self.chegyeolInfo[current_date], ensure_ascii= False, indent = 2, sort_keys = True))
+        self.printChegyeolInfo('all')
 
 
     @pyqtSlot(str)
     def onTestClicked(self, arg):
         print(util.whoami() + ' ' + arg)
+        eval(arg)
         pass
 
     def createConnection(self):
@@ -357,12 +358,18 @@ class KiwoomConditon(QObject):
             with open(CHEGYEOL_INFO_FILE_PATH, 'r', encoding='utf8') as f:
                 file_contents = f.read()
                 self.chegyeolInfo = json.loads(file_contents)
-
+            # 금일 체결 정보는 매수 금지 리스트로 추가함 
             for trade_date, data_chunk in self.chegyeolInfo.items():
                 if( datetime.datetime.strptime(trade_date, "%y%m%d").date() == self.currentTime.date() ): 
                     for trade_info in data_chunk: 
-                        self.todayTradedCodeList.append(trade_info[kw_util.dict_jusik['체결정보'].index('종목코드')])
+                        parse_str_list = [item.strip() for item in trade_info.split('|') ] 
+                        self.todayTradedCodeList.append(parse_str_list[kw_util.dict_jusik['체결정보'].index('종목코드')])
                     break
+
+        if( os.path.isfile(JANGO_INFO_FILE_PATH) == True ):
+            with open(JANGO_INFO_FILE_PATH, 'r', encoding='utf8') as f:
+                file_contents = f.read()
+                self.jangoInfoFromFile = json.loads(file_contents)
 
         # get 조건 검색 리스트
         self.getConditionLoad()
@@ -636,6 +643,14 @@ class KiwoomConditon(QObject):
         else:
             print(json.dumps(self.jangoInfo[jongmokCode], ensure_ascii= False, indent =2, sort_keys = True))
         pass
+    
+    def printChegyeolInfo(self, current_date = 'all'):
+        if( current_date == 'all' ):
+            print(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent = 2, sort_keys = True))
+        elif( current_date == ''):
+            current_date = self.currentTime.date().strftime("%y%m%d")
+            if( current_date in self.chegyeolInfo):
+                print(json.dumps(self.chegyeolInfo[current_date], ensure_ascii= False, indent = 2, sort_keys = True))
 
     # 주식 잔고정보 요청 
     def requestOpw00018(self, account_num):
@@ -748,9 +763,9 @@ class KiwoomConditon(QObject):
     # 주식 일봉 정보를 통해 손절가와 이익실현가를 계산함 
     def makeOpt10081Info(self, rQName):
         repeatCnt = self.getRepeatCnt("opt10081", rQName)
-        jongmokCode = rQName
+        jongmok_code = rQName
         price_list = [] # 몇봉중 저가, 고가 를 뽑아내기 위함?
-        info_dict = self.jangoInfo[jongmokCode]
+        info_dict = self.jangoInfo[jongmok_code]
 
         for i in range(repeatCnt):
             line = {} 
@@ -773,27 +788,19 @@ class KiwoomConditon(QObject):
         # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
         info_dict['손절가'] = min(price_list)
 
-        # 첫매입시 손절가 정보는 체결정보에 위치함
+        # 첫매입시 손절가 정보는 잔고 정보 파일에 위치함
         # 첫 매수시 설정했던 손절가 설정 없으면 몇일중 최저가에서 설정함  
-        first_stoploss =  sys.maxsize 
-        date_list = sorted(self.chegyeolInfo, reverse = True)
-        for str_date in date_list:
-            # list 의 list
-            trade_infos = self.chegyeolInfo[str_date]
-            for trade_info in trade_infos:
-                search_code = trade_info[kw_util.dict_jusik['체결정보'].index('종목코드')]
-                first_stoploss = trade_info[kw_util.dict_jusik['체결정보'].index('첫매입손절가')]
-                if( search_code == jongmokCode and first_stoploss == sys.maxsize ):
-                    # 첫 매수시 체결정보의 첫매입손절가는 sys.maxsize 므로 그러면 몇일중 최저가를 첫매입 손절로 넣어줌 
-                    trade_info[kw_util.dict_jusik['체결정보'].index('첫매입손절가')]= min(price_list)
-                    break
-            if( first_stoploss != sys.maxsize ):
-                break
+        first_stoploss = sys.maxsize
+
+        if( jongmok_code in self.jangoInfoFromFile ):
+            # 매입가를 비교하는 이유는 서버 데이터와 파일 데이터가 날짜가 일치 하는지 확인하기 위한 편법 
+            if( self.jangoInfoFromFile[jongmok_code]['매입가'] == self.jangoInfo[jongmok_code]['매입가'] ):
+                first_stoploss = int(self.jangoInfoFromFile[jongmok_code]['첫매입손절가'])
 
         price_list.append(first_stoploss)
         first_stoploss = min(price_list)
         # 첫 매수시 체결정보에도 첫매입 손절가를 입력해줌 
-        info_dict['첫매입손절가'] = first_stoploss 
+        info_dict['첫매입손절가'] = str(first_stoploss)
         maeip_price = info_dict['매입가']
 
         # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
@@ -960,7 +967,6 @@ class KiwoomConditon(QObject):
                 if( ret_vals.count(False) == 0 ):
                     self.printStockInfo()
                     self.sigCalculateStoplossComplete.emit()
-                    self.makeChegyeolInfoToFile()
             else:
                 self.sigError.emit()
 
@@ -1112,25 +1118,27 @@ class KiwoomConditon(QObject):
         #         .format(gubun, itemCnt, fidList))
         if( gubun == "1"): # 잔고 정보
             # 잔고 정보에서는 매도/매수 구분이 되지 않음 
-            jongmokCode = self.getChejanData(9001)[1:]
+            jongmok_code = self.getChejanData(9001)[1:]
             boyouSuryang = int(self.getChejanData(930))
+            self.todayTradedCodeList.append(jongmok_code)
             if( boyouSuryang == 0 ):
-                self.removeBuyCodeList(jongmokCode)
-                # 매도시 체결 정보 파일로 저장하게 함 
-                self.makeChegyeolInfoToFile()
+                self.removeBuyCodeList(jongmok_code)
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
                 # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
-                self.insertBuyCodeList(jongmokCode)
+                # 매수시 체결 정보의 경우는 매수 기본 손절가 측정시 계산됨 
+                self.insertBuyCodeList(jongmok_code)
                 self.sigBuy.emit()
+            
+            self.makeJangoInfoToFile()
             pass
 
         elif ( gubun == "0"):
             jumun_sangtae =  self.getChejanData(913)
             jongmok_code = self.getChejanData(9001)[1:]
             if( jumun_sangtae == "체결"):
-                self.todayTradedCodeList.append(jongmok_code)
                 self.makeChegyeolInfo(jongmok_code, fidList)
+                self.makeChegyeolInfoToFile()
                 pass
             pass
 
@@ -1139,6 +1147,13 @@ class KiwoomConditon(QObject):
         with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
             f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
         pass
+
+    def makeJangoInfoToFile(self):
+        print(util.whoami())
+        with open(JANGO_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
+            f.write(json.dumps(self.jangoInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
+        pass
+
     def makeChegyeolInfo(self, jongmok_code, fidList):
         fids = fidList.split(";")
         printData = "" 
@@ -1153,43 +1168,49 @@ class KiwoomConditon(QObject):
             nFid = kw_util.name_fid[col_name]
 
             if( str(nFid) in fids):
-                result = str(self.getChejanData(nFid)).strip()
+                result = self.getChejanData(nFid).strip()
                 if( col_name == '종목코드'):
                     result = result[1:] 
-                # if( col_name == '종목명'):
-                #     result = '{0:<20}'.format(result)
+                if( col_name == '종목명'):
+                    result = '{0:^20}'.format(result)
                 if( col_name == '체결가' or col_name == '체결량' or col_name == '미체결수량'):
-                    result = '{0:<8}'.format(result)
-                info.append(result)
+                    result = '{0:>10}'.format(result)
+                info.append(' {} '.format(result))
                 printData += col_name + ": " + result + ", " 
     
-        # 체결 정보를 받은 시점에서는 아직 손절가 책정등의 프로세스가 수행되지 않으므로 최고가 넣어둠 
-        info.insert(0, sys.maxsize)
         current_date = self.currentTime.date().strftime("%y%m%d")
 
         if( current_date not in self.chegyeolInfo) :
             self.chegyeolInfo[current_date] = [] 
 
-        self.chegyeolInfo[current_date].append(info)
-
+        self.chegyeolInfo[current_date].append('|'.join(info))
         util.save_log(printData, "*체결정보", folder= "log")
         pass
 
-    def insertBuyCodeList(self, jongmokCode):
-        if( jongmokCode not in self.buyCodeList ):
-            self.buyCodeList.append(jongmokCode)
+    def insertBuyCodeList(self, jongmok_code):
+        if( jongmok_code not in self.buyCodeList ):
+            self.buyCodeList.append(jongmok_code)
             self.refreshRealRequest()
         pass
 
     #주식 호가 잔량 정보 요청리스트 삭제 
-    def removeBuyCodeList(self, jongmokCode):
-        if( jongmokCode in self.buyCodeList ):
-            self.buyCodeList.remove(jongmokCode)
+    def removeBuyCodeList(self, jongmok_code):
+        if( jongmok_code in self.buyCodeList ):
+            self.buyCodeList.remove(jongmok_code)
         self.refreshRealRequest()
         # 잔고 정보 삭제 
-        self.jangoInfo.pop(jongmokCode)
+        self.jangoInfo.pop(jongmok_code)
         pass
 
+    def insertSellCodeList(self, jongmok_code):
+        if( jongmok_code not in self.sellCodeList ):
+            self.sellCodeList.append(jongmok_code)
+        pass
+    
+    def removeSellCodeList(self, jongmok_code):
+        if( jongmok_code in self.sellCodeList ):
+            self.buyCodeList.remove(jongmok_code)
+        pass
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
     def _OnReceiveConditionVer(self, ret, msg):
@@ -1506,11 +1527,12 @@ if __name__ == "__main__":
         # 정상 매수 - kd 건설 1주 
         objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
         "044180", 1, 0 , kw_util.dict_order["시장가"], "")
+        pass
 
+    def test_sell():
         #정상 매도 - kd 건설 1주 
-        # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-        # "044180", 1, 0 , kw_util.dict_order["시장가"], "")
-        # Execute the Application and Exit
+        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+        "044180", 1, 0 , kw_util.dict_order["시장가"], "")
         pass
     def test_condition():
         objKiwoom._OnReceiveRealCondition("044180", "I",  "단타 추세", 1)
