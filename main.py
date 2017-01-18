@@ -1416,15 +1416,13 @@ class KiwoomConditon(QObject):
     # 1:실시간조회의 화면 개수의 최대는 10개
     @pyqtSlot(str, str, int, int)
     def sendCondition(self, scrNo, conditionName, index, search):
-        self.ocx.dynamicCall(
-            "SendCondition(QString,QString, int, int)", scrNo, conditionName, index, search)
+        self.ocx.dynamicCall("SendCondition(QString,QString, int, int)", scrNo, conditionName, index, search)
 
     # 실시간 조건검색을 중지합니다.
     # ※ 화면당 실시간 조건검색은 최대 10개로 제한되어 있어서 더 이상 실시간 조건검색을 원하지 않는 조건은 중지해야만 카운트 되지 않습니다.
     @pyqtSlot(str, str, int)
     def sendConditionStop(self, scrNo, conditionName, index):
-        self.ocx.dynamicCall(
-            "SendConditionStop(QString, QString, int)", scrNo, conditionName, index)
+        self.ocx.dynamicCall("SendConditionStop(QString, QString, int)", scrNo, conditionName, index)
 
     # 복수종목조회 Tran을 서버로 송신한다.
     # OP_ERR_RQ_STRING – 요청 전문 작성 실패
@@ -1486,14 +1484,13 @@ class KiwoomConditon(QObject):
     # LPCTSTR strTrCode : 조회한TR코드
     # LPCTSTR strRecordName: 조회한 TR명
     # ※항목의 위치는 KOA Studio의 TR목록 순서로 데이터를 가져옵니다.
-    # 예로 OPT10080을 살펴보면 OUTPUT의 멀티데이터의 항목처럼 현재가, 거래량, 체결시간등 순으로 항목의 위치가 0부터 1씩
-    # 증가합니다.
+    # 예로 OPT10080을 살펴보면 OUTPUT의 멀티데이터의 항목처럼 현재가, 거래량, 체결시간등 순으로 항목의 위치가 0부터 1씩증가합니다.
     @pyqtSlot(str, str, result=str)
     def getCommDataEx(self, trCode, recordName):
         return self.ocx.dynamicCall("GetCommDataEx(QString, QString)", trCode, recordName)
 
     # 리얼 시세를 끊는다.
-    # s화면 내 모든 리얼데이터 요청을 제거한다.
+    # 화면 내 모든 리얼데이터 요청을 제거한다.
     # 화면을 종료할 때 반드시 위 함수를 호출해야 한다.
     # Ex) openApi.DisconnectRealData(“0101”);
     @pyqtSlot(str)
