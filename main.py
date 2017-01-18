@@ -1121,14 +1121,14 @@ class KiwoomConditon(QObject):
             self.todayTradedCodeList.append(jongmok_code)
             if( boyouSuryang == 0 ):
                 self.removeBuyCodeList(jongmok_code)
+                self.makeJangoInfoFile()
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
                 # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
                 # 매수시 체결 정보의 경우는 매수 기본 손절가 측정시 계산됨 
                 self.insertBuyCodeList(jongmok_code)
+                self.makeJangoInfoFile()
                 self.sigBuy.emit()
-            
-            self.makeJangoInfoFile()
             pass
 
         elif ( gubun == "0"):
@@ -1179,8 +1179,6 @@ class KiwoomConditon(QObject):
                 result = self.getChejanData(nFid).strip()
                 if( col_name == '종목코드'):
                     result = result[1:] 
-                if( col_name == '종목명'):
-                    result = '{0:^20}'.format(result)
                 if( col_name == '체결가' or col_name == '체결량' or col_name == '미체결수량'):
                     result = '{0:>10}'.format(result)
                 info.append(' {} '.format(result))

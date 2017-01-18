@@ -5,7 +5,7 @@ ApplicationWindow {
     id: main
     visible: true
     title: "automated st"
-    width: 200
+    width: 400
     height: 180
     signal startClicked()
     signal restartClicked()
