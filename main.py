@@ -26,6 +26,7 @@ TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 #WARN: TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
 
 #익절 계산하기 위해서 slappage 추가하며 이를 계산함  
+STOP_LOSS_PLUS = 4
 SLIPPAGE = 2.0 # 기본 매수 매도시 슬리피지는 1.0 이므로 + 0.5 하고 수수료 포함하여 2.0 
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
@@ -595,6 +596,14 @@ class KiwoomConditon(QObject):
                 printLog +='(코스닥등락율미충족: 등락율{0})'.format(updown_percentage)
                 return_vals.append(False)
 
+        # 시작가가 마이너스로 시작했는지 확인 ( 마이너스로 시작했는데 급등하면 신호가 강한편이라)
+        start_price = int(jongmokInfo_dict['시작가'])
+        if( start_price < 0 ):
+            pass
+        else:
+            printLog += '(시작가플러스종목)' 
+            return_vals.append(False)
+
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
         # low_price = int(jongmokInfo_dict['저가'])
         # if( low_price >= base_price ):
@@ -802,8 +811,9 @@ class KiwoomConditon(QObject):
         maeip_price = info_dict['매입가']
 
         # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
-        info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
+        # info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
 
+        # TODO: 고정 이익실현가 적용 여부 결정해야함  
         # print(util.whoami() + ' ' +  info_dict['종목명'], price_list, min(price_list))
         return True
         pass
