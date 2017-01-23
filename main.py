@@ -12,7 +12,7 @@ from PyQt5.QAxContainer import QAxWidget
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 00] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [13, 59] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
 
 # for day trading 
 DAY_TRADING_ENABLE = False
@@ -379,8 +379,8 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def waittingTradeSystemStateEntered(self):
-        # 장시작 10분전에 조건이 시작하도록 함 
-        time_span = datetime.timedelta(minutes = 20)
+        # 장시작 ? 분전에 조건이 시작하도록 함 
+        time_span = datetime.timedelta(minutes = 40)
         expected_time = (self.currentTime + time_span).time()
         if( expected_time >= datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) ):
             self.initQmlEngine()
@@ -597,11 +597,12 @@ class KiwoomConditon(QObject):
                 return_vals.append(False)
 
         # 시작가가 마이너스로 시작했는지 확인 ( 마이너스로 시작했는데 급등하면 신호가 강한편이라)
-        start_price = int(jongmokInfo_dict['시작가'])
-        if( start_price < 0 ):
+        base_price = int(jongmokInfo_dict['기준가'])
+        start_price = int(jongmokInfo_dict['시가'])
+        if( start_price <= 0 ):
             pass
         else:
-            printLog += '(시작가플러스종목)' 
+            printLog += '(시작가미충족 시가등락율:{0}% 시가:{1} )'.format(int((start_price / base_price - 1) * 100 ), start_price)
             return_vals.append(False)
 
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
@@ -1010,8 +1011,9 @@ class KiwoomConditon(QObject):
             #     .format(jongmokCode, realType, realData))
             if( self.buyCodeList.count(jongmokCode) == 0 ):
                 jongmokName = self.getMasterCodeName(jongmokCode) 
-                print(util.whoami() + 'error: ' + jongmokCode + ' ' + jongmokName, end =' ')
-            self.makeHogaJanRyangInfo(jongmokCode)                
+                # print(util.whoami() + 'error: ' + jongmokCode + ' ' + jongmokName, end =' ')
+            else:
+                self.makeHogaJanRyangInfo(jongmokCode)                
 
         if( realType == "주식체결"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
@@ -1283,8 +1285,13 @@ class KiwoomConditon(QObject):
         # 버그로 모두 지우고 새로 등록하게 함 
         self.setRealRemove("ALL", "ALL")
         codeList  = []
-        for code in self.buyCodeList:
-            codeList.append(code)
+        # 종목 미보유로 실시간 체결 요청 할게 없는 경우 코스닥 코스비 실시간 체결가가 올라오지 않으므로 임시로 하나 등록  
+        if( len(self.buyCodeList) == 0 ):
+            codeList.append('044180')
+            pass
+        else:
+            for code in self.buyCodeList:
+                codeList.append(code)
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
         if( len(codeList) ):
            tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
