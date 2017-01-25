@@ -1,4 +1,4 @@
-# -*-coding: utf-8 -*-
+# -*-coding: utf-8 -
 import sys, os, re, time, datetime, copy, json
 
 import util, kw_util
@@ -599,10 +599,11 @@ class KiwoomConditon(QObject):
         # 시작가가 마이너스로 시작했는지 확인 ( 마이너스로 시작했는데 급등하면 신호가 강한편이라)
         base_price = int(jongmokInfo_dict['기준가'])
         start_price = int(jongmokInfo_dict['시가'])
-        if( start_price <= 0 ):
+        start_price_percent = int((start_price / base_price - 1) * 100)
+        if( start_price_percent <= 5 ):
             pass
         else:
-            printLog += '(시작가미충족 시가등락율:{0}% 시가:{1} )'.format(int((start_price / base_price - 1) * 100 ), start_price)
+            printLog += '(시작가미충족 시가등락율:{0}% 시가:{1} )'.format(start_price_percent, start_price)
             return_vals.append(False)
 
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
@@ -815,6 +816,7 @@ class KiwoomConditon(QObject):
         # info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
 
         # TODO: 고정 이익실현가 적용 여부 결정해야함  
+        info_dict['이익실현가'] = maeip_price *  (1 + ((STOP_LOSS_PLUS +  SLIPPAGE) / 100) )
         # print(util.whoami() + ' ' +  info_dict['종목명'], price_list, min(price_list))
         return True
         pass
