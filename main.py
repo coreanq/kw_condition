@@ -1,7 +1,7 @@
 # -*-coding: utf-8 -
 import sys, os, re, time, datetime, copy, json
-
 import util, kw_util
+import resource_rc 
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
@@ -10,9 +10,11 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtQml import QQmlApplicationEngine 
 from PyQt5.QAxContainer import QAxWidget
 
+
+
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [13, 59] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [0, 1], [13, 59] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
 
 # for day trading 
 DAY_TRADING_ENABLE = False
@@ -193,9 +195,7 @@ class KiwoomConditon(QObject):
         self.fsm.start()
 
     def initQmlEngine(self):
-
-        self.qmlEngine.addImportPath("qml")
-        self.qmlEngine.load(QUrl('qml/main.qml'))        
+        self.qmlEngine.load(QUrl('qrc:///qml/main.qml'))        
 
         self.rootObject = self.qmlEngine.rootObjects()[0]
         self.rootObject.startClicked.connect(self.onStartClicked)
@@ -257,7 +257,6 @@ class KiwoomConditon(QObject):
         current_time = self.currentTime.time()
         for start, stop in AUTO_TRADING_OPERATION_TIME:
             start_time =  datetime.time(
-
                             hour = start[0],
                             minute = start[1])
             stop_time =   datetime.time( 
@@ -643,6 +642,7 @@ class KiwoomConditon(QObject):
      
     @pyqtSlot()
     def finalStateEntered(self):
+        self.makeJangoInfoFile()
         print(util.whoami())
         pass
 
@@ -1034,9 +1034,15 @@ class KiwoomConditon(QObject):
             pass 
         
         if( realType == '장시작시간'):
+            #TODO: 장시작 30분전부터 시간 정보가 올라오는데 이에 대한 처리를 해서 장 시작 시간이 변해도 능동적으로 처리 할수 있게 만들어야 함 
             pass
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
+        
+        if( realType == '잔고'):
+            print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+                .format(jongmokCode, realType, realData))
+            pass
 
     # 실시간 호가 잔량 정보         
     def makeHogaJanRyangInfo(self, jongmokCode):
@@ -1133,15 +1139,14 @@ class KiwoomConditon(QObject):
             jongmok_code = self.getChejanData(9001)[1:]
             boyouSuryang = int(self.getChejanData(930))
             self.todayTradedCodeList.append(jongmok_code)
+            self.makeJangoInfoFile()
             if( boyouSuryang == 0 ):
                 self.removeBuyCodeList(jongmok_code)
-                self.makeJangoInfoFile()
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
                 # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
                 # 매수시 체결 정보의 경우는 매수 기본 손절가 측정시 계산됨 
                 self.insertBuyCodeList(jongmok_code)
-                self.makeJangoInfoFile()
                 self.sigBuy.emit()
             pass
 
@@ -1299,6 +1304,7 @@ class KiwoomConditon(QObject):
            tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
+           tmp = self.setRealReg(kw_util.sendRealRegJangoScrNo, ';'.join(codeList), kw_util.type_fidset['잔고'], "0")
 
     # method 
     # 로그인

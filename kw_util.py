@@ -6,17 +6,21 @@
 '''
 sendConditionScreenNo = "001"
 
+# 실시간 체결 화면번호 
 sendRealRegHogaScrNo = "002"
 sendRealRegUpjongScrNo = '003'
 sendRealRegChegyeolScrNo = '004'
 sendRealRegTradeStartScrNo = '005'
+sendRealRegJangoScrNo = '006'
 
-send1minTrScreenNo = "006"
-sendOrderScreenNo = "007"
-sendReqYupjongScreenNo = "008"
-sendJusikGibonScreenNo = "009"
-sendJusikHogaScreenNo = "010"
-sendJusikAccountInfoScreenNo = '0l1'
+
+send1minTrScreenNo = "100"
+sendOrderScreenNo = "101"
+sendReqYupjongScreenNo = "102"
+sendJusikGibonScreenNo = "103"
+sendJusikHogaScreenNo = "104"
+sendJusikAccountInfoScreenNo = '105'
+
 
 
 dict_order = {
@@ -111,15 +115,27 @@ dict_jusik = {
                                     '장운영구문', 
                                     '체결시간', 
                                     '장시작예상잔여시간'
-            ) 
-
+                               ),
+            '실시간-잔고': (
+                            '계좌번호', 
+                            '종목코드', 
+                            '종목명', 
+                            '현재가',
+                            '보유수량',
+                            '매입단가',
+                            '총매입가',
+                            '주문가능수량',
+                            '매도/매수구분',
+                            '손익율'
+                          )
 }
 # fid 는 다 넣을 필요 없음 
 type_fidset = {
                 "주식체결": "20;10;11;12;27;28;15;13;14;16;17;18;25;26;29;30;31;32;311;290;691;567;568",
                 "주식호가잔량":"21;41;61;81;51;71;91",
                 '업종지수': "20;10;11;12;15;13;14;16;17;18;25;26",
-                '장시작시간': "215;20;214"
+                '장시작시간': "215;20;214",
+                '잔고': '9201;9001;917;916;302;10;930;931;932;933;945;946;950;951;27;28;307;8019;957;958;918;990;991;992;993;959;924'
 }
 name_fid ={
                                     '호가시간': 21,

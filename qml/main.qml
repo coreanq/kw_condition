@@ -99,6 +99,10 @@ ApplicationWindow {
             }
         }
     }
+    onClosing: {
+        console.log('make jango info before closing')
+        main.testClicked('test_make_jangoInfo()')
+    }
 
 
 }
