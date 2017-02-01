@@ -1,7 +1,8 @@
 # -*-coding: utf-8 -
 import sys, os, re, time, datetime, copy, json
+import resource_rc
+
 import util, kw_util
-import resource_rc 
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
@@ -10,17 +11,15 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtQml import QQmlApplicationEngine 
 from PyQt5.QAxContainer import QAxWidget
 
-
-
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [0, 1], [13, 59] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [13, 59] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
 
 # for day trading 
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 19] 
 
-TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 2정보를 저장하기 시작하는 시간
+TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 정보를 저장하기 시작하는 시간
 STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
@@ -41,8 +40,8 @@ TODO: 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 �
 STOCK_POSSESION_COUNT = 5 
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
-CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep + util.cur_month() + "_chegyeol.json"
-JANGO_INFO_FILE_PATH =  "log" + os.path.sep + util.cur_month() + "_jango.json"
+CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
+JANGO_INFO_FILE_PATH =  "log" + os.path.sep + "jango.json"
 
 class KiwoomConditon(QObject):
     sigInitOk = pyqtSignal()
@@ -196,7 +195,6 @@ class KiwoomConditon(QObject):
 
     def initQmlEngine(self):
         self.qmlEngine.load(QUrl('qrc:///qml/main.qml'))        
-
         self.rootObject = self.qmlEngine.rootObjects()[0]
         self.rootObject.startClicked.connect(self.onStartClicked)
         self.rootObject.restartClicked.connect(self.onRestartClicked)
@@ -257,6 +255,7 @@ class KiwoomConditon(QObject):
         current_time = self.currentTime.time()
         for start, stop in AUTO_TRADING_OPERATION_TIME:
             start_time =  datetime.time(
+
                             hour = start[0],
                             minute = start[1])
             stop_time =   datetime.time( 
@@ -642,7 +641,6 @@ class KiwoomConditon(QObject):
      
     @pyqtSlot()
     def finalStateEntered(self):
-        self.makeJangoInfoFile()
         print(util.whoami())
         pass
 
@@ -1034,7 +1032,7 @@ class KiwoomConditon(QObject):
             pass 
         
         if( realType == '장시작시간'):
-            #TODO: 장시작 30분전부터 시간 정보가 올라오는데 이에 대한 처리를 해서 장 시작 시간이 변해도 능동적으로 처리 할수 있게 만들어야 함 
+            # TODO: 장시작 30분전부터 실시간 정보가 올라오는데 이를 토대로 가변적으로 장시작시간을 가늠할수 있도록 기능 추가 필요 
             pass
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
@@ -1304,7 +1302,9 @@ class KiwoomConditon(QObject):
            tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
-           tmp = self.setRealReg(kw_util.sendRealRegJangoScrNo, ';'.join(codeList), kw_util.type_fidset['잔고'], "0")
+        #    tmp = self.setRealReg(kw_util.sendRealRegJangoScrNo, ';'.join(self.account_list ), kw_util.type_fidset['잔고'], "0")
+           tmp = self.setRealReg(kw_util.sendRealRegJangoScrNo, ';'.join(codeList ), kw_util.type_fidset['잔고'], "0")
+        #    tmp = self.setRealReg(kw_util.sendRealRegJangoScrNo, '' , kw_util.type_fidset['잔고'], "0")
 
     # method 
     # 로그인
