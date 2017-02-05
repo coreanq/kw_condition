@@ -1026,7 +1026,7 @@ class KiwoomConditon(QObject):
                     current_jango['현재가'] = result.strip()
                     maeip_price = int(current_jango['매입가'])
                     current_price = int(current_jango['현재가'])
-                    current_jango['수익율계산'] = ((current_price / maeip_price) - 1) * 100
+                    current_jango['수익율'] = ((current_price / maeip_price) - 1) * 100
             pass 
             self.processStopLoss(jongmokCode)
         
@@ -1160,6 +1160,7 @@ class KiwoomConditon(QObject):
         elif ( gubun == "0"):
             jumun_sangtae =  self.getChejanData(913)
             jongmok_code = self.getChejanData(9001)[1:]
+            # 매수나 매도나 
             if( jumun_sangtae == "체결"):
                 self.makeChegyeolInfo(jongmok_code, fidList)
                 self.makeChegyeolInfoFile()
@@ -1192,6 +1193,9 @@ class KiwoomConditon(QObject):
         fids = fidList.split(";")
         printData = "" 
         info = [] 
+
+        # 체결 정보에 수익율 필드는 없으므로 추가 
+        info.append(self.current_jango[jongmok_code].get('수익율', '0').strip() )
 
         for col_name in kw_util.dict_jusik["체결정보"]:
             nFid = None
