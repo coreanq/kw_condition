@@ -575,7 +575,7 @@ class KiwoomConditon(QObject):
         updown_percentage = float(jongmokInfo_dict['등락율'] )
         
         # 너무 급등한 종목은 사지 않도록 함 
-        if( updown_percentage > 0 and updown_percentage < 30 - 15 ):
+        if( updown_percentage > 0 and updown_percentage < 5 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율{0})'.format(updown_percentage)
