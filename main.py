@@ -1018,6 +1018,16 @@ class KiwoomConditon(QObject):
         if( realType == "주식체결"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
+            result = '' 
+            current_jango = self.jangoInfo[jongmokCode]
+            for col_name in kw_util.dict_jusik['실시간-주식체결']:
+                result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
+                if( col_name == '현재가'):
+                    current_jango['현재가'] = result.strip()
+                    maeip_price = int(current_jango['매입가'])
+                    current_price = int(current_jango['현재가'])
+                    current_jango['수익율계산'] = ((current_price / maeip_price) - 1) * 100
+            pass 
             self.processStopLoss(jongmokCode)
         
         if( realType == "업종지수" ):
@@ -1037,7 +1047,6 @@ class KiwoomConditon(QObject):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
         
-        if( realType == '잔고'):
             print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
                 .format(jongmokCode, realType, realData))
             pass
@@ -1302,9 +1311,6 @@ class KiwoomConditon(QObject):
            tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
-        #    tmp = self.setRealReg(kw_util.sendRealRegJangoScrNo, ';'.join(self.account_list ), kw_util.type_fidset['잔고'], "0")
-           tmp = self.setRealReg(kw_util.sendRealRegJangoScrNo, ';'.join(codeList ), kw_util.type_fidset['잔고'], "0")
-        #    tmp = self.setRealReg(kw_util.sendRealRegJangoScrNo, '' , kw_util.type_fidset['잔고'], "0")
 
     # method 
     # 로그인
@@ -1579,5 +1585,3 @@ if __name__ == "__main__":
         objKiwoom.makeChegyeolInfoFile()
         pass
     sys.exit(myApp.exec_())
-
-
