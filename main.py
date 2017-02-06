@@ -1018,15 +1018,19 @@ class KiwoomConditon(QObject):
         if( realType == "주식체결"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
-            result = '' 
-            current_jango = self.jangoInfo[jongmokCode]
-            for col_name in kw_util.dict_jusik['실시간-주식체결']:
-                result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
-                if( col_name == '현재가'):
-                    current_jango['현재가'] = result.strip()
-                    maeip_price = int(current_jango['매입가'])
-                    current_price = int(current_jango['현재가'])
-                    current_jango['수익율'] = ((current_price / maeip_price) - 1) * 100
+            result = ''
+            # 잔고가 있는 상태서 주식 체결 실시간 값이 오는 경우 수익율을 계산함 
+            if( jongmokCode in self.jangoInfo ):
+                current_jango = self.jangoInfo[jongmokCode]
+                for col_name in kw_util.dict_jusik['실시간-주식체결']:
+                    result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
+                    if( col_name == '현재가'):
+                        current_jango['현재가'] = result.strip()
+                        maeip_price = abs(int(current_jango['매입가']))
+                        current_price = abs(int(current_jango['현재가']))
+                        current_jango['수익율'] = round( ((current_price / maeip_price) - 1) * 100 - 0.35, 2 )
+                        break
+
             pass 
             self.processStopLoss(jongmokCode)
         
@@ -1139,8 +1143,8 @@ class KiwoomConditon(QObject):
     '매입단가': '809', '신용구분': '00', '매도/매수구분': '2', '(최우선)매도호가': '+806', '신용이자': '0'}
     ''' 
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
-        # print(util.whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
-        #         .format(gubun, itemCnt, fidList))
+        print(util.whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
+                .format(gubun, itemCnt, fidList))
         if( gubun == "1"): # 잔고 정보
             # 잔고 정보에서는 매도/매수 구분이 되지 않음 
             jongmok_code = self.getChejanData(9001)[1:]
@@ -1193,9 +1197,11 @@ class KiwoomConditon(QObject):
         fids = fidList.split(";")
         printData = "" 
         info = [] 
+        current_jango = self.jangoInfo[jongmok_code]
 
         # 체결 정보에 수익율 필드는 없으므로 추가 
-        info.append(self.current_jango[jongmok_code].get('수익율', '0').strip() )
+        profit_percent = current_jango.get('수익율', 0 )
+        info.append( '{0:>10}'.format(profit_percent))
 
         for col_name in kw_util.dict_jusik["체결정보"]:
             nFid = None
