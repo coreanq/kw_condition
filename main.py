@@ -1197,11 +1197,14 @@ class KiwoomConditon(QObject):
         fids = fidList.split(";")
         printData = "" 
         info = [] 
-        current_jango = self.jangoInfo[jongmok_code]
 
-        # 체결 정보에 수익율 필드는 없으므로 추가 
-        profit_percent = current_jango.get('수익율', 0 )
-        info.append( '{0:>10}'.format(profit_percent))
+        if( jongmok_code in self.jangoInfo ):
+            current_jango = self.jangoInfo[jongmok_code]
+            # 체결 정보에 수익율 필드는 없으므로 추가 
+            profit_percent = current_jango.get('수익율', 0 )
+            info.append( '{0:>10}'.format(profit_percent))
+        else:
+            info.append('0')
 
         for col_name in kw_util.dict_jusik["체결정보"]:
             nFid = None
