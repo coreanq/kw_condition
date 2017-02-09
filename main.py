@@ -26,8 +26,8 @@ CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 �
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 #WARN: TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
 
-#익절 계산하기 위해서 slappage 추가하며 이를 계산함  
-STOP_LOSS_PLUS = 4
+#익절 계산하기 위해서 slippage 추가하며 이를 계산함  
+STOP_LOSS_PLUS = 6 # 매도시  같은 값을 사용하는데 -5%손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 2.0 # 기본 매수 매도시 슬리피지는 1.0 이므로 + 0.5 하고 수수료 포함하여 2.0 
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
@@ -578,20 +578,20 @@ class KiwoomConditon(QObject):
         if( updown_percentage > 0 and updown_percentage < 5 ):
             pass
         else:
-            printLog += '(종목등락율미충족: 등락율{0})'.format(updown_percentage)
+            printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
             return_vals.append(False)
 
-        # 업종 등락율을 살펴서 마이너스 이면 사지 않음 :
+        # 업종 등락율을 살펴서 보합 상승을 제외 > -0.5 면 사지 않음 :
         if( jongmokCode in  self.kospiCodeList):
             updown_percentage = float(self.upjongUpdownPercent.get('코스피', -99) )
-            if( updown_percentage < 0 ) :
-                printLog +='(코스피등락율미충족: 등락율{0})'.format(updown_percentage)
+            if( updown_percentage < -0.5 ) :
+                printLog +='(코스피등락율미충족: 등락율 {0})'.format(updown_percentage)
                 return_vals.append(False)
             pass
         else: 
             updown_percentage = float(self.upjongUpdownPercent.get('코스닥', -99) )
-            if( updown_percentage < 0 ) :
-                printLog +='(코스닥등락율미충족: 등락율{0})'.format(updown_percentage)
+            if( updown_percentage < -0.5 ) :
+                printLog +='(코스닥등락율미충족: 등락율 {0})'.format(updown_percentage)
                 return_vals.append(False)
 
         # 시작가가 마이너스로 시작했는지 확인 ( 마이너스로 시작했는데 급등하면 신호가 강한편이라)
@@ -793,7 +793,9 @@ class KiwoomConditon(QObject):
                 break
         
         # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
-        info_dict['손절가'] = min(price_list)
+        # info_dict['손절가'] = min(price_list)
+        info_dict['손절가'] = maeip_price *  (1 - ((STOP_LOSS_PLUS -  SLIPPAGE) / 100) )
+
 
         # 첫매입시 손절가 정보는 잔고 정보 파일에 위치함
         # 첫 매수시 설정했던 손절가 설정 없으면 몇일중 최저가에서 설정함  
@@ -1150,7 +1152,6 @@ class KiwoomConditon(QObject):
             jongmok_code = self.getChejanData(9001)[1:]
             boyouSuryang = int(self.getChejanData(930))
             self.todayTradedCodeList.append(jongmok_code)
-            self.makeJangoInfoFile()
             if( boyouSuryang == 0 ):
                 self.removeBuyCodeList(jongmok_code)
             else:
@@ -1159,6 +1160,7 @@ class KiwoomConditon(QObject):
                 # 매수시 체결 정보의 경우는 매수 기본 손절가 측정시 계산됨 
                 self.insertBuyCodeList(jongmok_code)
                 self.sigBuy.emit()
+            self.makeJangoInfoFile()
             pass
 
         elif ( gubun == "0"):
@@ -1200,11 +1202,12 @@ class KiwoomConditon(QObject):
 
         if( jongmok_code in self.jangoInfo ):
             current_jango = self.jangoInfo[jongmok_code]
-            # 체결 정보에 수익율 필드는 없으므로 추가 
-            profit_percent = current_jango.get('수익율', 0 )
+            # 매도시 체결정보는 수익율 필드가 존재 
+            profit_percent = current_jango.get('수익율', '0' )
             info.append( '{0:>10}'.format(profit_percent))
         else:
-            info.append('0')
+            # 매수시 체결정보는 수익율 필드가 없음  
+            info.append('{0:>10}'.format('0'))
 
         for col_name in kw_util.dict_jusik["체결정보"]:
             nFid = None
