@@ -575,7 +575,7 @@ class KiwoomConditon(QObject):
         updown_percentage = float(jongmokInfo_dict['등락율'] )
         
         # 너무 급등한 종목은 사지 않도록 함 
-        if( updown_percentage > 0 and updown_percentage < 5 ):
+        if( updown_percentage >= 0 and updown_percentage <= 2 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -595,14 +595,16 @@ class KiwoomConditon(QObject):
                 return_vals.append(False)
 
         # 시작가가 마이너스로 시작했는지 확인 ( 마이너스로 시작했는데 급등하면 신호가 강한편이라)
-        base_price = int(jongmokInfo_dict['기준가'])
-        start_price = int(jongmokInfo_dict['시가'])
-        start_price_percent = int((start_price / base_price - 1) * 100)
-        if( start_price_percent <= 5 ):
-            pass
-        else:
-            printLog += '(시작가미충족 시가등락율:{0}% 시가:{1} )'.format(start_price_percent, start_price)
-            return_vals.append(False)
+        # base_price = int(jongmokInfo_dict['기준가'])
+        # start_price = int(jongmokInfo_dict['시가'])
+        # start_price_percent = int((start_price / base_price - 1) * 100)
+        # if( start_price_percent <= 5 ):
+        #     pass
+        # else:
+        #     printLog += '(시작가미충족 시가등락율:{0}% 시가:{1} )'.format(start_price_percent, start_price)
+        #     return_vals.append(False)
+
+
 
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
         # low_price = int(jongmokInfo_dict['저가'])
@@ -792,9 +794,6 @@ class KiwoomConditon(QObject):
             if( saved_date <  current_date - time_span):
                 break
         
-        # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
-        # info_dict['손절가'] = min(price_list)
-        info_dict['손절가'] = maeip_price *  (1 - ((STOP_LOSS_PLUS -  SLIPPAGE) / 100) )
 
 
         # 첫매입시 손절가 정보는 잔고 정보 파일에 위치함
@@ -811,6 +810,10 @@ class KiwoomConditon(QObject):
         # 첫 매수시 체결정보에도 첫매입 손절가를 입력해줌 
         info_dict['첫매입손절가'] = first_stoploss
         maeip_price = info_dict['매입가']
+
+        # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
+        # info_dict['손절가'] = min(price_list)
+        info_dict['손절가'] = maeip_price *  (1 - ((STOP_LOSS_PLUS -  SLIPPAGE) / 100) )
 
         # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
         # info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
@@ -1032,9 +1035,7 @@ class KiwoomConditon(QObject):
                         current_price = abs(int(current_jango['현재가']))
                         current_jango['수익율'] = round( ((current_price / maeip_price) - 1) * 100 - 0.35, 2 )
                         break
-
-            pass 
-            self.processStopLoss(jongmokCode)
+                self.processStopLoss(jongmokCode)
         
         if( realType == "업종지수" ):
             result = '' 
