@@ -27,8 +27,8 @@ TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 #WARN: TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_LOSS_PLUS = 6 # 매도시  같은 값을 사용하는데 -5%손절 잡기 위해서 슬리피지 포함아여 적용 
-SLIPPAGE = 2.0 # 기본 매수 매도시 슬리피지는 1.0 이므로 + 0.5 하고 수수료 포함하여 2.0 
+STOP_LOSS_PLUS = 2 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+SLIPPAGE = 1.5 # 기본 매수 매도시 슬리피지는 1.0 이므로 + 0.5 하고 수수료 포함하여 2.0 
 STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
 # 장기 보유 종목 번호 리스트 
@@ -574,8 +574,8 @@ class KiwoomConditon(QObject):
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmokInfo_dict['등락율'] )
         
-        # 너무 급등한 종목은 사지 않도록 함 
-        if( updown_percentage >= 0 and updown_percentage <= 2 ):
+        #너무 급등한 종목은 사지 않도록 함 
+        if( updown_percentage >= 0 and updown_percentage <= 20 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -813,7 +813,7 @@ class KiwoomConditon(QObject):
 
         # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
         # info_dict['손절가'] = min(price_list)
-        info_dict['손절가'] = maeip_price *  (1 - ((STOP_LOSS_PLUS -  SLIPPAGE) / 100) )
+        info_dict['손절가'] = maeip_price *  (1 - ((STOP_LOSS_PLUS * 2  - SLIPPAGE) / 100) )
 
         # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
         # info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
