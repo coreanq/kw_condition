@@ -575,7 +575,7 @@ class KiwoomConditon(QObject):
         updown_percentage = float(jongmokInfo_dict['등락율'] )
         
         #너무 급등한 종목은 사지 않도록 함 
-        if( updown_percentage >= 0 and updown_percentage <= 20 ):
+        if( updown_percentage >= 0 and updown_percentage <= 30 - STOP_LOSS_PLUS * 3 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -604,7 +604,15 @@ class KiwoomConditon(QObject):
         #     printLog += '(시작가미충족 시가등락율:{0}% 시가:{1} )'.format(start_price_percent, start_price)
         #     return_vals.append(False)
 
+        # 가격 형성이 당일 고가 근처인 종목만 매수
+        high_price  = int(jongmokInfo_dict['고가'])
+        current_price = int( maedoHoga2) 
 
+        if( high_price * 0.98 <= current_price ):
+            pass
+        else:
+            printLog += '(현재가 고가조건 미충족 현재가:{0} 고가:{1} )'.format(current_price, high_price)
+            return_vals.append(False)
 
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
         # low_price = int(jongmokInfo_dict['저가'])
@@ -822,7 +830,7 @@ class KiwoomConditon(QObject):
         info_dict['이익실현가'] = maeip_price *  (1 + ((STOP_LOSS_PLUS +  SLIPPAGE) / 100) )
         # print(util.whoami() + ' ' +  info_dict['종목명'], price_list, min(price_list))
         return True
-        pass
+
     # 주식 기본 정보 
     def makeOpt10001Info(self, rQName):
         if( len(self.conditionOccurList) ):
@@ -1033,7 +1041,10 @@ class KiwoomConditon(QObject):
                         current_jango['현재가'] = result.strip()
                         maeip_price = abs(int(current_jango['매입가']))
                         current_price = abs(int(current_jango['현재가']))
-                        current_jango['수익율'] = round( ((current_price / maeip_price) - 1) * 100 - 0.35, 2 )
+                        maeip_commission = maeip_price * 0.9985 # 매입시 증권사 수수료 
+                        current_commission = current_price * 0.9685 # 매도시 증권사 수수료 + 제세금 
+                        boyou_suryang = 1
+                        current_jango['수익율'] = round( (current_price - maeip_price - maeip_commission - current_commission) * boyou_suryang  / maeip_price, 2) 
                         break
                 self.processStopLoss(jongmokCode)
         
