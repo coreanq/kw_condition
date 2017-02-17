@@ -27,12 +27,13 @@ TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 #WARN: TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_LOSS_PLUS = 2 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_PLUS_VALUE = 3
+STOP_LOSS_VALUE = 6 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 1.5 # 기본 매수 매도시 슬리피지는 1.0 이므로 + 0.5 하고 수수료 포함하여 2.0 
-STOCK_PRICE_MIN_MAX = { 'min': 2000, 'max':50000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
+STOCK_PRICE_MIN_MAX = { 'min': 500, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
 # 장기 보유 종목 번호 리스트 
-DAY_TRADNIG_EXCEPTION_LIST = ['117930']
+DAY_TRADNIG_EXCEPTION_LIST = ['117930', '060910']
 '''
 TODO: 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 
 5개 이상 시세 과요청 오류 뜰수 있는지 체크 필요  
@@ -575,7 +576,7 @@ class KiwoomConditon(QObject):
         updown_percentage = float(jongmokInfo_dict['등락율'] )
         
         #너무 급등한 종목은 사지 않도록 함 
-        if( updown_percentage >= 0 and updown_percentage <= 30 - STOP_LOSS_PLUS * 3 ):
+        if( updown_percentage >= 0 and updown_percentage <= 30 - STOP_PLUS_VALUE * 2 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -821,13 +822,13 @@ class KiwoomConditon(QObject):
 
         # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
         # info_dict['손절가'] = min(price_list)
-        info_dict['손절가'] = maeip_price *  (1 - ((STOP_LOSS_PLUS * 2  - SLIPPAGE) / 100) )
+        info_dict['손절가'] = maeip_price *  (1 - ((STOP_LOSS_VALUE - SLIPPAGE) / 100) )
 
         # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
         # info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
 
         # TODO: 고정 이익실현가 적용 여부 결정해야함  
-        info_dict['이익실현가'] = maeip_price *  (1 + ((STOP_LOSS_PLUS +  SLIPPAGE) / 100) )
+        info_dict['이익실현가'] = maeip_price *  (1 + ((STOP_PLUS_VALUE +  SLIPPAGE) / 100) )
         # print(util.whoami() + ' ' +  info_dict['종목명'], price_list, min(price_list))
         return True
 
@@ -910,7 +911,7 @@ class KiwoomConditon(QObject):
         else:
             if( datetime.time(*TRADING_INFO_GETTING_TIME) <=  self.currentTime.time() ): 
                 self.timerSystem.stop()
-                util.save_log("Stock Trade Terminate!", "시스템", folder = "log")
+                util.save_log("Stock Trade Terminate!\n\n\n\n\n", "시스템", folder = "log")
                 self.sigRequest1minTr.emit()
                 pass
             else :
@@ -1041,10 +1042,12 @@ class KiwoomConditon(QObject):
                         current_jango['현재가'] = result.strip()
                         maeip_price = abs(int(current_jango['매입가']))
                         current_price = abs(int(current_jango['현재가']))
-                        maeip_commission = maeip_price * 0.9985 # 매입시 증권사 수수료 
-                        current_commission = current_price * 0.9685 # 매도시 증권사 수수료 + 제세금 
+                        maeip_commission = maeip_price * 0.00015 # 매입시 증권사 수수료 
+                        current_commission = current_price * 0.00315 # 매도시 증권사 수수료 + 제세금 
+
+                        #TODO: 실제 보유수량 가져와서 버유 수량값 대입해줘야 함 
                         boyou_suryang = 1
-                        current_jango['수익율'] = round( (current_price - maeip_price - maeip_commission - current_commission) * boyou_suryang  / maeip_price, 2) 
+                        current_jango['수익율'] = round( (current_price - maeip_price - maeip_commission - current_commission) * boyou_suryang  / maeip_price * 100 , 2) 
                         break
                 self.processStopLoss(jongmokCode)
         
