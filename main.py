@@ -607,9 +607,9 @@ class KiwoomConditon(QObject):
 
         # 가격 형성이 당일 고가 근처인 종목만 매수
         high_price  = int(jongmokInfo_dict['고가'])
-        current_price = int( maedoHoga2) 
+        current_price = int( maedoHoga1) 
 
-        if( high_price * 0.98 <= current_price ):
+        if( high_price <= current_price ):
             pass
         else:
             printLog += '(현재가 고가조건 미충족 현재가:{0} 고가:{1} )'.format(current_price, high_price)
