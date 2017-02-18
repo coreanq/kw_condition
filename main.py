@@ -27,8 +27,8 @@ TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 #WARN: TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE = 3
-STOP_LOSS_VALUE = 6 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_PLUS_VALUE = 2
+STOP_LOSS_VALUE = 5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 1.5 # 기본 매수 매도시 슬리피지는 1.0 이므로 + 0.5 하고 수수료 포함하여 2.0 
 STOCK_PRICE_MIN_MAX = { 'min': 500, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
