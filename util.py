@@ -24,24 +24,24 @@ def whoami():
 def whosdaddy():
     return '*' + cur_time_msec() + ' ' + inspect.stack()[2][3] + ' '
     
-def cur_date_time():
-    cur_time = datetime.now().strftime('%y-%m-%d %H:%M:%S')
+def cur_date_time(time_string = '%y-%m-%d %H:%M:%S'):
+    cur_time = datetime.now().strftime(time_string)
     return cur_time
 
-def cur_time_msec():
-    cur_time = datetime.now().strftime('%H:%M:%S.%f') 
+def cur_time_msec(time_string ='%H:%M:%S.%f'):
+    cur_time = datetime.now().strftime(time_string) 
     return cur_time
 
-def cur_date():
-    cur_time = datetime.now().strftime('%y-%m-%d')
+def cur_date(time_string = '%y-%m-%d'):
+    cur_time = datetime.now().strftime(time_string)
     return cur_time
 
-def cur_month():
-    cur_time = datetime.now().strftime('%y-%m')
+def cur_month(time_string ='%y-%m'):
+    cur_time = datetime.now().strftime(time_string)
     return cur_time
 
-def cur_time():
-    cur_time = datetime.now().strftime('%H:%M:%S')
+def cur_time(time_string ='%H:%M:%S' ):
+    cur_time = datetime.now().strftime(time_string)
     return cur_time
 
 if __name__ == "__main__":

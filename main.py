@@ -15,7 +15,7 @@ TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AM
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
 AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [13, 59] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
 
-# for day trading 
+# 데이 트레이딩 용으로 DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 19] 
 
@@ -24,7 +24,7 @@ STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range �
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-#WARN: TIME_CUT_MIN = 20 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림 # 불필요함 너무 짧은 보유 시간으로 손해 극심함  
+TIME_CUT_MIN = 10 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE = 2
@@ -84,7 +84,7 @@ class KiwoomConditon(QObject):
 
 
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
-        self.jangoInfoFromFile = {} # 첫매입 손절가등 데이터를 보존해야되는 데이터가 파일로 저장되어 있으며 첫 실행시 이 데이터를 로드함 
+        self.jangoInfoFromFile = {} # TR 잔고 정보 요청 조회로는 얻을 수 없는 데이터를 파일로 저장하고 첫 실행시 로드함  
         self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '주문/체결시간', '체결가' , '체결수량', '미체결수량'] ] }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
 
@@ -612,7 +612,7 @@ class KiwoomConditon(QObject):
         if( high_price <= current_price ):
             pass
         else:
-            printLog += '(현재가 고가조건 미충족 현재가:{0} 고가:{1} )'.format(current_price, high_price)
+            printLog += '(고가조건 미충족: 현재가:{0} 고가:{1} )'.format(current_price, high_price)
             return_vals.append(False)
 
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
@@ -783,7 +783,6 @@ class KiwoomConditon(QObject):
         repeatCnt = self.getRepeatCnt("opt10081", rQName)
         jongmok_code = rQName
         price_list = [] # 몇봉중 저가, 고가 를 뽑아내기 위함?
-        info_dict = self.jangoInfo[jongmok_code]
 
         for i in range(repeatCnt):
             line = {} 
@@ -803,33 +802,7 @@ class KiwoomConditon(QObject):
             if( saved_date <  current_date - time_span):
                 break
         
-
-
-        # 첫매입시 손절가 정보는 잔고 정보 파일에 위치함
-        # 첫 매수시 설정했던 손절가 설정 없으면 몇일중 최저가에서 설정함  
-        first_stoploss = sys.maxsize
-
-        if( jongmok_code in self.jangoInfoFromFile ):
-            # 매입가를 비교하는 이유는 서버 데이터와 파일 데이터가 날짜가 일치 하는지 확인하기 위한 편법 
-            if( self.jangoInfoFromFile[jongmok_code]['매입가'] == self.jangoInfo[jongmok_code]['매입가'] ):
-                first_stoploss = self.jangoInfoFromFile[jongmok_code]['첫매입손절가']
-
-        price_list.append(first_stoploss)
-        first_stoploss = min(price_list)
-        # 첫 매수시 체결정보에도 첫매입 손절가를 입력해줌 
-        info_dict['첫매입손절가'] = first_stoploss
-        maeip_price = info_dict['매입가']
-
-        # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
-        # info_dict['손절가'] = min(price_list)
-        info_dict['손절가'] = maeip_price *  (1 - ((STOP_LOSS_VALUE - SLIPPAGE) / 100) )
-
-        # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
-        # info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
-
-        # TODO: 고정 이익실현가 적용 여부 결정해야함  
-        info_dict['이익실현가'] = maeip_price *  (1 + ((STOP_PLUS_VALUE +  SLIPPAGE) / 100) )
-        # print(util.whoami() + ' ' +  info_dict['종목명'], price_list, min(price_list))
+        self.makeJangoInfo(jongmok_code)
         return True
 
     # 주식 기본 정보 
@@ -1023,9 +996,9 @@ class KiwoomConditon(QObject):
         if( realType == "주식호가잔량"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
-            if( self.buyCodeList.count(jongmokCode) == 0 ):
-                jongmokName = self.getMasterCodeName(jongmokCode) 
-                # print(util.whoami() + 'error: ' + jongmokCode + ' ' + jongmokName, end =' ')
+            if( jongmokCode not in self.buyCodeList == 0 ):
+                jongmok_name = self.getMasterCodeName(jongmokCode) 
+                # print(util.whoami() + 'error: ' + jongmokCode + ' ' + jongmok_name, end =' ')
             else:
                 self.makeHogaJanRyangInfo(jongmokCode)                
 
@@ -1044,9 +1017,7 @@ class KiwoomConditon(QObject):
                         current_price = abs(int(current_jango['현재가']))
                         maeip_commission = maeip_price * 0.00015 # 매입시 증권사 수수료 
                         current_commission = current_price * 0.00315 # 매도시 증권사 수수료 + 제세금 
-
-                        #TODO: 실제 보유수량 가져와서 버유 수량값 대입해줘야 함 
-                        boyou_suryang = 1
+                        boyou_suryang = int(current_jango['보유수량'])
                         current_jango['수익율'] = round( (current_price - maeip_price - maeip_commission - current_commission) * boyou_suryang  / maeip_price * 100 , 2) 
                         break
                 self.processStopLoss(jongmokCode)
@@ -1098,7 +1069,6 @@ class KiwoomConditon(QObject):
         if( '손절가' not in current_jango or '매수호가1' not in current_jango):
             return
 
-        # 손절가는 매수시 기준가(전일종가)로 책정되어 있음 
         stop_loss = int(current_jango['손절가'])
         stop_plus = int(current_jango['이익실현가'])
         maeipga = int(current_jango['매입가'])
@@ -1121,6 +1091,21 @@ class KiwoomConditon(QObject):
         isSell = False
         printData = jongmokCode + ' {0:20} '.format(jongmokName) 
 
+        # time cut 적용 
+        current_time = datetime.datetime.now()
+        time_span = datetime.timedelta(minutes = TIME_CUT_MIN )
+        chegyeol_time = current_jango['주문/체결시간']
+
+        if( chegyeol_time != ''):
+            maeip_time = datetime.datetime.strptime(chegyeol_time, '%y-%m-%d %H:%M:%S')
+        else: 
+            maeip_time = datetime.datetime.now()
+
+        if( maeip_time < current_time - time_span ):
+            stop_loss = int(current_jango['매입가'] ) 
+
+
+        # 손절 / 익절 계산 
         if( stop_loss >= maesuHoga1 ) :
             printData += "(손절)"
             isSell = True
@@ -1132,10 +1117,12 @@ class KiwoomConditon(QObject):
                 printData += "(익절조건미달)" 
                 isSell = True
 
+
         printData +=    ' 손절가: {0:7}/'.format(str(stop_loss)) + \
                         ' 이익실현가: {0:7}/'.format(str(stop_plus)) + \
                         ' 매입가: {0:7}/'.format(str(maeipga)) + \
                         ' 잔고수량: {0:7}'.format(str(jangosuryang)) +\
+                        ' 주문/체결시간: {0:7}'.format(chegyeol_time) + \
                         ' 매수호가1 {0:7}/'.format(str(maesuHoga1)) + \
                         ' 매수호가수량1 {0:7}/'.format(str(maesuHogaAmount1)) + \
                         ' 매수호가2 {0:7}/'.format(str(maesuHoga2)) + \
@@ -1160,21 +1147,39 @@ class KiwoomConditon(QObject):
     '매입단가': '809', '신용구분': '00', '매도/매수구분': '2', '(최우선)매도호가': '+806', '신용이자': '0'}
     ''' 
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
-        print(util.whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
-                .format(gubun, itemCnt, fidList))
+        # print(util.whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
+        #         .format(gubun, itemCnt, fidList))
         if( gubun == "1"): # 잔고 정보
             # 잔고 정보에서는 매도/매수 구분이 되지 않음 
             jongmok_code = self.getChejanData(9001)[1:]
-            boyouSuryang = int(self.getChejanData(930))
+            boyou_suryang = int(self.getChejanData(930))
+            jumun_ganeung_suryang = int(self.getChejanData(933))
+            maeip_danga = int(self.getChejanData(931))
+            jongmok_name= self.getChejanData(302)
+
             self.todayTradedCodeList.append(jongmok_code)
-            if( boyouSuryang == 0 ):
+            if( boyou_suryang == 0 ):
                 self.removeBuyCodeList(jongmok_code)
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
                 # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
-                # 매수시 체결 정보의 경우는 매수 기본 손절가 측정시 계산됨 
                 self.insertBuyCodeList(jongmok_code)
                 self.sigBuy.emit()
+
+                # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
+                current_jango = {}
+                current_jango['보유수량'] = boyou_suryang
+                current_jango['매매가능수량'] =  jumun_ganeung_suryang # TR 잔고에서 매매가능 수량 이란 이름으로 사용되므로 
+                current_jango['매입가'] = maeip_danga
+                current_jango['종목번호'] = jongmok_code
+                current_jango['종목명'] = jongmok_name.strip()
+                current_jango['주문/체결시간'] = util.cur_date_time('%y-%m-%d %H:%M:%S')
+                if( jongmok_code not in self.jangoInfo):
+                    self.jangoInfo[jongmok_code] = current_jango 
+                else:
+                    self.jangoInfo[jongmok_code].update(current_jango)
+
+            self.makeJangoInfo(jongmok_code)
             self.makeJangoInfoFile()
             pass
 
@@ -1194,8 +1199,38 @@ class KiwoomConditon(QObject):
             f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
         pass
 
-    def makeJangoInfoFile(self):
+    # TR 잔고 정보 요청에 없는 필드 채우기 위한 함수임 저장을 위해서 jango.json 을 사용하고 첫 실행시 읽을때 JangoInfoFromFile 데이터 구조 사용함  
+    def makeJangoInfo(self, jongmok_code): 
+        # jango Info 를 만들기 위해서 매수/ 매도 의 경우가 있음 
+        # 매도의 경우 아예 잔고 정보를 떼서 버리기 때문에 정보가 없음
         print(util.whoami())
+        if( jongmok_code not in self.jangoInfo ):
+            return
+        
+        current_jango = {}
+        # 잔고정보를 파일에서 읽어서 로드함 없으면 서버에 요청한 데이터로 함 
+        if( jongmok_code in self.jangoInfoFromFile ):
+            current_jango = self.jangoInfoFromFile[jongmok_code]
+        else:
+            current_jango = self.jangoInfo[jongmok_code]
+
+            maeip_price = current_jango['매입가']
+
+            # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
+            # info_dict['손절가'] = min(price_list)
+            current_jango['손절가'] = round( maeip_price *  (1 - ((STOP_LOSS_VALUE - SLIPPAGE) / 100) ) , 2 )
+
+            # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
+            # info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
+            current_jango['이익실현가'] = round( maeip_price *  (1 + ((STOP_PLUS_VALUE +  SLIPPAGE) / 100) ) , 2 )
+
+
+        current_jango['주문/체결시간'] = self.jangoInfoFromfile[jongmok_code].get('주문/체결시간', '')
+        self.jangoInfo[jongmok_code].update(current_jango)
+        pass
+
+    def makeJangoInfoFile(self):
+        # print(util.whoami())
         remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가촐잔량',
                         '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가총잔량',
                         '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호' ]
