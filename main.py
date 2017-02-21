@@ -16,7 +16,7 @@ TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AM
 AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [13, 59] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
 
 # 데이 트레이딩 용으로 DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  
-DAY_TRADING_ENABLE = False
+DAY_TRADING_ENABLE = True
 DAY_TRADING_END_TIME = [15, 19] 
 
 TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 정보를 저장하기 시작하는 시간
@@ -24,7 +24,7 @@ STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range �
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 10 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
+TIME_CUT_MIN = 30 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE = 2
@@ -1214,26 +1214,29 @@ class KiwoomConditon(QObject):
         else:
             current_jango = self.jangoInfo[jongmok_code]
 
-            maeip_price = current_jango['매입가']
+        maeip_price = current_jango['매입가']
 
-            # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
-            # info_dict['손절가'] = min(price_list)
+        # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
+        # info_dict['손절가'] = min(price_list)
+        if( '손절가' not in current_jango):
             current_jango['손절가'] = round( maeip_price *  (1 - ((STOP_LOSS_VALUE - SLIPPAGE) / 100) ) , 2 )
 
-            # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
-            # info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
+        # 가격 변화량에 따라 이익실현가를 달리하기 위함 첫 매입과 매입가의 폭에서 2/3 하고 슬리피지 더한값을 이익실현으로 잡음 
+        # info_dict['이익실현가'] = maeip_price * ( 1 + (((maeip_price - first_stoploss ) / maeip_price) * 2 / 3) + SLIPPAGE / 100)
+        if( '이익실현가' not in current_jango):
             current_jango['이익실현가'] = round( maeip_price *  (1 + ((STOP_PLUS_VALUE +  SLIPPAGE) / 100) ) , 2 )
 
+        if( '주문/체결시간' not in current_jango ):
+            current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', '')
 
-        current_jango['주문/체결시간'] = self.jangoInfoFromfile[jongmok_code].get('주문/체결시간', '')
         self.jangoInfo[jongmok_code].update(current_jango)
         pass
 
     def makeJangoInfoFile(self):
         # print(util.whoami())
-        remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가촐잔량',
+        remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가총잔량',
                         '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가총잔량',
-                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호' ]
+                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율' ]
         temp = copy.deepcopy(self.jangoInfo)
         # 불필요 필드 제거 
         for jongmok_code, contents in temp.items():
