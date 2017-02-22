@@ -22,9 +22,9 @@ DAY_TRADING_END_TIME = [15, 19]
 TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 정보를 저장하기 시작하는 시간
 STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
 
-CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 이름
+CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 30 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
+TIME_CUT_MIN = 9 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE = 2
@@ -1008,17 +1008,11 @@ class KiwoomConditon(QObject):
             result = ''
             # 잔고가 있는 상태서 주식 체결 실시간 값이 오는 경우 수익율을 계산함 
             if( jongmokCode in self.jangoInfo ):
-                current_jango = self.jangoInfo[jongmokCode]
                 for col_name in kw_util.dict_jusik['실시간-주식체결']:
                     result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
                     if( col_name == '현재가'):
-                        current_jango['현재가'] = result.strip()
-                        maeip_price = abs(int(current_jango['매입가']))
-                        current_price = abs(int(current_jango['현재가']))
-                        maeip_commission = maeip_price * 0.00015 # 매입시 증권사 수수료 
-                        current_commission = current_price * 0.00315 # 매도시 증권사 수수료 + 제세금 
-                        boyou_suryang = int(current_jango['보유수량'])
-                        current_jango['수익율'] = round( (current_price - maeip_price - maeip_commission - current_commission) * boyou_suryang  / maeip_price * 100 , 2) 
+                        current_price = abs(int(result.strip()))
+                        self.calculateSuik(jongmokCode, current_price)
                         break
                 self.processStopLoss(jongmokCode)
         
@@ -1042,6 +1036,16 @@ class KiwoomConditon(QObject):
             print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
                 .format(jongmokCode, realType, realData))
             pass
+
+    def calculateSuik(self, jongmok_code, current_price):
+        current_jango = current_jango = self.jangoInfo[jongmok_code]
+        maeip_price = abs(int(current_jango['매입가']))
+        boyou_suryang = int(current_jango['보유수량'])
+
+        maeip_commission = maeip_price * 0.00015 # 매입시 증권사 수수료 
+        current_commission = current_price * 0.00315 # 매도시 증권사 수수료 + 제세금 
+        current_jango['수익율'] = round( (current_price - maeip_price - maeip_commission - current_commission) * boyou_suryang  / maeip_price * 100 , 2) 
+        pass
 
     # 실시간 호가 잔량 정보         
     def makeHogaJanRyangInfo(self, jongmokCode):
@@ -1255,6 +1259,11 @@ class KiwoomConditon(QObject):
 
         if( jongmok_code in self.jangoInfo ):
             current_jango = self.jangoInfo[jongmok_code]
+
+            # 체결가를 통해 수익율 필드 업데이트 
+            current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
+            self.calculateSuik(jongmok_code, current_price)
+
             # 매도시 체결정보는 수익율 필드가 존재 
             profit_percent = current_jango.get('수익율', '0' )
             info.append( '{0:>10}'.format(profit_percent))
