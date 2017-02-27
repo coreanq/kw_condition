@@ -13,7 +13,7 @@ from PyQt5.QAxContainer import QAxWidget
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [13, 59] ], [ [14, 00], [15, 15] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 15] ] ] #해당 시스템 동작 시간 설정
 
 # 데이 트레이딩 용으로 DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  
 DAY_TRADING_ENABLE = True
@@ -24,16 +24,16 @@ STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range �
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 9 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
+TIME_CUT_MIN = 5 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE = 2
-STOP_LOSS_VALUE = 5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
-SLIPPAGE = 1.5 # 기본 매수 매도시 슬리피지는 1.0 이므로 + 0.5 하고 수수료 포함하여 2.0 
+STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+SLIPPAGE = 1.5 # 기본 매수 매도시 슬리피지는 1.0 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 500, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
 # 장기 보유 종목 번호 리스트 
-DAY_TRADNIG_EXCEPTION_LIST = ['117930', '060910']
+DAY_TRADNIG_EXCEPTION_LIST = []
 '''
 TODO: 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 
 5개 이상 시세 과요청 오류 뜰수 있는지 체크 필요  
