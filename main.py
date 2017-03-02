@@ -24,21 +24,21 @@ STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range �
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 5 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
+TIME_CUT_MIN = 15 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE = 2
 STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
-SLIPPAGE = 1.5 # 기본 매수 매도시 슬리피지는 1.0 이므로 +  수수료 0.5  
+SLIPPAGE = 1.0 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 500, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
 # 장기 보유 종목 번호 리스트 
-DAY_TRADNIG_EXCEPTION_LIST = []
+DAY_TRADNIG_EXCEPTION_LIST = ['122630', '252670', '034220']
 '''
 TODO: 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 
 5개 이상 시세 과요청 오류 뜰수 있는지 체크 필요  
 '''
-STOCK_POSSESION_COUNT = 5 
+STOCK_POSSESION_COUNT = 3 
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
@@ -576,7 +576,7 @@ class KiwoomConditon(QObject):
         updown_percentage = float(jongmokInfo_dict['등락율'] )
         
         #너무 급등한 종목은 사지 않도록 함 
-        if( updown_percentage >= 0 and updown_percentage <= 30 - STOP_PLUS_VALUE * 2 ):
+        if( updown_percentage >= 0 and updown_percentage <= 30 - STOP_PLUS_VALUE * 3 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -595,25 +595,30 @@ class KiwoomConditon(QObject):
                 printLog +='(코스닥등락율미충족: 등락율 {0})'.format(updown_percentage)
                 return_vals.append(False)
 
-        # 시작가가 마이너스로 시작했는지 확인 ( 마이너스로 시작했는데 급등하면 신호가 강한편이라)
-        # base_price = int(jongmokInfo_dict['기준가'])
-        # start_price = int(jongmokInfo_dict['시가'])
-        # start_price_percent = int((start_price / base_price - 1) * 100)
-        # if( start_price_percent <= 5 ):
-        #     pass
-        # else:
-        #     printLog += '(시작가미충족 시가등락율:{0}% 시가:{1} )'.format(start_price_percent, start_price)
-        #     return_vals.append(False)
 
-        # 가격 형성이 당일 고가 근처인 종목만 매수
-        high_price  = int(jongmokInfo_dict['고가'])
-        current_price = int( maedoHoga1) 
-
-        if( high_price <= current_price ):
+        # 시작가가 조건 확인 너무 높은 시작가는 급락을 야기함  
+        base_price = int(jongmokInfo_dict['기준가'])
+        start_price = int(jongmokInfo_dict['시가'])
+        start_price_percent = int((start_price / base_price - 1) * 100)
+        if( start_price_percent <= 5 ):
             pass
         else:
-            printLog += '(고가조건 미충족: 현재가:{0} 고가:{1} )'.format(current_price, high_price)
+            printLog += '(시작가미충족 시가등락율:{0}% 시가:{1} )'.format(start_price_percent, start_price)
             return_vals.append(False)
+
+
+
+        # 가격 형성이 당일 고가 근처인 종목만 매수
+        # high_price  = int(jongmokInfo_dict['고가'])
+        # current_price = int( maedoHoga1) 
+
+        # if( high_price <= current_price ):
+        #     pass
+        # else:
+        #     printLog += '(고가조건 미충족: 현재가:{0} 고가:{1} )'.format(current_price, high_price)
+        #     return_vals.append(False)
+
+
 
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
         # low_price = int(jongmokInfo_dict['저가'])
@@ -645,6 +650,7 @@ class KiwoomConditon(QObject):
             print("B " + str(result) , sep="")
             pass
         else:
+            printLog = ' 현재가:{0} '.format(maedoHoga1) + printLog
             util.save_log(printLog, '조건진입매수실패', folder = "log")
             self.refreshRealRequest()
             self.sigNoBuy.emit()
@@ -1108,7 +1114,6 @@ class KiwoomConditon(QObject):
         if( maeip_time < current_time - time_span ):
             stop_loss = int(current_jango['매입가'] ) 
 
-
         # 손절 / 익절 계산 
         if( stop_loss >= maesuHoga1 ) :
             printData += "(손절)"
@@ -1170,18 +1175,19 @@ class KiwoomConditon(QObject):
                 self.insertBuyCodeList(jongmok_code)
                 self.sigBuy.emit()
 
-                # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
-                current_jango = {}
-                current_jango['보유수량'] = boyou_suryang
-                current_jango['매매가능수량'] =  jumun_ganeung_suryang # TR 잔고에서 매매가능 수량 이란 이름으로 사용되므로 
-                current_jango['매입가'] = maeip_danga
-                current_jango['종목번호'] = jongmok_code
-                current_jango['종목명'] = jongmok_name.strip()
-                current_jango['주문/체결시간'] = util.cur_date_time('%y-%m-%d %H:%M:%S')
-                if( jongmok_code not in self.jangoInfo):
-                    self.jangoInfo[jongmok_code] = current_jango 
-                else:
-                    self.jangoInfo[jongmok_code].update(current_jango)
+                if( jongmok_code not in DAY_TRADNIG_EXCEPTION_LIST ):
+                    # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
+                    current_jango = {}
+                    current_jango['보유수량'] = boyou_suryang
+                    current_jango['매매가능수량'] =  jumun_ganeung_suryang # TR 잔고에서 매매가능 수량 이란 이름으로 사용되므로 
+                    current_jango['매입가'] = maeip_danga
+                    current_jango['종목번호'] = jongmok_code
+                    current_jango['종목명'] = jongmok_name.strip()
+                    current_jango['주문/체결시간'] = util.cur_date_time('%y-%m-%d %H:%M:%S')
+                    if( jongmok_code not in self.jangoInfo):
+                        self.jangoInfo[jongmok_code] = current_jango 
+                    else:
+                        self.jangoInfo[jongmok_code].update(current_jango)
 
             self.makeJangoInfo(jongmok_code)
             self.makeJangoInfoFile()
@@ -1622,6 +1628,14 @@ if __name__ == "__main__":
     # print(os.environ['QML_IMPORT_TRACE'])
     myApp = QApplication(sys.argv)
     objKiwoom = KiwoomConditon()
+
+    def test_etf_buy():
+        # etf 매수 
+        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        "122630", 1, 0 , kw_util.dict_order["시장가"], "")
+
+        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        "252670", 1, 0 , kw_util.dict_order["시장가"], "")
 
     def test_buy():
         # 비정상 매수 (시장가에 단가 넣기 ) 우리종금 1주  
