@@ -13,7 +13,7 @@ from PyQt5.QAxContainer import QAxWidget
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 15] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 0] ] ,  [ [14, 0], [15, 15] ] ] #해당 시스템 동작 시간 설정
 
 # 데이 트레이딩 용으로 DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  
 DAY_TRADING_ENABLE = True
@@ -773,13 +773,11 @@ class KiwoomConditon(QObject):
         
             jongmokCode = info_dict['종목번호']
             
-            # 장기 보유종목인 경우 제외 
-            if( jongmokCode not in DAY_TRADNIG_EXCEPTION_LIST):
-                if( jongmokCode not in self.jangoInfo.keys() ):
-                    self.jangoInfo[jongmokCode] = info_dict
-                else:
-                    # 기존에 가지고 있는 종목이면 update
-                    self.jangoInfo[jongmokCode].update(info_dict)
+            if( jongmokCode not in self.jangoInfo.keys() ):
+                self.jangoInfo[jongmokCode] = info_dict
+            else:
+                # 기존에 가지고 있는 종목이면 update
+                self.jangoInfo[jongmokCode].update(info_dict)
 
         # print(self.jangoInfo)
         return True 
@@ -1016,7 +1014,7 @@ class KiwoomConditon(QObject):
             if( jongmokCode in self.jangoInfo ):
                 for col_name in kw_util.dict_jusik['실시간-주식체결']:
                     result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
-                    if( col_name == '현재가'):
+                    if( col_name == '(최우선)매도호가'):
                         current_price = abs(int(result.strip()))
                         self.calculateSuik(jongmokCode, current_price)
                         break
@@ -1048,9 +1046,17 @@ class KiwoomConditon(QObject):
         maeip_price = abs(int(current_jango['매입가']))
         boyou_suryang = int(current_jango['보유수량'])
 
-        maeip_commission = maeip_price * 0.00015 # 매입시 증권사 수수료 
-        current_commission = current_price * 0.00315 # 매도시 증권사 수수료 + 제세금 
-        current_jango['수익율'] = round( (current_price - maeip_price - maeip_commission - current_commission) * boyou_suryang  / maeip_price * 100 , 2) 
+        maeip_commission = maeip_price * boyou_suryang * 0.00015 # 매입시 증권사 수수료 
+        current_commission = 0
+        #etf 는 제세금이 없으므로 
+        if( jongmok_code != '122630' and jongmok_code != '252670'):
+            current_commission = current_price * boyou_suryang * 0.00315 # 매도시 증권사 수수료 + 제세금 
+        else:
+            current_commission = current_price * boyou_suryang * 0.00015 # 매도시 증권사 수수료 
+
+        suik_price = round( (current_price - maeip_price) * boyou_suryang - maeip_commission - current_commission , 2)
+        current_jango['수익'] = suik_price 
+        current_jango['수익율'] = round( (suik_price  / (maeip_price * boyou_suryang)) * 100 , 2) 
         pass
 
     # 실시간 호가 잔량 정보         
@@ -1067,9 +1073,15 @@ class KiwoomConditon(QObject):
 
     def processStopLoss(self, jongmokCode):
         jongmokName = self.getMasterCodeName(jongmokCode)
+
+        # 예외 처리 리스트이면 종료 
+        if( jongmokCode in DAY_TRADNIG_EXCEPTION_LIST ):
+            return
+
         # 잔고에 없는 종목이면 종료 
-        if( jongmokCode not in self.jangoInfo.keys() ):
+        if( jongmokCode not in self.jangoInfo ):
             return 
+
         current_jango = self.jangoInfo[jongmokCode]
 
         jangosuryang = int( current_jango['매매가능수량'] )
@@ -1175,19 +1187,18 @@ class KiwoomConditon(QObject):
                 self.insertBuyCodeList(jongmok_code)
                 self.sigBuy.emit()
 
-                if( jongmok_code not in DAY_TRADNIG_EXCEPTION_LIST ):
-                    # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
-                    current_jango = {}
-                    current_jango['보유수량'] = boyou_suryang
-                    current_jango['매매가능수량'] =  jumun_ganeung_suryang # TR 잔고에서 매매가능 수량 이란 이름으로 사용되므로 
-                    current_jango['매입가'] = maeip_danga
-                    current_jango['종목번호'] = jongmok_code
-                    current_jango['종목명'] = jongmok_name.strip()
-                    current_jango['주문/체결시간'] = util.cur_date_time('%y-%m-%d %H:%M:%S')
-                    if( jongmok_code not in self.jangoInfo):
-                        self.jangoInfo[jongmok_code] = current_jango 
-                    else:
-                        self.jangoInfo[jongmok_code].update(current_jango)
+                # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
+                current_jango = {}
+                current_jango['보유수량'] = boyou_suryang
+                current_jango['매매가능수량'] =  jumun_ganeung_suryang # TR 잔고에서 매매가능 수량 이란 이름으로 사용되므로 
+                current_jango['매입가'] = maeip_danga
+                current_jango['종목번호'] = jongmok_code
+                current_jango['종목명'] = jongmok_name.strip()
+                current_jango['주문/체결시간'] = util.cur_date_time('%y-%m-%d %H:%M:%S')
+                if( jongmok_code not in self.jangoInfo):
+                    self.jangoInfo[jongmok_code] = current_jango 
+                else:
+                    self.jangoInfo[jongmok_code].update(current_jango)
 
             self.makeJangoInfo(jongmok_code)
             self.makeJangoInfoFile()
@@ -1237,7 +1248,8 @@ class KiwoomConditon(QObject):
             current_jango['이익실현가'] = round( maeip_price *  (1 + ((STOP_PLUS_VALUE +  SLIPPAGE) / 100) ) , 2 )
 
         if( '주문/체결시간' not in current_jango ):
-            current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', '')
+            if( jongmok_code in self.jangoInfoFromFile ):
+                current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', '')
 
         self.jangoInfo[jongmok_code].update(current_jango)
         pass
@@ -1246,7 +1258,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami())
         remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가총잔량',
                         '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가총잔량',
-                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율' ]
+                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익' ]
         temp = copy.deepcopy(self.jangoInfo)
         # 불필요 필드 제거 
         for jongmok_code, contents in temp.items():
@@ -1271,10 +1283,13 @@ class KiwoomConditon(QObject):
             self.calculateSuik(jongmok_code, current_price)
 
             # 매도시 체결정보는 수익율 필드가 존재 
+            profit = current_jango.get('수익', '0')
             profit_percent = current_jango.get('수익율', '0' )
-            info.append( '{0:>10}'.format(profit_percent))
+            info.append('{0:>10}'.format(profit_percent))
+            info.append('{0:>10}'.format(profit))
         else:
-            # 매수시 체결정보는 수익율 필드가 없음  
+            # 매수시 체결정보는 수익율 / 수익 필드가 없음  
+            info.append('{0:>10}'.format('0'))
             info.append('{0:>10}'.format('0'))
 
         for col_name in kw_util.dict_jusik["체결정보"]:
@@ -1315,7 +1330,8 @@ class KiwoomConditon(QObject):
             self.buyCodeList.remove(jongmok_code)
         self.refreshRealRequest()
         # 잔고 정보 삭제 
-        self.jangoInfo.pop(jongmok_code)
+        if( jongmok_code in self.jangoInfo):
+            self.jangoInfo.pop(jongmok_code)
         pass
 
     def insertSellCodeList(self, jongmok_code):
@@ -1649,9 +1665,16 @@ if __name__ == "__main__":
 
     def test_sell():
         #정상 매도 - kd 건설 1주 
-        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+        objKiwoom.sendOrder("sell", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
         "044180", 1, 0 , kw_util.dict_order["시장가"], "")
         pass
+
+    def test_etf_sell():
+        objKiwoom.sendOrder("sell1", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+        "122630", 1, 0 , kw_util.dict_order["시장가"], "")
+        objKiwoom.sendOrder("sell2", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+        "252670", 1, 0 , kw_util.dict_order["시장가"], "")
+
     def test_condition():
         objKiwoom._OnReceiveRealCondition("044180", "I",  "단타 추세", 1)
         pass
