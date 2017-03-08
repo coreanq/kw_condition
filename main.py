@@ -30,15 +30,33 @@ TIME_CUT_MIN = 15 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지
 STOP_PLUS_VALUE = 2
 STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 1.0 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
-STOCK_PRICE_MIN_MAX = { 'min': 500, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
+STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
 # 장기 보유 종목 번호 리스트 
-DAY_TRADNIG_EXCEPTION_LIST = ['122630', '252670', '034220']
+ETF_LIST = {
+    '122630': "kodex 레버리지",
+    '252670': "kodex 선물인버스2x",
+    '261260': "kodex 미국달러 선물레버리지",
+    '261250': "kodex 미국달러 선물인버스2x",
+    '069500': "kodex 200",
+    '114800': "kodex 인버스",
+    '229200': "kodex 코스닥 150",
+    '251340': "kodex 코스닥 150 인버스"
+}
+
+ETF_PAIR_LIST = {
+    '122630':'252670',
+    '261260':'261250',
+    '069500':'114800',
+    '229200':'251340'
+}
+# 장기 보유 종목 번호 리스트 
+DAY_TRADNIG_EXCEPTION_LIST = ['122630', '252670', '261260', '261250', '069500', '114800', '251340', '229200', '034220']
 '''
 TODO: 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 
 5개 이상 시세 과요청 오류 뜰수 있는지 체크 필요  
 '''
-STOCK_POSSESION_COUNT = 3 
+STOCK_POSSESION_COUNT = 20
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
@@ -997,12 +1015,13 @@ class KiwoomConditon(QObject):
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
         # print(util.whoami() + 'jongmokCode: {}, {}, realType: {}'
         #         .format(jongmokCode, self.getMasterCodeName(jongmokCode),  realType))
+        jongmok_name = self.getMasterCodeName(jongmokCode) 
         if( realType == "주식호가잔량"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
             if( jongmokCode not in self.buyCodeList == 0 ):
-                jongmok_name = self.getMasterCodeName(jongmokCode) 
                 # print(util.whoami() + 'error: ' + jongmokCode + ' ' + jongmok_name, end =' ')
+                pass
             else:
                 self.makeHogaJanRyangInfo(jongmokCode)                
 
@@ -1014,11 +1033,24 @@ class KiwoomConditon(QObject):
             if( jongmokCode in self.jangoInfo ):
                 for col_name in kw_util.dict_jusik['실시간-주식체결']:
                     result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
-                    if( col_name == '(최우선)매도호가'):
+                    if( col_name == '(최우선)매수호가'):
                         current_price = abs(int(result.strip()))
                         self.calculateSuik(jongmokCode, current_price)
                         break
-                self.processStopLoss(jongmokCode)
+
+                if( jongmokCode in ETF_LIST.keys() ):
+                    pair_etf_code = ETF_PAIR_LIST[jongmokCode]
+                    pair_jongmok_name = self.getMasterCodeName(pair_etf_code)
+                    jongmok_suik = int(self.jangoInfo[jongmokCode]['수익'])
+                    pair_jongmok_suik = int(self.jangoInfo[pair_etf_code]['수익'])
+                    profit = jongmok_suik + pair_jongmok_suik
+                    if( profit  > 25 ):
+                        print('{0:>20}: {1:>7}, {2:>20}: {3:>7} profit:{4:>6}' \
+                                .format(jongmok_name, jongmok_suik, 
+                                        pair_jongmok_name, pair_jongmok_suik, 
+                                        profit) ) 
+                else:
+                    self.processStopLoss(jongmokCode)
         
         if( realType == "업종지수" ):
             result = '' 
@@ -1049,10 +1081,14 @@ class KiwoomConditon(QObject):
         maeip_commission = maeip_price * boyou_suryang * 0.00015 # 매입시 증권사 수수료 
         current_commission = 0
         #etf 는 제세금이 없으므로 
-        if( jongmok_code != '122630' and jongmok_code != '252670'):
+        if( jongmok_code not in ETF_LIST ):
+            maeip_commission = maeip_price * boyou_suryang * 0.00015 # 매입시 증권사 수수료 
             current_commission = current_price * boyou_suryang * 0.00315 # 매도시 증권사 수수료 + 제세금 
         else:
-            current_commission = current_price * boyou_suryang * 0.00015 # 매도시 증권사 수수료 
+            #TODO: for test 나중에 증권사 수수료 적용해야함 
+            maeip_commission = 0  
+            current_commission = 0 
+            # current_commission = current_price * boyou_suryang * 0.00015 # 매도시 증권사 수수료 
 
         suik_price = round( (current_price - maeip_price) * boyou_suryang - maeip_commission - current_commission , 2)
         current_jango['수익'] = suik_price 
