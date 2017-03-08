@@ -679,6 +679,60 @@ class KiwoomConditon(QObject):
         print(util.whoami())
         pass
 
+    def buy_etf(self, type = 'all'):
+        #etf 매수
+        if( type == '2x' or type == 'all'):
+            self.sendOrder("buy1", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+            "122630", 1, 0 , kw_util.dict_order["시장가"], "")
+            self.sendOrder("buy2", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+            "252670", 1, 0 , kw_util.dict_order["시장가"], "")
+
+        if( type == 'dollar' or type == 'all'):
+            self.sendOrder("buy3", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+            "261260", 1, 0 , kw_util.dict_order["시장가"], "")
+            self.sendOrder("buy4", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+            "261250", 1, 0 , kw_util.dict_order["시장가"], "")
+
+        if( type == 'nomal' or type == 'all'):
+            self.sendOrder("buy5", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+            "069500", 1, 0 , kw_util.dict_order["시장가"], "")
+            self.sendOrder("buy6", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+            "114800", 1, 0 , kw_util.dict_order["시장가"], "")
+
+        if( type == 'kosdaq' or type == 'all'):
+            self.sendOrder("buy7", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+            "229200", 1, 0 , kw_util.dict_order["시장가"], "")
+            self.sendOrder("buy8", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+            "251340", 1, 0 , kw_util.dict_order["시장가"], "")
+        pass
+
+    def sell_etf(self, type = 'all'):
+        #etf 매도 
+        if( type == '2x' or type == 'all'):
+            self.sendOrder("sell1", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+            "122630", 1, 0 , kw_util.dict_order["시장가"], "")
+            self.sendOrder("sell2", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+            "252670", 1, 0 , kw_util.dict_order["시장가"], "")
+
+        if( type == 'dollar' or type == 'all'):
+            self.sendOrder("sell3", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+            "261260", 1, 0 , kw_util.dict_order["시장가"], "")
+            self.sendOrder("sell4", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+            "261250", 1, 0 , kw_util.dict_order["시장가"], "")
+
+        if( type == 'normal' or type == 'all'):
+            self.sendOrder("sell5", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+            "069500", 1, 0 , kw_util.dict_order["시장가"], "")
+            self.sendOrder("sell6", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+            "114800", 1, 0 , kw_util.dict_order["시장가"], "")
+
+        if( type == 'kosdaq' or type == 'all'):
+            self.sendOrder("sell7", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+            "229200", 1, 0 , kw_util.dict_order["시장가"], "")
+            self.sendOrder("sell8", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+            "251340", 1, 0 , kw_util.dict_order["시장가"], "")
+        pass
+
     def printStockInfo(self, jongmokCode = 'all'):
         if( jongmokCode == 'all'):
             print(json.dumps(self.jangoInfo, ensure_ascii= False, indent =2, sort_keys = True))
@@ -1025,7 +1079,7 @@ class KiwoomConditon(QObject):
             else:
                 self.makeHogaJanRyangInfo(jongmokCode)                
 
-        if( realType == "주식체결"):
+        elif( realType == "주식체결"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
             result = ''
@@ -1039,20 +1093,36 @@ class KiwoomConditon(QObject):
                         break
 
                 if( jongmokCode in ETF_LIST.keys() ):
+                    printData = ''
                     pair_etf_code = ETF_PAIR_LIST[jongmokCode]
+
+                    # 하나라도 매도 되었다면 
+                    if( jongmokCode not in self.jangoInfo or pair_etf_code not in self.jangoInfo ):
+                        return
+
                     pair_jongmok_name = self.getMasterCodeName(pair_etf_code)
                     jongmok_suik = int(self.jangoInfo[jongmokCode]['수익'])
                     pair_jongmok_suik = int(self.jangoInfo[pair_etf_code]['수익'])
                     profit = jongmok_suik + pair_jongmok_suik
+
                     if( profit  > 25 ):
-                        print('{0:>20}: {1:>7}, {2:>20}: {3:>7} profit:{4:>6}' \
-                                .format(jongmok_name, jongmok_suik, 
-                                        pair_jongmok_name, pair_jongmok_suik, 
-                                        profit) ) 
+                        printData = '{0:>20}: {1:>7}, {2:>20}: {3:>7} profit:{4:>6}'. \
+                                    format( jongmok_name, jongmok_suik, 
+                                            pair_jongmok_name, pair_jongmok_suik, 
+                                            profit)  
+                        if( jongmokCode == '122630' or jongmokCode =='252670' ):
+                            self.sell_etf('2x')
+                        elif( jongmokCode == '261260' or jongmokCode =='261250'):
+                            self.sell_etf('dollar')
+                        elif( jongmokCode == '069500' or jongmokCode =='114800'):
+                            self.sell_etf('normal')
+                        elif( jongmokCode == '229200' or jongmokCode == '251340'):
+                            self.sell_etf('kosdaq')
+                        util.save_log(printData,'*********** etf 매도 *************', 'log')
                 else:
                     self.processStopLoss(jongmokCode)
         
-        if( realType == "업종지수" ):
+        elif( realType == "업종지수" ):
             result = '' 
             for col_name in kw_util.dict_jusik['실시간-업종지수']:
                 result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
@@ -1063,7 +1133,7 @@ class KiwoomConditon(QObject):
                         self.upjongUpdownPercent['코스닥'] = result 
             pass 
         
-        if( realType == '장시작시간'):
+        elif( realType == '장시작시간'):
             # TODO: 장시작 30분전부터 실시간 정보가 올라오는데 이를 토대로 가변적으로 장시작시간을 가늠할수 있도록 기능 추가 필요 
             pass
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
@@ -1681,13 +1751,9 @@ if __name__ == "__main__":
     myApp = QApplication(sys.argv)
     objKiwoom = KiwoomConditon()
 
-    def test_etf_buy():
-        # etf 매수 
-        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-        "122630", 1, 0 , kw_util.dict_order["시장가"], "")
-
-        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-        "252670", 1, 0 , kw_util.dict_order["시장가"], "")
+    def test_etf_buy(type = 'all'):
+        #etf 매수
+        objKiwoom.buy_etf(type)
 
     def test_buy():
         # 비정상 매수 (시장가에 단가 넣기 ) 우리종금 1주  
@@ -1705,11 +1771,9 @@ if __name__ == "__main__":
         "044180", 1, 0 , kw_util.dict_order["시장가"], "")
         pass
 
-    def test_etf_sell():
-        objKiwoom.sendOrder("sell1", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-        "122630", 1, 0 , kw_util.dict_order["시장가"], "")
-        objKiwoom.sendOrder("sell2", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-        "252670", 1, 0 , kw_util.dict_order["시장가"], "")
+    def test_etf_sell(type = 'all'):
+        #etf 매도 
+        objKiwoom.sell_etf(type)
 
     def test_condition():
         objKiwoom._OnReceiveRealCondition("044180", "I",  "단타 추세", 1)
