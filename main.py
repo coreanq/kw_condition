@@ -36,8 +36,6 @@ STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류
 ETF_LIST = {
     '122630': "kodex 레버리지",
     '252670': "kodex 선물인버스2x",
-    '261260': "kodex 미국달러 선물레버리지",
-    '261250': "kodex 미국달러 선물인버스2x",
     '069500': "kodex 200",
     '114800': "kodex 인버스",
     '229200': "kodex 코스닥 150",
@@ -46,12 +44,14 @@ ETF_LIST = {
 
 ETF_PAIR_LIST = {
     '122630':'252670',
-    '261260':'261250',
     '069500':'114800',
-    '229200':'251340'
+    '229200':'251340',
+    '252670':'122630',
+    '114800':'069500',
+    '251340':'229200'
 }
 # 장기 보유 종목 번호 리스트 
-DAY_TRADNIG_EXCEPTION_LIST = ['122630', '252670', '261260', '261250', '069500', '114800', '251340', '229200', '034220']
+DAY_TRADNIG_EXCEPTION_LIST = [*ETF_PAIR_LIST.keys(), '034220']
 '''
 TODO: 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 
 5개 이상 시세 과요청 오류 뜰수 있는지 체크 필요  
@@ -679,58 +679,91 @@ class KiwoomConditon(QObject):
         print(util.whoami())
         pass
 
+
+    def sendorder_multi(self, rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo):
+        def inner():
+            self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo)
+        return inner
+
     def buy_etf(self, type = 'all'):
         #etf 매수
+        req_num = 0 # 주문이 다수이므로 1초에 5개 주문을 지키기 위해 사용
+        rQName, code, qty, price, orgOrderNo = '', '','','', ''
+
+        screenNo = kw_util.sendOrderScreenNo
+        accNo = self.account_list[0]
+        orderType = kw_util.dict_order["신규매수"]
+        hogaGb =  kw_util.dict_order["시장가"]
+        qty = 1
+        price = 0
+
         if( type == '2x' or type == 'all'):
-            self.sendOrder("buy1", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-            "122630", 1, 0 , kw_util.dict_order["시장가"], "")
-            self.sendOrder("buy2", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-            "252670", 1, 0 , kw_util.dict_order["시장가"], "")
+            rQName, code, req_num = 'buy1', '122630', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
 
-        if( type == 'dollar' or type == 'all'):
-            self.sendOrder("buy3", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-            "261260", 1, 0 , kw_util.dict_order["시장가"], "")
-            self.sendOrder("buy4", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-            "261250", 1, 0 , kw_util.dict_order["시장가"], "")
+            rQName, code, req_num = 'buy2', '252670', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
 
-        if( type == 'nomal' or type == 'all'):
-            self.sendOrder("buy5", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-            "069500", 1, 0 , kw_util.dict_order["시장가"], "")
-            self.sendOrder("buy6", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-            "114800", 1, 0 , kw_util.dict_order["시장가"], "")
+        if( type == 'normal' or type == 'all'):
+            rQName, code, req_num = 'buy5', '069500', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
+
+            rQName, code, req_num = 'buy6', '114800', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
 
         if( type == 'kosdaq' or type == 'all'):
-            self.sendOrder("buy7", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-            "229200", 1, 0 , kw_util.dict_order["시장가"], "")
-            self.sendOrder("buy8", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
-            "251340", 1, 0 , kw_util.dict_order["시장가"], "")
-        pass
+            rQName, code, req_num = 'buy7', '229200', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
+
+            rQName, code, req_num = 'buy8', '251340', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
+
 
     def sell_etf(self, type = 'all'):
         #etf 매도 
-        if( type == '2x' or type == 'all'):
-            self.sendOrder("sell1", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            "122630", 1, 0 , kw_util.dict_order["시장가"], "")
-            self.sendOrder("sell2", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            "252670", 1, 0 , kw_util.dict_order["시장가"], "")
+        req_num = 0 # 주문이 다수이므로 1초에 5개 주문을 지키기 위해 사용
+        rQName, code, qty, price, orgOrderNo = '', '','','', ''
 
-        if( type == 'dollar' or type == 'all'):
-            self.sendOrder("sell3", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            "261260", 1, 0 , kw_util.dict_order["시장가"], "")
-            self.sendOrder("sell4", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            "261250", 1, 0 , kw_util.dict_order["시장가"], "")
+        screenNo = kw_util.sendOrderScreenNo
+        accNo = self.account_list[0]
+        orderType = kw_util.dict_order["신규매도"]
+        hogaGb =  kw_util.dict_order["시장가"]
+        qty = 1
+        price = 0
+
+        if( type == '2x' or type == 'all'):
+            rQName, code, req_num = 'sell1', '122630', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
+
+            rQName, code, req_num = 'sell2', '252670', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
 
         if( type == 'normal' or type == 'all'):
-            self.sendOrder("sell5", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            "069500", 1, 0 , kw_util.dict_order["시장가"], "")
-            self.sendOrder("sell6", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            "114800", 1, 0 , kw_util.dict_order["시장가"], "")
+            rQName, code, req_num = 'sell5', '069500', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
+
+            rQName, code, req_num = 'sell6', '114800', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
 
         if( type == 'kosdaq' or type == 'all'):
-            self.sendOrder("sell7", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            "229200", 1, 0 , kw_util.dict_order["시장가"], "")
-            self.sendOrder("sell8", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-            "251340", 1, 0 , kw_util.dict_order["시장가"], "")
+            rQName, code, req_num = 'sell7', '229200', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
+
+            rQName, code, req_num = 'sell8', '251340', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
+
         pass
 
     def printStockInfo(self, jongmokCode = 'all'):
@@ -951,7 +984,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def onTimerSystemTimeout(self):
-        print(".", end='') 
+        # print(".", end='') 
         self.currentTime = datetime.datetime.now()
 
         if( self.getConnectState() != 1 ):
@@ -1099,17 +1132,23 @@ class KiwoomConditon(QObject):
                     # 하나라도 매도 되었다면 
                     if( jongmokCode not in self.jangoInfo or pair_etf_code not in self.jangoInfo ):
                         return
+                    
+                    # 첫 수익 종목 읽을 시 기본 종목 pair 종목 모두 수익 key 값이 존재 하지 않는다면 
+                    if( '수익' not in self.jangoInfo[jongmokCode] or '수익' not in self.jangoInfo[pair_etf_code]):
+                        return
 
                     pair_jongmok_name = self.getMasterCodeName(pair_etf_code)
                     jongmok_suik = int(self.jangoInfo[jongmokCode]['수익'])
                     pair_jongmok_suik = int(self.jangoInfo[pair_etf_code]['수익'])
                     profit = jongmok_suik + pair_jongmok_suik
+                    printData = 'profit:{0:>6}, {1:>20}: {2:>7}, {3:>20}: {4:>7}'. \
+                                format( profit, 
+                                        jongmok_name, jongmok_suik, 
+                                        pair_jongmok_name, pair_jongmok_suik, 
+                                )  
+                    print(printData, end='')
 
                     if( profit  > 25 ):
-                        printData = '{0:>20}: {1:>7}, {2:>20}: {3:>7} profit:{4:>6}'. \
-                                    format( jongmok_name, jongmok_suik, 
-                                            pair_jongmok_name, pair_jongmok_suik, 
-                                            profit)  
                         if( jongmokCode == '122630' or jongmokCode =='252670' ):
                             self.sell_etf('2x')
                         elif( jongmokCode == '261260' or jongmokCode =='261250'):
