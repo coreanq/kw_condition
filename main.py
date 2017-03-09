@@ -36,18 +36,14 @@ STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류
 ETF_LIST = {
     '122630': "kodex 레버리지",
     '252670': "kodex 선물인버스2x",
-    '069500': "kodex 200",
-    '114800': "kodex 인버스",
     '229200': "kodex 코스닥 150",
     '251340': "kodex 코스닥 150 인버스"
 }
 
 ETF_PAIR_LIST = {
     '122630':'252670',
-    '069500':'114800',
-    '229200':'251340',
     '252670':'122630',
-    '114800':'069500',
+    '229200':'251340',
     '251340':'229200'
 }
 # 장기 보유 종목 번호 리스트 
@@ -706,15 +702,6 @@ class KiwoomConditon(QObject):
             func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
             QTimer.singleShot(210 * (req_num - 1), func)
 
-        if( type == 'normal' or type == 'all'):
-            rQName, code, req_num = 'buy5', '069500', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
-
-            rQName, code, req_num = 'buy6', '114800', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
-
         if( type == 'kosdaq' or type == 'all'):
             rQName, code, req_num = 'buy7', '229200', req_num +1
             func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
@@ -743,15 +730,6 @@ class KiwoomConditon(QObject):
             QTimer.singleShot(210 * (req_num - 1), func)
 
             rQName, code, req_num = 'sell2', '252670', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
-
-        if( type == 'normal' or type == 'all'):
-            rQName, code, req_num = 'sell5', '069500', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
-
-            rQName, code, req_num = 'sell6', '114800', req_num +1
             func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
             QTimer.singleShot(210 * (req_num - 1), func)
 
@@ -1138,23 +1116,26 @@ class KiwoomConditon(QObject):
                         return
 
                     pair_jongmok_name = self.getMasterCodeName(pair_etf_code)
-                    jongmok_suik = int(self.jangoInfo[jongmokCode]['수익'])
+                    jongmok_suik= int(self.jangoInfo[jongmokCode]['수익'])
+                    jongmok_maesuHoga = int(self.jangoInfo[jongmokCode]['매수호가1'])
+                    jongmok_maesuHogaSuryang = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
+ 
                     pair_jongmok_suik = int(self.jangoInfo[pair_etf_code]['수익'])
+                    pair_jongmok_maesuHoga = int(self.jangoInfo[pair_etf_code]['매수호가1'])
+                    pair_jongmok_maesuHogaSuryang = int(self.jangoInfo[pair_etf_code]['매수호가수량1'])
+
                     profit = jongmok_suik + pair_jongmok_suik
-                    printData = 'profit:{0:>6}, {1:>20}: {2:>7}, {3:>20}: {4:>7}'. \
-                                format( profit, 
-                                        jongmok_name, jongmok_suik, 
-                                        pair_jongmok_name, pair_jongmok_suik, 
-                                )  
-                    print(printData, end='')
+                    if( profit > 0 ):
+                        printData = 'pro:{0:>6}, {1:>20}: {2:>7}, {3:>7}, {4:>7}, {5:>20}: {6:>7}, {7:>7}, {8:>7}'.format(
+                                profit, 
+                                jongmok_name,       jongmok_suik,       jongmok_maesuHoga,      jongmok_maesuHogaSuryang , 
+                                pair_jongmok_name,  pair_jongmok_suik,  pair_jongmok_maesuHoga, pair_jongmok_maesuHogaSuryang 
+                        )  
+                        print(printData, end='')
 
                     if( profit  > 25 ):
                         if( jongmokCode == '122630' or jongmokCode =='252670' ):
                             self.sell_etf('2x')
-                        elif( jongmokCode == '261260' or jongmokCode =='261250'):
-                            self.sell_etf('dollar')
-                        elif( jongmokCode == '069500' or jongmokCode =='114800'):
-                            self.sell_etf('normal')
                         elif( jongmokCode == '229200' or jongmokCode == '251340'):
                             self.sell_etf('kosdaq')
                         util.save_log(printData,'*********** etf 매도 *************', 'log')
