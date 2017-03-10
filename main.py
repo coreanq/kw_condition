@@ -13,7 +13,7 @@ from PyQt5.QAxContainer import QAxWidget
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [11, 0] ] ,  [ [14, 0], [15, 15] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 15] ] ] #해당 시스템 동작 시간 설정
 
 # 데이 트레이딩 용으로 DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  
 DAY_TRADING_ENABLE = True
@@ -1117,21 +1117,24 @@ class KiwoomConditon(QObject):
 
                     pair_jongmok_name = self.getMasterCodeName(pair_etf_code)
                     jongmok_suik= int(self.jangoInfo[jongmokCode]['수익'])
-                    jongmok_maesuHoga = int(self.jangoInfo[jongmokCode]['매수호가1'])
-                    jongmok_maesuHogaSuryang = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
- 
                     pair_jongmok_suik = int(self.jangoInfo[pair_etf_code]['수익'])
-                    pair_jongmok_maesuHoga = int(self.jangoInfo[pair_etf_code]['매수호가1'])
-                    pair_jongmok_maesuHogaSuryang = int(self.jangoInfo[pair_etf_code]['매수호가수량1'])
 
                     profit = jongmok_suik + pair_jongmok_suik
                     if( profit > 0 ):
-                        printData = 'pro:{0:>6}, {1:>20}: {2:>7}, {3:>7}, {4:>7}, {5:>20}: {6:>7}, {7:>7}, {8:>7}'.format(
-                                profit, 
-                                jongmok_name,       jongmok_suik,       jongmok_maesuHoga,      jongmok_maesuHogaSuryang , 
-                                pair_jongmok_name,  pair_jongmok_suik,  pair_jongmok_maesuHoga, pair_jongmok_maesuHogaSuryang 
-                        )  
-                        print(printData, end='')
+                        valid_keys = [ '종목명' , '매수호가수량1', '매수호가수량2', '매수호가수량3',
+                                        '세금', '수익' , '호가시간']
+                        temp = copy.deepcopy(self.jangoInfo[jongmokCode])
+                        remove_keys = []
+
+                        for key in temp.keys():
+                            if key not in valid_keys:
+                                remove_keys.append(key)
+                        
+                        for remove_key in remove_keys:
+                            del(temp[remove_key])
+
+                        print('pro:{0:>6}'.format(profit), end='')
+                        print(json.dumps(temp, ensure_ascii= False, indent= 2))
 
                     if( profit  > 25 ):
                         if( jongmokCode == '122630' or jongmokCode =='252670' ):
@@ -1383,7 +1386,7 @@ class KiwoomConditon(QObject):
     def makeJangoInfoFile(self):
         # print(util.whoami())
         remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가총잔량',
-                        '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가총잔량',
+                        '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가수량4', '매수호가총잔량',
                         '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익' ]
         temp = copy.deepcopy(self.jangoInfo)
         # 불필요 필드 제거 
