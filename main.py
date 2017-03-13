@@ -1231,8 +1231,10 @@ class KiwoomConditon(QObject):
         maeipga = int(current_jango['매입가'])
 
         # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
+        time_span = datetime.timedelta(minutes = 5 )
         if( DAY_TRADING_ENABLE == True ):
-            if( datetime.time(*DAY_TRADING_END_TIME) <  self.currentTime.time() ):
+            if( datetime.time(*DAY_TRADING_END_TIME) <  datetime.datetime.now().time()
+            and (datetime.datetime.now() + time_span).time() > datetime.time(*DAY_TRADING_END_TIME) ):
                 # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
                 stop_loss = 0  
 
