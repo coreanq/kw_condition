@@ -13,11 +13,11 @@ from PyQt5.QAxContainer import QAxWidget
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 15] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 10] ] ] #해당 시스템 동작 시간 설정
 
 # 데이 트레이딩 용으로 DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  
 DAY_TRADING_ENABLE = True
-DAY_TRADING_END_TIME = [15, 19] 
+DAY_TRADING_END_TIME = [15, 15] 
 
 TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 정보를 저장하기 시작하는 시간
 STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
@@ -1136,16 +1136,21 @@ class KiwoomConditon(QObject):
                         for remove_key in remove_keys:
                             del(temp[remove_key])
 
-                        printData = '종목명: {0}, profit:{1:>6}, hoga1:{2:>6}, hoga2:{3:>6}, pair_hoga1:{4:>6}, pair_hoga2:{5:>6}'.format(
-                            jongmok_name, profit, self.jangoInfo[jongmokCode]['매수호가수량1'], self.jangoInfo[jongmokCode]['매수호가수량2'],
+                        compare_result = ''
+                        if( jongmok_suik > pair_jongmok_suik ):
+                            compare_result = '{0}\t>{1}'.format(jongmok_name, pair_jongmok_name)
+                        else:
+                            compare_result = '{0}\t>{1}'.format(pair_jongmok_name, jongmok_name)
+
+                        printData = '비교: ({0}), profit:{1:>6}, hoga1:{2:>6}, hoga2:{3:>6}, pair_hoga1:{4:>6}, pair_hoga2:{5:>6}'.format(
+                            compare_result, profit, self.jangoInfo[jongmokCode]['매수호가수량1'], self.jangoInfo[jongmokCode]['매수호가수량2'],
                             self.jangoInfo[pair_etf_code]['매수호가수량1'], self.jangoInfo[pair_etf_code]['매수호가수량2'] 
                         )
                         print(printData, end='')
                         print(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys=True))
                         util.save_log(printData, '*** etf 매도 ***', 'log')
 
-                else:
-                    self.processStopLoss(jongmokCode)
+                self.processStopLoss(jongmokCode)
         
         elif( realType == "업종지수" ):
             result = '' 
