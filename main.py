@@ -52,10 +52,6 @@ ETF_PAIR_LIST = {
 }
 # 장기 보유 종목 번호 리스트 
 DAY_TRADNIG_EXCEPTION_LIST = ['034220']
-'''
-TODO: 최대 몇종목을 동시에 보유할 것인지 결정 (보유 최대 금액과 한번 투자시 가능한 투자 금액사이의 관계를 말함) 
-5개 이상 시세 과요청 오류 뜰수 있는지 체크 필요  
-'''
 STOCK_POSSESION_COUNT = 20
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
@@ -428,13 +424,13 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def requestingJangoSystemStateEntered(self):
-        print(util.whoami() )
+        # print(util.whoami() )
         self.requestOpw00018(self.account_list[0])
         pass 
     
     @pyqtSlot()
     def calculateStoplossPlusStateEntered(self):
-        print(util.whoami() )
+        # print(util.whoami() )
         def requestFunc(jongmokCode):
             def inner():
                 self.requestOpt10081(jongmokCode)
@@ -469,7 +465,6 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def prepare1minTrListStateEntered(self):
         print(util.whoami() )
-        # TODO: 조건 진입 정보를 통해 1분봉 데이터 요청하기 
         # 조건 진입 정보를 읽어 종목 코드 값을 빼낸 뒤 tr 요청 
         self.sigPrepare1minTrListComplete.emit()
 
@@ -489,7 +484,7 @@ class KiwoomConditon(QObject):
         pass
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
-        print(util.whoami())
+        # print(util.whoami())
         pass
 
     @pyqtSlot()
@@ -530,7 +525,6 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
             return
         
-        # TODO: condition 발생 리스트를 따로 저장하여 1분봉 정보를 엑셀에 저장할수 있도록 함 
         self.conditionOccurList.remove(jongmokInfo_dict)
             
         jongmokName = jongmokInfo_dict['종목명']
@@ -1124,13 +1118,11 @@ class KiwoomConditon(QObject):
                     profit = jongmok_suik + pair_jongmok_suik
 
                     if( profit  > 25 ):
-                        # 테스트 이므로 팔지는 않음  
-                        if( jongmokCode == '122630' or jongmokCode =='252670' ):
-                            self.sell_etf('2x')
-                        # elif( jongmokCode == '229200' or jongmokCode == '251340'):
-                        #     self.sell_etf('kosdaq')
-                        elif( jongmokCode == '114800' or jongmokCode == '069500'):
-                            self.sell_etf('normal')
+                        #FIXME: 테스트 이므로 팔지는 않음  
+                        # if( jongmokCode == '122630' or jongmokCode =='252670' ):
+                        #     self.sell_etf('2x')
+                        # elif( jongmokCode == '114800' or jongmokCode == '069500'):
+                        #     self.sell_etf('normal')
 
                         valid_keys = [ '종목명' , '매수호가1', '매수호가수량1', '매수호가수량2', 
                                         '수익' , '호가시간']
@@ -1144,9 +1136,13 @@ class KiwoomConditon(QObject):
                         for remove_key in remove_keys:
                             del(temp[remove_key])
 
-                        print('pro:{0:>6}'.format(profit), end='')
+                        printData = '종목명: {0}, profit:{1:>6}, hoga1:{2:>6}, hoga2:{3:>6}, pair_hoga1:{4:>6}, pair_hoga2:{5:>6}'.format(
+                            jongmok_name, profit, self.jangoInfo[jongmokCode]['매수호가수량1'], self.jangoInfo[jongmokCode]['매수호가수량2'],
+                            self.jangoInfo[pair_etf_code]['매수호가수량1'], self.jangoInfo[pair_etf_code]['매수호가수량2'] 
+                        )
+                        print(printData, end='')
                         print(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys=True))
-                        util.save_log(printData, '*********** etf 매도 *************', 'log')
+                        util.save_log(printData, '*** etf 매도 ***', 'log')
 
                 else:
                     self.processStopLoss(jongmokCode)
@@ -1359,7 +1355,7 @@ class KiwoomConditon(QObject):
             pass
 
     def makeChegyeolInfoFile(self):
-        print(util.whoami())
+        # print(util.whoami())
         with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
             f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
         pass
@@ -1368,7 +1364,7 @@ class KiwoomConditon(QObject):
     def makeJangoInfo(self, jongmok_code): 
         # jango Info 를 만들기 위해서 매수/ 매도 의 경우가 있음 
         # 매도의 경우 아예 잔고 정보를 떼서 버리기 때문에 정보가 없음
-        print(util.whoami())
+        # print(util.whoami())
         if( jongmok_code not in self.jangoInfo ):
             return
         
