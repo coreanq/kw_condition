@@ -595,20 +595,20 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
 
         # 업종 등락율을 살펴서 보합 상승을 제외 > -0.5 면 사지 않음 :
-        if( jongmokCode in  self.kospiCodeList):
-            updown_percentage = float(self.upjongUpdownPercent.get('코스피', -99) )
-            if( updown_percentage < -0.5 ) :
-                printLog +='(코스피등락율미충족: 등락율 {0})'.format(updown_percentage)
-                return_vals.append(False)
-            pass
-        else: 
-            updown_percentage = float(self.upjongUpdownPercent.get('코스닥', -99) )
-            if( updown_percentage < -0.5 ) :
-                printLog +='(코스닥등락율미충족: 등락율 {0})'.format(updown_percentage)
-                return_vals.append(False)
+        # if( jongmokCode in  self.kospiCodeList):
+        #     updown_percentage = float(self.upjongUpdownPercent.get('코스피', -99) )
+        #     if( updown_percentage < -0.5 ) :
+        #         printLog +='(코스피등락율미충족: 등락율 {0})'.format(updown_percentage)
+        #         return_vals.append(False)
+        #     pass
+        # else: 
+        #     updown_percentage = float(self.upjongUpdownPercent.get('코스닥', -99) )
+        #     if( updown_percentage < -0.5 ) :
+        #         printLog +='(코스닥등락율미충족: 등락율 {0})'.format(updown_percentage)
+        #         return_vals.append(False)
 
 
-        # 시작가가 조건 확인 너무 높은 시작가는 급락을 야기함  
+        # 시작가 조건 확인 너무 높은 시작가는 급락을 야기함  
         base_price = int(jongmokInfo_dict['기준가'])
         start_price = int(jongmokInfo_dict['시가'])
         start_price_percent = int((start_price / base_price - 1) * 100)
@@ -1117,7 +1117,7 @@ class KiwoomConditon(QObject):
 
                     profit = jongmok_suik + pair_jongmok_suik
 
-                    if( profit  > 25 ):
+                    if( profit  >= 20 ):
                         #FIXME: 테스트 이므로 팔지는 않음  
                         # if( jongmokCode == '122630' or jongmokCode =='252670' ):
                         #     self.sell_etf('2x')
@@ -1138,9 +1138,9 @@ class KiwoomConditon(QObject):
 
                         compare_result = ''
                         if( jongmok_suik > pair_jongmok_suik ):
-                            compare_result = '{0}\t>{1}'.format(jongmok_name, pair_jongmok_name)
+                            compare_result = '{0} > {1}'.format(jongmok_name, pair_jongmok_name)
                         else:
-                            compare_result = '{0}\t>{1}'.format(pair_jongmok_name, jongmok_name)
+                            compare_result = '{0} < {1}'.format(jongmok_nmae, pair_jongmok_name)
 
                         printData = '비교: ({0}), profit:{1:>6}, hoga1:{2:>6}, hoga2:{3:>6}, pair_hoga1:{4:>6}, pair_hoga2:{5:>6}'.format(
                             compare_result, profit, self.jangoInfo[jongmokCode]['매수호가수량1'], self.jangoInfo[jongmokCode]['매수호가수량2'],
@@ -1402,6 +1402,8 @@ class KiwoomConditon(QObject):
         if( '주문/체결시간' not in current_jango ):
             if( jongmok_code in self.jangoInfoFromFile ):
                 current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', '')
+            else:
+                current_jango['주문/체결시간'] = '' 
 
         self.jangoInfo[jongmok_code].update(current_jango)
         pass
