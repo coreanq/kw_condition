@@ -1140,7 +1140,7 @@ class KiwoomConditon(QObject):
                         if( jongmok_suik > pair_jongmok_suik ):
                             compare_result = '{0} > {1}'.format(jongmok_name, pair_jongmok_name)
                         else:
-                            compare_result = '{0} < {1}'.format(jongmok_nmae, pair_jongmok_name)
+                            compare_result = '{0} < {1}'.format(jongmok_name, pair_jongmok_name)
 
                         printData = '비교: ({0}), profit:{1:>6}, hoga1:{2:>6}, hoga2:{3:>6}, pair_hoga1:{4:>6}, pair_hoga2:{5:>6}'.format(
                             compare_result, profit, self.jangoInfo[jongmokCode]['매수호가수량1'], self.jangoInfo[jongmokCode]['매수호가수량2'],
@@ -1233,9 +1233,11 @@ class KiwoomConditon(QObject):
 
         # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
         time_span = datetime.timedelta(minutes = 5 )
+        dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME) + time_span)
+
         if( DAY_TRADING_ENABLE == True ):
             if( datetime.time(*DAY_TRADING_END_TIME) <  datetime.datetime.now().time()
-            and (datetime.datetime.now() + time_span).time() > datetime.time(*DAY_TRADING_END_TIME) ):
+            and dst_time > datetime.datetime.now().time() ):
                 # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
                 stop_loss = 0  
 
@@ -1291,10 +1293,13 @@ class KiwoomConditon(QObject):
                         ' 매수호가수량2 {0:7}/'.format(str(maesuHogaAmount2)) 
 
         if( isSell == True ):
-            result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-                                jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
-            util.save_log(printData, '매도', 'log')
-            print("S " + jongmokCode + ' ' + str(result), sep= "")
+            # processStop 의 경우 체결될때마다 호출되므로 중복 주문이 나가지 않게 함 
+            if( '매도중' not in current_jango):
+                current_jango['매도중'] = True
+                result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+                                    jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
+                util.save_log(printData, '매도', 'log')
+                print("S " + jongmokCode + ' ' + str(result), sep= "")
             pass
         pass
 
