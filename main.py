@@ -15,7 +15,7 @@ TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AM
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
 AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 10] ] ] #해당 시스템 동작 시간 설정
 
-# 데이 트레이딩 용으로 DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  
+# DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 5분전으로 입력해야함 
 DAY_TRADING_ENABLE = True
 DAY_TRADING_END_TIME = [15, 15] 
 
@@ -32,6 +32,8 @@ STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위
 SLIPPAGE = 1.0 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
+
+ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
 ETF_LIST = {
     '122630': "kodex 레버리지",
@@ -82,6 +84,7 @@ class KiwoomConditon(QObject):
     sigRequestJangoComplete = pyqtSignal()
     sigCalculateStoplossComplete = pyqtSignal()
     sigStartProcessBuy = pyqtSignal()
+    sigTerminating = pyqtSignal()
     
 
     def __init__(self):
@@ -129,6 +132,7 @@ class KiwoomConditon(QObject):
         standbySystemState = QState(systemState)
         requestingJangoSystemState = QState(systemState)
         calculateStoplossSystemState = QState(systemState)
+        terminatingSystemState = QState(systemState)
         prepare1minTrListState = QState(systemState)
         request1minTrState = QState(systemState)
         
@@ -149,7 +153,8 @@ class KiwoomConditon(QObject):
         requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, calculateStoplossSystemState)
         calculateStoplossSystemState.addTransition(self.sigCalculateStoplossComplete, standbySystemState)
         standbySystemState.addTransition(self.sigRefreshCondition, initSystemState)
-        standbySystemState.addTransition(self.sigRequest1minTr,prepare1minTrListState ) 
+        standbySystemState.addTransition(self.sigTerminating,  terminatingSystemState )
+        terminatingSystemState.addTransition(self.sigRequest1minTr,prepare1minTrListState ) 
         prepare1minTrListState.addTransition(self.sigPrepare1minTrListComplete, request1minTrState) 
         request1minTrState.addTransition(self.sigGetTrCplt, request1minTrState) 
         
@@ -166,6 +171,7 @@ class KiwoomConditon(QObject):
         requestingJangoSystemState.entered.connect(self.requestingJangoSystemStateEntered)
         calculateStoplossSystemState.entered.connect(self.calculateStoplossPlusStateEntered)
         standbySystemState.entered.connect(self.standbySystemStateEntered)
+        terminatingSystemState.entered.connect(self.terminatingSystemStateEntered)
         prepare1minTrListState.entered.connect(self.prepare1minTrListStateEntered)
         request1minTrState.entered.connect(self.request1minTrStateEntered)        
     
@@ -392,7 +398,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def waittingTradeSystemStateEntered(self):
-        # 장시작 ? 분전에 조건이 시작하도록 함 
+        # 장시작 30 분전에 조건이 시작하도록 함 
         time_span = datetime.timedelta(minutes = 40)
         expected_time = (self.currentTime + time_span).time()
         if( expected_time >= datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) ):
@@ -450,6 +456,11 @@ class KiwoomConditon(QObject):
                 QTimer.singleShot(220 * (index + 1), func)
             pass
 
+    @pyqtSlot()
+    def terminatingSystemStateEntered(self):
+        print(util.whoami() )
+        self.buy_etf('all', ETF_BUY_QTY)
+        pass
     @pyqtSlot()
     def standbySystemStateEntered(self):
         print(util.whoami() )
@@ -960,7 +971,6 @@ class KiwoomConditon(QObject):
     def onTimerSystemTimeout(self):
         # print(".", end='') 
         self.currentTime = datetime.datetime.now()
-
         if( self.getConnectState() != 1 ):
             util.save_log("Disconnected!", "시스템", folder = "log")
             self.sigDisconnected.emit() 
@@ -1165,6 +1175,15 @@ class KiwoomConditon(QObject):
         
         elif( realType == '장시작시간'):
             # TODO: 장시작 30분전부터 실시간 정보가 올라오는데 이를 토대로 가변적으로 장시작시간을 가늠할수 있도록 기능 추가 필요 
+            # 장운영구분(0:장시작전, 2:장종료전, 3:장시작, 4,8:장종료, 9:장마감)
+            # 동시호가 시간에 매수 주문 
+            result = self.getCommRealData(realType, kw_util.name_fid['장운영구분'] ) 
+            if( result == '2'):
+                self.sigTerminating.emit()
+
+            pass
+
+
             pass
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
@@ -1233,11 +1252,11 @@ class KiwoomConditon(QObject):
 
         # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
         time_span = datetime.timedelta(minutes = 5 )
-        dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME) + time_span)
+        dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
 
         if( DAY_TRADING_ENABLE == True ):
             if( datetime.time(*DAY_TRADING_END_TIME) <  datetime.datetime.now().time()
-            and dst_time > datetime.datetime.now().time() ):
+            and dst_time > datetime.datetime.now() ):
                 # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
                 stop_loss = 0  
 
@@ -1851,5 +1870,7 @@ if __name__ == "__main__":
         pass
     def test_make_chegyeolInfo():
         objKiwoom.makeChegyeolInfoFile()
+    def test_terminate():
+        objKiwoom.sigTerminating.emit()
         pass
     sys.exit(myApp.exec_())
