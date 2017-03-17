@@ -1128,11 +1128,10 @@ class KiwoomConditon(QObject):
                     profit = jongmok_suik + pair_jongmok_suik
 
                     if( profit  >= 20 ):
-                        #FIXME: 테스트 이므로 팔지는 않음  
-                        # if( jongmokCode == '122630' or jongmokCode =='252670' ):
-                        #     self.sell_etf('2x')
-                        # elif( jongmokCode == '114800' or jongmokCode == '069500'):
-                        #     self.sell_etf('normal')
+                        if( jongmokCode == '122630' or jongmokCode =='252670' ):
+                            self.sell_etf('2x')
+                        elif( jongmokCode == '114800' or jongmokCode == '069500'):
+                            self.sell_etf('normal')
 
                         valid_keys = [ '종목명' , '매수호가1', '매수호가수량1', '매수호가수량2', 
                                         '수익' , '호가시간']
@@ -1181,10 +1180,6 @@ class KiwoomConditon(QObject):
             if( result == '2'):
                 self.sigTerminating.emit()
 
-            pass
-
-
-            pass
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
         
@@ -1240,7 +1235,6 @@ class KiwoomConditon(QObject):
         current_jango = self.jangoInfo[jongmokCode]
 
         jangosuryang = int( current_jango['매매가능수량'] )
-        stop_loss, stop_plus = 0,0
 
         # after buy command, before stoploss calculate this routine can run 
         if( '손절가' not in current_jango or '매수호가1' not in current_jango):
@@ -1250,15 +1244,6 @@ class KiwoomConditon(QObject):
         stop_plus = int(current_jango['이익실현가'])
         maeipga = int(current_jango['매입가'])
 
-        # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
-        time_span = datetime.timedelta(minutes = 5 )
-        dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
-
-        if( DAY_TRADING_ENABLE == True ):
-            if( datetime.time(*DAY_TRADING_END_TIME) <  datetime.datetime.now().time()
-            and dst_time > datetime.datetime.now() ):
-                # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
-                stop_loss = 0  
 
         # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
         maesuHoga1 =  abs(int(current_jango['매수호가1']))
@@ -1284,6 +1269,16 @@ class KiwoomConditon(QObject):
 
         if( maeip_time < current_time - time_span ):
             stop_loss = int(current_jango['매입가'] ) 
+
+        # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
+        time_span = datetime.timedelta(minutes = 5 )
+        dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
+
+        if( DAY_TRADING_ENABLE == True ):
+            if( datetime.time(*DAY_TRADING_END_TIME) <  datetime.datetime.now().time()
+            and dst_time > datetime.datetime.now() ):
+                # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
+                stop_loss = 0  
 
         # 손절 / 익절 계산 
         if( stop_loss == 0 ):
