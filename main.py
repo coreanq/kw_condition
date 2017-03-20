@@ -1108,6 +1108,7 @@ class KiwoomConditon(QObject):
                         current_price = abs(int(result.strip()))
                         self.calculateSuik(jongmokCode, current_price)
                         break
+                self.processStopLoss(jongmokCode)
 
                 if( jongmokCode in ETF_LIST.keys() ):
                     printData = ''
@@ -1128,10 +1129,6 @@ class KiwoomConditon(QObject):
                     profit = jongmok_suik + pair_jongmok_suik
 
                     if( profit  >= 20 ):
-                        if( jongmokCode == '122630' or jongmokCode =='252670' ):
-                            self.sell_etf('2x')
-                        elif( jongmokCode == '114800' or jongmokCode == '069500'):
-                            self.sell_etf('normal')
 
                         valid_keys = [ '종목명' , '매수호가1', '매수호가수량1', '매수호가수량2', 
                                         '수익' , '호가시간']
@@ -1151,15 +1148,27 @@ class KiwoomConditon(QObject):
                         else:
                             compare_result = '{0} < {1}'.format(jongmok_name, pair_jongmok_name)
 
+                        jongmokMaesuHoga1 = self.jangoInfo[jongmokCode]['매수호가수량1']
+                        jongmokMaesuHoga2 = self.jangoInfo[jongmokCode]['매수호가수량2']
+                        pair_jongmokMaesuHoga1 = self.jangoInfo[pair_etf_code]['매수호가수량1']
+                        pair_jongmokMaesuHoga2 = self.jangoInfo[pair_etf_code]['매수호가수량2']
+
                         printData = '비교: ({0}), profit:{1:>6}, hoga1:{2:>6}, hoga2:{3:>6}, pair_hoga1:{4:>6}, pair_hoga2:{5:>6}'.format(
-                            compare_result, profit, self.jangoInfo[jongmokCode]['매수호가수량1'], self.jangoInfo[jongmokCode]['매수호가수량2'],
-                            self.jangoInfo[pair_etf_code]['매수호가수량1'], self.jangoInfo[pair_etf_code]['매수호가수량2'] 
+                            compare_result, profit, jongmokMaesuHoga1, jongmokMaesuHoga2, 
+                            pair_jongmokMaesuHoga1, pair_jongmokMaesuHoga2
                         )
                         print(printData, end='')
                         print(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys=True))
-                        util.save_log(printData, '*** etf 매도 ***', 'log')
 
-                self.processStopLoss(jongmokCode)
+                        if( jongmokMaesuHoga1 > 20000 and pair_jongmokMaesuHoga1 > 20000):
+                            if( self.isTradeAvailable() == True ):
+                                if( jongmokCode == '122630' or jongmokCode =='252670' ):
+                                    self.sell_etf('2x')
+                                elif( jongmokCode == '114800' or jongmokCode == '069500'):
+                                    self.sell_etf('normal')
+
+                                util.save_log(printData, '*** etf 매도 ***', 'log')
+
         
         elif( realType == "업종지수" ):
             result = '' 
@@ -1431,7 +1440,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami())
         remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가총잔량',
                         '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가수량4', '매수호가총잔량',
-                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익' ]
+                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중' ]
         temp = copy.deepcopy(self.jangoInfo)
         # 불필요 필드 제거 
         for jongmok_code, contents in temp.items():
