@@ -127,3 +127,13 @@ _OnReceiveChejanData gubun: 1, itemCnt: 27, fidList: 9201;9001;917;916;302;10;93
 
 
 
+-- 장시작 전, 장중, 장종료전, 장종료 후 실시간 데이터 값 
+* 08:59:10.314312 _OnReceiveRealData jongmokCode: 09, realType: 장시작시간, realData: 0	085910	000050
+* 08:59:20.132312 _OnReceiveRealData jongmokCode: 09, realType: 장시작시간, realData: 0	085920	000040
+* 08:59:30.130312 _OnReceiveRealData jongmokCode: 09, realType: 장시작시간, realData: 0	085930	000030
+* 08:59:40.338312 _OnReceiveRealData jongmokCode: 09, realType: 장시작시간, realData: 0	085940	000020
+* 08:59:50.142312 _OnReceiveRealData jongmokCode: 09, realType: 장시작시간, realData: 0	085950	000010
+* 09:00:00.155312 _OnReceiveRealData jongmokCode: 09, realType: 장시작시간, realData: 3	090000	000000
+* 15:29:40.357597 _OnReceiveRealData jongmokCode: 09, realType: 장시작시간, realData: 2	152940	000020
+* 15:29:50.373358 _OnReceiveRealData jongmokCode: 09, realType: 장시작시간, realData: 2	152950	000010
+* 15:30:00.374920 _OnReceiveRealData jongmokCode: 09, realType: 장시작시간, realData: 4	153000	000000
