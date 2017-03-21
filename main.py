@@ -271,7 +271,7 @@ class KiwoomConditon(QObject):
         self.timerSystem.setInterval(1000) 
         self.timerSystem.timeout.connect(self.onTimerSystemTimeout) 
 
-    def isTradeAvailable(self, jongmokCode):
+    def isTradeAvailable(self):
         # 시간을 확인해 거래 가능한지 여부 판단 
         ret_vals= []
         current_time = self.currentTime.time()
@@ -556,7 +556,7 @@ class KiwoomConditon(QObject):
             printLog += "(종목최대보유중)"
             return_vals.append(False)
 
-        if( self.isTradeAvailable(jongmokCode) ):  
+        if( self.isTradeAvailable() ):  
             pass
         else:
             printLog += "(거래시간X)"
@@ -682,8 +682,8 @@ class KiwoomConditon(QObject):
      
     @pyqtSlot()
     def finalStateEntered(self):
-        subprocess.call(["shutdown", "/s", "/f", "/t",  "900"])
         print(util.whoami())
+        sys.exit()
         pass
 
 
@@ -736,21 +736,28 @@ class KiwoomConditon(QObject):
         if( type == '2x' or type == 'all'):
             rQName, code, req_num = 'sell1', '122630', req_num +1
             qty = self.jangoInfo['122630']['매매가능수량']
-            self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            if( '매도중' not in self.jangoInfo['122630']):
+                self.jangoInfo['122630']['매도중'] = True
+                self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
 
             rQName, code, req_num = 'sell2', '252670', req_num +1
             qty = self.jangoInfo['252670']['매매가능수량']
-            self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            if( '매도중' not in self.jangoInfo['252670']):
+                self.jangoInfo['252670']['매도중'] = True
+                self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
 
         if( type == 'normal' or type == 'all'):
             rQName, code, req_num = 'sell3', '114800', req_num +1
             qty = self.jangoInfo['114800']['매매가능수량']
-            self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            if( '매도중' not in self.jangoInfo['114800']):
+                self.jangoInfo['114800']['매도중'] = True
+                self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
 
             rQName, code, req_num = 'sell4', '069500', req_num +1
             qty = self.jangoInfo['069500']['매매가능수량']
-            self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
-
+            if( '매도중' not in self.jangoInfo['069500']):
+                self.jangoInfo['069500']['매도중'] = True
+                self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
         pass
 
     def printStockInfo(self, jongmokCode = 'all'):
@@ -1089,88 +1096,87 @@ class KiwoomConditon(QObject):
         # print(util.whoami() + 'jongmokCode: {}, {}, realType: {}'
         #         .format(jongmokCode, self.getMasterCodeName(jongmokCode),  realType))
         jongmok_name = self.getMasterCodeName(jongmokCode) 
+        # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
         if( realType == "주식호가잔량"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
-            if( jongmokCode not in self.buyCodeList == 0 ):
-                # print(util.whoami() + 'error: ' + jongmokCode + ' ' + jongmok_name, end =' ')
-                pass
-            else:
-                self.makeHogaJanRyangInfo(jongmokCode)                
 
+            if( jongmokCode not in self.jangoInfo ):
+                return
+            self.makeHogaJanRyangInfo(jongmokCode)                
+            maesuHoga1 = abs(int(self.jangoInfo[jongmokCode]['매수호가1']))
+            # 매수 호가 기준으로 수익 측정 
+            self.calculateSuik(jongmokCode, maesuHoga1)
+
+            if( not self.isTradeAvailable() ):
+                return
+
+            self.processStopLoss(jongmokCode)
+
+            if( jongmokCode in ETF_LIST.keys() ):
+                printData = ''
+                pair_etf_code = ETF_PAIR_LIST[jongmokCode]
+
+                # 하나라도 매도 되었다면 
+                if( jongmokCode not in self.jangoInfo or pair_etf_code not in self.jangoInfo ):
+                    return
+                
+                # 첫 수익 종목 읽을 시 기본 종목 pair 종목 모두 수익 key 값이 존재 하지 않는다면 
+                if( '수익' not in self.jangoInfo[jongmokCode] or '수익' not in self.jangoInfo[pair_etf_code]):
+                    return
+
+                pair_jongmok_name = self.getMasterCodeName(pair_etf_code)
+                jongmok_suik= int(self.jangoInfo[jongmokCode]['수익'])
+                pair_jongmok_suik = int(self.jangoInfo[pair_etf_code]['수익'])
+
+                profit = jongmok_suik + pair_jongmok_suik
+
+                if( profit  >= 20 ):
+
+                    valid_keys = [ '종목명' , '매수호가1', '매수호가수량1', '매수호가수량2', 
+                                    '수익' , '호가시간']
+                    temp = copy.deepcopy(self.jangoInfo[jongmokCode])
+                    remove_keys = []
+
+                    for key in temp.keys():
+                        if key not in valid_keys:
+                            remove_keys.append(key)
+                    
+                    for remove_key in remove_keys:
+                        del(temp[remove_key])
+
+                    compare_result = ''
+                    if( jongmok_suik > pair_jongmok_suik ):
+                        compare_result = '{0} > {1}'.format(jongmok_name, pair_jongmok_name)
+                    else:
+                        compare_result = '{0} < {1}'.format(jongmok_name, pair_jongmok_name)
+
+                    jongmokMaesuHoga1 = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
+                    jongmokMaesuHoga2 = int(self.jangoInfo[jongmokCode]['매수호가수량2'])
+                    pair_jongmokMaesuHoga1 = int(self.jangoInfo[pair_etf_code]['매수호가수량1'])
+                    pair_jongmokMaesuHoga2 = int(self.jangoInfo[pair_etf_code]['매수호가수량2'])
+
+                    printData = '비교: ({0}), profit:{1:>6}, hoga1:{2:>6}, hoga2:{3:>6}, pair_hoga1:{4:>6}, pair_hoga2:{5:>6}'.format(
+                        compare_result, profit, jongmokMaesuHoga1, jongmokMaesuHoga2, 
+                        pair_jongmokMaesuHoga1, pair_jongmokMaesuHoga2
+                    )
+                    print(printData, end='')
+                    print(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys=True))
+
+                    if( jongmokMaesuHoga1 > 20000 and pair_jongmokMaesuHoga1 > 20000):
+                        if( self.isTradeAvailable() == True ):
+                            if( jongmokCode == '122630' or jongmokCode =='252670' ):
+                                self.sell_etf('2x')
+                            elif( jongmokCode == '114800' or jongmokCode == '069500'):
+                                self.sell_etf('normal')
+
+                            util.save_log(printData, '*** etf 매도 ***', 'log')
+
+        #주식 체결로는 사고 팔기에는 반응이 너무 느림 
         elif( realType == "주식체결"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
-            result = ''
-            # 잔고가 있는 상태서 주식 체결 실시간 값이 오는 경우 수익율을 계산함 
-            if( jongmokCode in self.jangoInfo ):
-                for col_name in kw_util.dict_jusik['실시간-주식체결']:
-                    result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
-                    if( col_name == '(최우선)매수호가'):
-                        current_price = abs(int(result.strip()))
-                        self.calculateSuik(jongmokCode, current_price)
-                        break
-                self.processStopLoss(jongmokCode)
-
-                if( jongmokCode in ETF_LIST.keys() ):
-                    printData = ''
-                    pair_etf_code = ETF_PAIR_LIST[jongmokCode]
-
-                    # 하나라도 매도 되었다면 
-                    if( jongmokCode not in self.jangoInfo or pair_etf_code not in self.jangoInfo ):
-                        return
-                    
-                    # 첫 수익 종목 읽을 시 기본 종목 pair 종목 모두 수익 key 값이 존재 하지 않는다면 
-                    if( '수익' not in self.jangoInfo[jongmokCode] or '수익' not in self.jangoInfo[pair_etf_code]):
-                        return
-
-                    pair_jongmok_name = self.getMasterCodeName(pair_etf_code)
-                    jongmok_suik= int(self.jangoInfo[jongmokCode]['수익'])
-                    pair_jongmok_suik = int(self.jangoInfo[pair_etf_code]['수익'])
-
-                    profit = jongmok_suik + pair_jongmok_suik
-
-                    if( profit  >= 20 ):
-
-                        valid_keys = [ '종목명' , '매수호가1', '매수호가수량1', '매수호가수량2', 
-                                        '수익' , '호가시간']
-                        temp = copy.deepcopy(self.jangoInfo[jongmokCode])
-                        remove_keys = []
-
-                        for key in temp.keys():
-                            if key not in valid_keys:
-                                remove_keys.append(key)
-                        
-                        for remove_key in remove_keys:
-                            del(temp[remove_key])
-
-                        compare_result = ''
-                        if( jongmok_suik > pair_jongmok_suik ):
-                            compare_result = '{0} > {1}'.format(jongmok_name, pair_jongmok_name)
-                        else:
-                            compare_result = '{0} < {1}'.format(jongmok_name, pair_jongmok_name)
-
-                        jongmokMaesuHoga1 = self.jangoInfo[jongmokCode]['매수호가수량1']
-                        jongmokMaesuHoga2 = self.jangoInfo[jongmokCode]['매수호가수량2']
-                        pair_jongmokMaesuHoga1 = self.jangoInfo[pair_etf_code]['매수호가수량1']
-                        pair_jongmokMaesuHoga2 = self.jangoInfo[pair_etf_code]['매수호가수량2']
-
-                        printData = '비교: ({0}), profit:{1:>6}, hoga1:{2:>6}, hoga2:{3:>6}, pair_hoga1:{4:>6}, pair_hoga2:{5:>6}'.format(
-                            compare_result, profit, jongmokMaesuHoga1, jongmokMaesuHoga2, 
-                            pair_jongmokMaesuHoga1, pair_jongmokMaesuHoga2
-                        )
-                        print(printData, end='')
-                        print(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys=True))
-
-                        if( jongmokMaesuHoga1 > 20000 and pair_jongmokMaesuHoga1 > 20000):
-                            if( self.isTradeAvailable() == True ):
-                                if( jongmokCode == '122630' or jongmokCode =='252670' ):
-                                    self.sell_etf('2x')
-                                elif( jongmokCode == '114800' or jongmokCode == '069500'):
-                                    self.sell_etf('normal')
-
-                                util.save_log(printData, '*** etf 매도 ***', 'log')
-
+            pass
         
         elif( realType == "업종지수" ):
             result = '' 
@@ -1281,11 +1287,11 @@ class KiwoomConditon(QObject):
         if( maeip_time < current_time - time_span ):
             stop_loss = int(current_jango['매입가'] ) 
 
-        # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
-        time_span = datetime.timedelta(minutes = 5 )
-        dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
-
         if( DAY_TRADING_ENABLE == True ):
+            # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
+            time_span = datetime.timedelta(minutes = 5 )
+            dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
+
             if( datetime.time(*DAY_TRADING_END_TIME) <  datetime.datetime.now().time()
             and dst_time > datetime.datetime.now() ):
                 # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
