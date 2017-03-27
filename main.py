@@ -714,13 +714,13 @@ class KiwoomConditon(QObject):
 
         # kodex 200 과 kodex 인버스의 경우 4배 차이가 나므로 수량차이가 남 
         if( type == 'normal' or type == 'all'):
-            # rQName, code, req_num = 'buy3', '114800', req_num +1
-            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 4, price, hogaGb, orgOrderNo) 
-            # QTimer.singleShot(210 * (req_num - 1), func)
+            rQName, code, req_num = 'buy3', '114800', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 4, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
 
-            # rQName, code, req_num = 'buy4', '069500', req_num +1
-            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
-            # QTimer.singleShot(210 * (req_num - 1), func)
+            rQName, code, req_num = 'buy4', '069500', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
             pass
 
     def sell_etf(self, type):
@@ -1168,10 +1168,11 @@ class KiwoomConditon(QObject):
 
                     if( jongmokMaesuHoga1 > 10000 and pair_jongmokMaesuHoga1 > 10000):
                         if( self.isTradeAvailable() == True ):
-                            if( jongmokCode == '122630' or jongmokCode =='252670' ):
-                                self.sell_etf('2x')
-                            elif( jongmokCode == '114800' or jongmokCode == '069500'):
-                                self.sell_etf('normal')
+                            # TODO 매도 routine enable 
+                            # if( jongmokCode == '122630' or jongmokCode =='252670' ):
+                            #     self.sell_etf('2x')
+                            # elif( jongmokCode == '114800' or jongmokCode == '069500'):
+                            #     self.sell_etf('normal')
 
                             util.save_log(printData, '*** etf 매도 ***', 'log')
 
