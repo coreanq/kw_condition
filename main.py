@@ -714,13 +714,14 @@ class KiwoomConditon(QObject):
 
         # kodex 200 과 kodex 인버스의 경우 4배 차이가 나므로 수량차이가 남 
         if( type == 'normal' or type == 'all'):
-            rQName, code, req_num = 'buy3', '114800', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 4, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
+            # rQName, code, req_num = 'buy3', '114800', req_num +1
+            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 4, price, hogaGb, orgOrderNo) 
+            # QTimer.singleShot(210 * (req_num - 1), func)
 
-            rQName, code, req_num = 'buy4', '069500', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
+            # rQName, code, req_num = 'buy4', '069500', req_num +1
+            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            # QTimer.singleShot(210 * (req_num - 1), func)
+            pass
 
     def sell_etf(self, type):
         #etf 매도이며 1초에 5번 주문 제한 상관안하고 바로 매도 주문 내도록 함 ( 타이밍 중요하며 동시에 5개 이상 나갈일도 없음 ) 
@@ -1156,14 +1157,16 @@ class KiwoomConditon(QObject):
                     pair_jongmokMaesuHoga1 = int(self.jangoInfo[pair_etf_code]['매수호가수량1'])
                     pair_jongmokMaesuHoga2 = int(self.jangoInfo[pair_etf_code]['매수호가수량2'])
 
-                    printData = '비교: ({0}), profit:{1:>6}, hoga1:{2:>6}, hoga2:{3:>6}, pair_hoga1:{4:>6}, pair_hoga2:{5:>6}'.format(
+                    printData = '{0}] 비교: ({1}), profit:{2:>6}, hoga1:{3:>6}, hoga2:{4:>6}, pair_hoga1:{5:>6}, pair_hoga2:{6:>6}'.format(
+                        util.cur_time(), 
                         compare_result, profit, jongmokMaesuHoga1, jongmokMaesuHoga2, 
                         pair_jongmokMaesuHoga1, pair_jongmokMaesuHoga2
                     )
                     print(printData, end='')
-                    print(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys=True))
+                    if( profit > 20 ):
+                        print(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys=True))
 
-                    if( jongmokMaesuHoga1 > 20000 and pair_jongmokMaesuHoga1 > 20000):
+                    if( jongmokMaesuHoga1 > 10000 and pair_jongmokMaesuHoga1 > 10000):
                         if( self.isTradeAvailable() == True ):
                             if( jongmokCode == '122630' or jongmokCode =='252670' ):
                                 self.sell_etf('2x')
