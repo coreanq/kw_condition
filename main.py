@@ -18,7 +18,7 @@ AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 10] ] ] #해당 시스템 동작 
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 5분전으로 입력해야함 
 DAY_TRADING_ENABLE = True
-DAY_TRADING_END_TIME = [15, 15] 
+DAY_TRADING_END_TIME = [15, 0] 
 
 TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 정보를 저장하기 시작하는 시간
 STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
@@ -1133,19 +1133,6 @@ class KiwoomConditon(QObject):
                 profit = jongmok_suik + pair_jongmok_suik
 
                 if( profit  >= 20 ):
-
-                    valid_keys = [ '종목명' , '매수호가1', '매수호가수량1', '매수호가수량2', 
-                                    '수익' , '호가시간']
-                    temp = copy.deepcopy(self.jangoInfo[jongmokCode])
-                    remove_keys = []
-
-                    for key in temp.keys():
-                        if key not in valid_keys:
-                            remove_keys.append(key)
-                    
-                    for remove_key in remove_keys:
-                        del(temp[remove_key])
-
                     compare_result = ''
                     if( jongmok_suik > pair_jongmok_suik ):
                         compare_result = '{0} > {1}'.format(jongmok_name, pair_jongmok_name)
@@ -1162,19 +1149,17 @@ class KiwoomConditon(QObject):
                         compare_result, profit, jongmokMaesuHoga1, jongmokMaesuHoga2, 
                         pair_jongmokMaesuHoga1, pair_jongmokMaesuHoga2
                     )
-                    print(printData, end='')
-                    if( profit > 20 ):
-                        print(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys=True))
 
                     if( jongmokMaesuHoga1 > 10000 and pair_jongmokMaesuHoga1 > 10000):
+                        print(printData, end='')
                         if( self.isTradeAvailable() == True ):
                             # TODO 매도 routine enable 
                             # if( jongmokCode == '122630' or jongmokCode =='252670' ):
                             #     self.sell_etf('2x')
                             # elif( jongmokCode == '114800' or jongmokCode == '069500'):
                             #     self.sell_etf('normal')
-
-                            util.save_log(printData, '*** etf 매도 ***', 'log')
+                            # util.save_log(printData, '*** etf 매도 ***', 'log')
+                            pass
 
         #주식 체결로는 사고 팔기에는 반응이 너무 느림 
         elif( realType == "주식체결"):
@@ -1296,8 +1281,9 @@ class KiwoomConditon(QObject):
             time_span = datetime.timedelta(minutes = 5 )
             dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
 
-            if( datetime.time(*DAY_TRADING_END_TIME) <  datetime.datetime.now().time()
-            and dst_time > datetime.datetime.now() ):
+            current_time = datetime.datetime.now()
+            if( datetime.time(*DAY_TRADING_END_TIME) <  current_time.time()
+            and dst_time > current_time ):
                 # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
                 stop_loss = 0  
 
