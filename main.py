@@ -25,7 +25,7 @@ STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range �
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 15 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
+TIME_CUT_MIN = 60 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE = 2
@@ -627,8 +627,20 @@ class KiwoomConditon(QObject):
         if( start_price_percent <= 5 ):
             pass
         else:
-            printLog += '(시작가미충족 시가등락율:{0}% 시가:{1} )'.format(start_price_percent, start_price)
+            printLog += '(시작가등락율미충족 등락율:{0}% 시가:{1} )'.format(start_price_percent, start_price)
             return_vals.append(False)
+
+
+        # 현재가가 시가보다 낮은 경우제외 (급등후 마이너스 달리는 종목) 
+        # 장초반 살때 음봉에서 사는것을 막기 위함 
+        current_price = maedoHoga1
+        if( start_price < current_price ):
+            pass
+        else:
+            printLog += '((시작가 > 현재가 시가:{0}, 현재가:{1} )'.format(start_price, current_price )
+            return_vals.append(False)
+
+
 
 
 
@@ -705,11 +717,11 @@ class KiwoomConditon(QObject):
 
         if( type == '2x' or type == 'all'):
             rQName, code, req_num = 'buy1', '122630', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 2, price, hogaGb, orgOrderNo) 
             QTimer.singleShot(210 * (req_num - 1), func)
 
             rQName, code, req_num = 'buy2', '252670', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 3, price, hogaGb, orgOrderNo) 
             QTimer.singleShot(210 * (req_num - 1), func)
 
         # kodex 200 과 kodex 인버스의 경우 4배 차이가 나므로 수량차이가 남 
@@ -1134,24 +1146,33 @@ class KiwoomConditon(QObject):
 
                 if( profit  >= 20 ):
                     compare_result = ''
-                    if( jongmok_suik > pair_jongmok_suik ):
-                        compare_result = '{0} > {1}'.format(jongmok_name, pair_jongmok_name)
-                    else:
-                        compare_result = '{0} < {1}'.format(jongmok_name, pair_jongmok_name)
+                    jongmokMaesuHogaAmount1 = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
+                    jongmokMaesuHogaAmount2 = int(self.jangoInfo[jongmokCode]['매수호가수량2'])
+                    pair_jongmokMaesuHogaAmount1 = int(self.jangoInfo[pair_etf_code]['매수호가수량1'])
+                    pair_jongmokMaesuHogaAmount2 = int(self.jangoInfo[pair_etf_code]['매수호가수량2'])
 
-                    jongmokMaesuHoga1 = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
-                    jongmokMaesuHoga2 = int(self.jangoInfo[jongmokCode]['매수호가수량2'])
-                    pair_jongmokMaesuHoga1 = int(self.jangoInfo[pair_etf_code]['매수호가수량1'])
-                    pair_jongmokMaesuHoga2 = int(self.jangoInfo[pair_etf_code]['매수호가수량2'])
+                    jongmokMaesuHoga1 = int(self.jangoInfo[jongmokCode]['매수호가1'])
+                    pair_jongmokMaesuHoga1 = int(self.jangoInfo[pair_etf_code]['매수호가1'])
+
+                    if( jongmok_suik > pair_jongmok_suik ):
+                        compare_result = '{0}({1:>7}) > {2}({3:>7})'.format(
+                            jongmok_name, jongmokMaesuHoga1, 
+                            pair_jongmok_name, pair_jongmokMaesuHoga1)
+                    else:
+                        compare_result = '{0}({1:>7}) < {2}({3:>7})'.format(
+                            jongmok_name, jongmokMaesuHoga1, 
+                            pair_jongmok_name, pair_jongmokMaesuHoga1)
 
                     printData = '{0}] 비교: ({1}), profit:{2:>6}, hoga1:{3:>6}, hoga2:{4:>6}, pair_hoga1:{5:>6}, pair_hoga2:{6:>6}'.format(
                         util.cur_time(), 
-                        compare_result, profit, jongmokMaesuHoga1, jongmokMaesuHoga2, 
-                        pair_jongmokMaesuHoga1, pair_jongmokMaesuHoga2
+                        compare_result, profit, jongmokMaesuHogaAmount1, jongmokMaesuHogaAmount2, 
+                        pair_jongmokMaesuHogaAmount1, pair_jongmokMaesuHogaAmount2
                     )
 
                     if( jongmokMaesuHoga1 > 10000 and pair_jongmokMaesuHoga1 > 10000):
                         print(printData, end='')
+                        if( profit  >= 50 ):
+                            util.save_log(printData, '*** etf 이익실현 ***', 'log')
                         if( self.isTradeAvailable() == True ):
                             # TODO 매도 routine enable 
                             # if( jongmokCode == '122630' or jongmokCode =='252670' ):
