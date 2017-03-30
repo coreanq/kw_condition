@@ -1124,8 +1124,6 @@ class KiwoomConditon(QObject):
             if( not self.isTradeAvailable() ):
                 return
 
-            self.processStopLoss(jongmokCode)
-
             if( jongmokCode in ETF_LIST.keys() ):
                 printData = ''
                 pair_etf_code = ETF_PAIR_LIST[jongmokCode]
@@ -1186,6 +1184,9 @@ class KiwoomConditon(QObject):
         elif( realType == "주식체결"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
+
+            # WARNING: 장중에 급등으로 거래 정지 되어 동시 호가진행되는 경우에 대비하여 체결가 정보 발생했을때만 stoploss 진행함. 
+            self.processStopLoss(jongmokCode)
             pass
         
         elif( realType == "업종지수" ):
