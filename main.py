@@ -1169,8 +1169,8 @@ class KiwoomConditon(QObject):
 
                     if( jongmokMaesuHoga1 > 10000 and pair_jongmokMaesuHoga1 > 10000):
                         print(printData, end='')
-                        if( profit  >= 50 ):
-                            util.save_log(printData, '*** etf 이익실현 ***', 'log')
+                        util.save_log(printData, '*** etf 이익실현 ***', 'log')
+                        # TODO: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
                         if( self.isTradeAvailable() == True ):
                             # TODO 매도 routine enable 
                             # if( jongmokCode == '122630' or jongmokCode =='252670' ):
