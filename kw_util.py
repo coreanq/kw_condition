@@ -14,7 +14,7 @@ sendRealRegChegyeolScrNo = '004'
 sendRealRegTradeStartScrNo = '005'
 
 
-send1minTrScreenNo = "100"
+sendminTrScreenNo = "100"
 sendOrderScreenNo = "101"
 sendReqYupjongScreenNo = "102"
 sendJusikGibonScreenNo = "103"

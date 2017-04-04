@@ -70,13 +70,12 @@ class KiwoomConditon(QObject):
     sigSelectCondition = pyqtSignal()
     sigWaittingTrade = pyqtSignal()
     sigRefreshCondition = pyqtSignal()
-    sigRequest1minTr = pyqtSignal()
-    sigGetTrCplt = pyqtSignal()
-    sigPrepare1minTrListComplete = pyqtSignal()
+
     sigStateStop = pyqtSignal()
     sigStockComplete = pyqtSignal()
     sigConditionOccur = pyqtSignal()
     sigGetBasicInfo = pyqtSignal()
+    sigGet5minInfo = pyqtSignal()
     sigGetHogaInfo = pyqtSignal()
     sigBuy = pyqtSignal()
     sigNoBuy = pyqtSignal()
@@ -134,8 +133,6 @@ class KiwoomConditon(QObject):
         requestingJangoSystemState = QState(systemState)
         calculateStoplossSystemState = QState(systemState)
         terminatingSystemState = QState(systemState)
-        prepare1minTrListState = QState(systemState)
-        request1minTrState = QState(systemState)
         
         #transition defition
         mainState.setInitialState(initState)
@@ -155,9 +152,6 @@ class KiwoomConditon(QObject):
         calculateStoplossSystemState.addTransition(self.sigCalculateStoplossComplete, standbySystemState)
         standbySystemState.addTransition(self.sigRefreshCondition, initSystemState)
         standbySystemState.addTransition(self.sigTerminating,  terminatingSystemState )
-        terminatingSystemState.addTransition(self.sigRequest1minTr,prepare1minTrListState ) 
-        prepare1minTrListState.addTransition(self.sigPrepare1minTrListComplete, request1minTrState) 
-        request1minTrState.addTransition(self.sigGetTrCplt, request1minTrState) 
         
         #state entered slot connect
         mainState.entered.connect(self.mainStateEntered)
@@ -173,14 +167,13 @@ class KiwoomConditon(QObject):
         calculateStoplossSystemState.entered.connect(self.calculateStoplossPlusStateEntered)
         standbySystemState.entered.connect(self.standbySystemStateEntered)
         terminatingSystemState.entered.connect(self.terminatingSystemStateEntered)
-        prepare1minTrListState.entered.connect(self.prepare1minTrListStateEntered)
-        request1minTrState.entered.connect(self.request1minTrStateEntered)        
     
         # processBuy definition
         processBuyState = QState(connectedState)
         initProcessBuyState = QState(processBuyState)
         standbyProcessBuyState = QState(processBuyState)
         requestBasicInfoProcessBuyState = QState(processBuyState)
+        request5minInfoProcessBuyState = QState(processBuyState)
         requestHogaInfoProcessBuyState = QState(processBuyState)
         determineBuyProcessBuyState = QState(processBuyState)
         requestingJangoProcessBuyState = QState(processBuyState)
@@ -189,11 +182,14 @@ class KiwoomConditon(QObject):
         processBuyState.setInitialState(initProcessBuyState)
         initProcessBuyState.addTransition(self.sigStartProcessBuy, standbyProcessBuyState)
         standbyProcessBuyState.addTransition(self.sigConditionOccur, requestBasicInfoProcessBuyState)
-        requestBasicInfoProcessBuyState.addTransition(self.sigGetBasicInfo, requestHogaInfoProcessBuyState)
+        requestBasicInfoProcessBuyState.addTransition(self.sigGetBasicInfo, request5minInfoProcessBuyState)
         requestBasicInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState )
 
-        requestHogaInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState)
+        request5minInfoProcessBuyState.addTransition(self.sigGet5minInfo, requestHogaInfoProcessBuyState)
+        request5minInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState )
+
         requestHogaInfoProcessBuyState.addTransition(self.sigGetHogaInfo, determineBuyProcessBuyState)
+        requestHogaInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState)
 
         determineBuyProcessBuyState.addTransition(self.sigNoBuy, standbyProcessBuyState)
         determineBuyProcessBuyState.addTransition(self.sigBuy, requestingJangoProcessBuyState)
@@ -206,6 +202,7 @@ class KiwoomConditon(QObject):
         initProcessBuyState.entered.connect(self.initProcessBuyStateEntered)
         standbyProcessBuyState.entered.connect(self.standbyProcessBuyStateEntered)
         requestBasicInfoProcessBuyState.entered.connect(self.requestBasicInfoProcessBuyStateEntered)
+        request5minInfoProcessBuyState.entered.connect(self.request5minInfoProcessBuyStateEntered)
         requestHogaInfoProcessBuyState.entered.connect(self.requestHogaInfoProcessBuyStateEntered)
         determineBuyProcessBuyState.entered.connect(self.determineBuyProcessBuyStateEntered)
         requestingJangoProcessBuyState.entered.connect(self.requestingJangoSystemStateEntered)
@@ -475,12 +472,6 @@ class KiwoomConditon(QObject):
 
 
     @pyqtSlot()
-    def prepare1minTrListStateEntered(self):
-        print(util.whoami() )
-        # 조건 진입 정보를 읽어 종목 코드 값을 빼낸 뒤 tr 요청 
-        self.sigPrepare1minTrListComplete.emit()
-
-    @pyqtSlot()
     def request1minTrStateEntered(self):
         print(util.whoami() )
         self.sigStockComplete.emit()
@@ -506,6 +497,17 @@ class KiwoomConditon(QObject):
             jongmokInfo_dict = self.conditionOccurList[0]
             code = jongmokInfo_dict['종목코드']
             if( self.requestOpt10001(code) == False ):
+                self.sigError.emit()
+        else:
+            self.sigError.emit()
+        pass
+    @pyqtSlot()
+    def request5minInfoProcessBuyStateEntered(self):
+        # print(util.whoami() )
+        if( len(self.conditionOccurList )):
+            jongmokInfo_dict = self.conditionOccurList[0]
+            code = jongmokInfo_dict['종목코드']
+            if( self.requestOpt10080(code) == False ):
                 self.sigError.emit()
         else:
             self.sigError.emit()
@@ -640,10 +642,7 @@ class KiwoomConditon(QObject):
             printLog += '((시작가 > 현재가 시가:{0}, 현재가:{1} )'.format(start_price, current_price )
             return_vals.append(False)
 
-
-
-
-
+        print(json.dumps(jongmokInfo_dict, ensure_ascii= False, indent = 2, sort_keys = True))
         # 가격 형성이 당일 고가 근처인 종목만 매수
         # high_price  = int(jongmokInfo_dict['고가'])
         # current_price = int( maedoHoga1) 
@@ -653,8 +652,6 @@ class KiwoomConditon(QObject):
         # else:
         #     printLog += '(고가조건 미충족: 현재가:{0} 고가:{1} )'.format(current_price, high_price)
         #     return_vals.append(False)
-
-
 
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
         # low_price = int(jongmokInfo_dict['저가'])
@@ -717,11 +714,11 @@ class KiwoomConditon(QObject):
 
         if( type == '2x' or type == 'all'):
             rQName, code, req_num = 'buy1', '122630', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 2, price, hogaGb, orgOrderNo) 
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
             QTimer.singleShot(210 * (req_num - 1), func)
 
             rQName, code, req_num = 'buy2', '252670', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 3, price, hogaGb, orgOrderNo) 
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
             QTimer.singleShot(210 * (req_num - 1), func)
 
         # kodex 200 과 kodex 인버스의 경우 4배 차이가 나므로 수량차이가 남 
@@ -847,18 +844,18 @@ class KiwoomConditon(QObject):
             return False
         return True
 
-    # 1분봉 tr 요청 
+    # 분봉 tr 요청 
     def requestOpt10080(self, jongmokCode):
      # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
         self.setInputValue("종목코드", jongmokCode )
-        self.setInputValue("틱범위","1:1분") 
+        self.setInputValue("틱범위","5:5분") 
         self.setInputValue("수정주가구분","0") 
         # rQName 을 데이터로 외부에서 사용
-        ret = self.commRqData(jongmokCode , "opt10080", 0, kw_util.send1minTrScreenNo) 
+        ret = self.commRqData(jongmokCode , "opt10080", 0, kw_util.sendminTrScreenNo) 
         
         errorString = None
         if( ret != 0 ):
-            errorString =  self.getMasterCodeName(jongmokCode) + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            errorString =  jongmokCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
             print(util.whoami() + errorString ) 
             util.save_log(errorString, util.whoami(), folder = "log" )
             return False
@@ -950,11 +947,17 @@ class KiwoomConditon(QObject):
         pass
     
             
-    # 1분봉 데이터 생성 
+    # 분봉 데이터 생성 
     def makeOpt10080Info(self, rQName):
+        if( len(self.conditionOccurList) ):
+            jongmokInfo_dict = self.conditionOccurList[0]
+        else:
+            return False
+
         repeatCnt = self.getRepeatCnt("opt10080", rQName)
         currentTimeStr  = None 
-        for i in range(repeatCnt):
+        # 직전 봉만 확인하기 위함 
+        for i in range(min(repeatCnt, 2)):
             line = []
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 if( item_name == "종목명" ):
@@ -964,28 +967,13 @@ class KiwoomConditon(QObject):
                 if( item_name == "체결시간"):
                     currentTimeStr = result.strip()
                 line.append(result.strip())
-
-            # print(line)
+            print(line)
             # 오늘 이전 데이터는 받지 않는다
             resultTime = time.strptime(currentTimeStr,  "%Y%m%d%H%M%S")
             currentTime = time.localtime()
             if( resultTime.tm_mday == currentTime.tm_mday ):
-                pass
-                # 기존에 저장되어 있는 않는 데이터만 저장하고 이미 데이터가 있는 경우 리턴한다. 
-                # try:
-                #     df = self.df1minCandleStickList[rQName]
-                #     # any 를 해야 dataframe 이 리턴되지 않고 True, False 로 리턴됨 
-                #     if((df['체결시간'] == currentTimeStr).any() ):
-                #         #중복 나올시 바로 나옴 
-                #         break
-                #     else:
-                #         # print(line)
-                #         df.loc[df.shape[0]] = line 
-                # except KeyError:
-                #     self.df1minCandleStickList[rQName] = pd.DataFrame(columns = kw_util.dict_jusik['TR:분봉'])
-                #     df = self.df1minCandleStickList[rQName]
-                #     df.loc[df.shape[0]] = line
-                #     # print(line)
+                key_value = '5분 {0}봉전'.format(i)
+                jongmokInfo_dict[key_value] = line
             else:
                 break
 
@@ -1000,7 +988,6 @@ class KiwoomConditon(QObject):
             if( datetime.time(*TRADING_INFO_GETTING_TIME) <=  self.currentTime.time() ): 
                 self.timerSystem.stop()
                 util.save_log("Stock Trade Terminate!\n\n\n\n\n", "시스템", folder = "log")
-                self.sigRequest1minTr.emit()
                 pass
             else :
                 pass
@@ -1097,10 +1084,10 @@ class KiwoomConditon(QObject):
             pass
         # 주식 분봉 
         elif( trCode == "opt10080"):     
-            self.makeOpt10080Info(rQName)
-            if( rQName in self.oneMinCandleJongmokList):
-                self.oneMinCandleJongmokList.remove(rQName)
-                QTimer.singleShot(200, self.sigGetTrCplt)
+            if( self.makeOpt10080Info(rQName) ) :
+                self.sigGet5minInfo.emit()
+            else:
+                self.sigError.emit()
             pass
 
 
