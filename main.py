@@ -608,6 +608,20 @@ class KiwoomConditon(QObject):
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
             return_vals.append(False)
 
+        # 5분봉 1봉전 거래량에 비해 0봉전 거래량 비율이 500% 이상인경우 
+        # TODO: 아직 테스트 중이므로 안사게 만듬 
+        amount_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
+        before0_amount = abs(int(jongmokInfo_dict['5분 0봉전'][amount_index]))
+        before1_amount = abs(int(jongmokInfo_dict['5분 1봉전'][amount_index]))
+
+        if( before0_amount > before1_amount * 5 ):
+            pass
+        else:
+            printLog += '(거래량증감율미충족: {0}%)'.format(before0_amount / before1_amount * 100)
+            return_vals.append(False)
+
+        return_vals.append(False)
+
         # 업종 등락율을 살펴서 보합 상승을 제외 > -0.5 면 사지 않음 :
         # if( jongmokCode in  self.kospiCodeList):
         #     updown_percentage = float(self.upjongUpdownPercent.get('코스피', -99) )
