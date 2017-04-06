@@ -305,27 +305,9 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def stockCompleteStateEntered(self):
         print(util.whoami())
-        self.save1minCandleStickInfo()
         self.sigStateStop.emit()
         pass
 
-    def save1minCandleStickInfo(self):
-        # writer = pd.ExcelWriter(ONE_MIN_CANDLE_EXCEL_FILE_PATH, engine='xlsxwriter')
-        # tempDf = None 
-        # sheetName = None
-        # jongmokName = None
-        # for jongmokCode, df in self.df1minCandleStickList.items():
-        #     jongmokName = self.getMasterCodeName(jongmokCode)
-        #     # 종목 이름을 sheet name 으로 해서 1분봉 데이터 저장 
-        #     if( jongmokName != ""):
-        #         tempDf = df.sort_values(by=['체결시간'])
-        #         sheetName = jongmokName
-        #     else:
-        #         continue
-        #     tempDf.to_excel(writer, sheet_name=sheetName )
-        # writer.save()
-        pass
-        
     @pyqtSlot()
     def initStateEntered(self):
         print(util.whoami())
@@ -474,13 +456,6 @@ class KiwoomConditon(QObject):
             self.insertBuyCodeList(jongmokCode) 
         self.refreshRealRequest()
         self.sigStartProcessBuy.emit()
-        pass
-
-
-    @pyqtSlot()
-    def request1minTrStateEntered(self):
-        print(util.whoami() )
-        self.sigStockComplete.emit()
         pass
 
     @pyqtSlot()
@@ -1239,6 +1214,8 @@ class KiwoomConditon(QObject):
             result = self.getCommRealData(realType, kw_util.name_fid['장운영구분'] ) 
             if( result == '2'):
                 self.sigTerminating.emit()
+            elif( result == '4' ): # 장종료 후 5분뒤에 프로그램 종료 하게 함  
+                QTimer.singleShot(300, self.sigStockComplete)
 
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
