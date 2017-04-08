@@ -27,7 +27,7 @@ TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 TIME_CUT_MIN = 60 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE = 2
+STOP_PLUS_VALUE = 1
 STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 1.0 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 3000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
@@ -421,7 +421,7 @@ class KiwoomConditon(QObject):
     
     @pyqtSlot()
     def calculateStoplossPlusStateEntered(self):
-        # print(util.whoami() )
+        print(util.whoami() )
         def requestFunc(jongmokCode):
             def inner():
                 self.requestOpt10081(jongmokCode)
@@ -703,6 +703,7 @@ class KiwoomConditon(QObject):
      
     @pyqtSlot()
     def waitingTRlimitProcessBuyStateEntered(self):
+        # print(util.whoami())
         # 1 초에 TR 제한은 5개 이므로 TR 과도한 요청제한을 피하기 위해 기본 정보 요청후 1초 대기함 
         # print(util.whoami() )
         QTimer.singleShot(1000, self.sigTrWaitComplete)
@@ -1043,25 +1044,18 @@ class KiwoomConditon(QObject):
     def _OnReceiveMsg(self, scrNo, rQName, trCode, msg):
         # print(util.whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
         # .format(scrNo, rQName, trCode, msg))
-        '''
-              [OnReceiveTrData() 이벤트함수]
-          
-          void OnReceiveTrData(
-          BSTR sScrNo,       // 화면번호
-          BSTR sRQName,      // 사용자 구분명
-          BSTR sTrCode,      // TR이름
-          BSTR sRecordName,  // 레코드 이름
-          BSTR sPrevNext,    // 연속조회 유무를 판단하는 값 0: 연속(추가조회)데이터 없음, 1:연속(추가조회) 데이터 있음
-          LONG nDataLength,  // 사용안함.
-          BSTR sErrorCode,   // 사용안함.
-          BSTR sMessage,     // 사용안함.
-          BSTR sSplmMsg     // 사용안함.
-          )
-          
-          조회요청 응답을 받거나 조회데이터를 수신했을때 호출됩니다.
-          조회데이터는 이 이벤트 함수내부에서 GetCommData()함수를 이용해서 얻어올 수 있습니다.
-        '''
+
+        # [107066] 매수주문이 완료되었습니다.
+        # [107048] 매도주문이 완료되었습니다
+        # [571489] 장이 열리지않는 날입니다
+        # [100000] 조회가 완료되었습니다
         printData =  'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'.format(scrNo, rQName, trCode, msg)
+
+        # buy 하다가 오류 난경우 강제로 buy signal 생성  
+        if( 'buy' in rQName and '107066' not in msg ):
+            self.sigBuy.emit()
+
+        print(printData)
         util.save_log(printData, "시스템메시지", "log")
         pass
 
