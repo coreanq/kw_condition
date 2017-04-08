@@ -1,5 +1,5 @@
 # -*-coding: utf-8 -
-import sys, os, re, time, datetime, copy, json
+import sys, os, re, datetime, copy, json
 import resource_rc
 
 import util, kw_util
@@ -19,7 +19,7 @@ AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 10] ] ] #해당 시스템 동작 
 DAY_TRADING_ENABLE = True
 DAY_TRADING_END_TIME = [15, 0] 
 
-TRADING_INFO_GETTING_TIME = [15,35] # 트레이딩 정보를 저장하기 시작하는 시간
+TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시작하는 시간
 STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
@@ -30,7 +30,7 @@ TIME_CUT_MIN = 60 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지
 STOP_PLUS_VALUE = 2
 STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 1.0 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
-STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
+STOCK_PRICE_MIN_MAX = { 'min': 3000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
 
 
 ETF_BUY_QTY = 1
@@ -67,7 +67,7 @@ class KiwoomConditon(QObject):
     sigTryConnect = pyqtSignal()
     sigGetConditionCplt = pyqtSignal()
     sigSelectCondition = pyqtSignal()
-    sigWaittingTrade = pyqtSignal()
+    sigWaitingTrade = pyqtSignal()
     sigRefreshCondition = pyqtSignal()
 
     sigStateStop = pyqtSignal()
@@ -100,13 +100,14 @@ class KiwoomConditon(QObject):
 
         self.buyCodeList = []  # 현재 매수후 보유 종목 
         self.todayTradedCodeList = [] # 금일 거래 되었던 종목 
-        self.upjongUpdownPercent= {} # 업종 등락율 
+        self.upjongUpdownPercent = {} # 업종 등락율 
 
 
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
         self.jangoInfoFromFile = {} # TR 잔고 정보 요청 조회로는 얻을 수 없는 데이터를 파일로 저장하고 첫 실행시 로드함  
         self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '주문/체결시간', '체결가' , '체결수량', '미체결수량'] ] }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
+        self.conditionRevemoList = [] # 조건 이탈이 발생한 모든 리스트 저장 
 
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
@@ -131,7 +132,7 @@ class KiwoomConditon(QObject):
         systemState = QState(connectedState)
         
         initSystemState = QState(systemState)
-        waittingTradeSystemState = QState(systemState)
+        waitingTradeSystemState = QState(systemState)
         standbySystemState = QState(systemState)
         requestingJangoSystemState = QState(systemState)
         calculateStoplossSystemState = QState(systemState)
@@ -144,13 +145,13 @@ class KiwoomConditon(QObject):
         stockCompleteState.addTransition(self.sigStateStop, finalState)
         initState.addTransition(self.sigInitOk, disconnectedState)
         disconnectedState.addTransition(self.sigConnected, connectedState)
-        disconnectedState.addTransition(self.sigTryConnect,  disconnectedState)
+        disconnectedState.addTransition(self.sigTryConnect, disconnectedState)
         connectedState.addTransition(self.sigDisconnected, disconnectedState)
         
         systemState.setInitialState(initSystemState)
-        initSystemState.addTransition(self.sigGetConditionCplt, waittingTradeSystemState)
-        waittingTradeSystemState.addTransition(self.sigWaittingTrade, waittingTradeSystemState )
-        waittingTradeSystemState.addTransition(self.sigSelectCondition, requestingJangoSystemState)
+        initSystemState.addTransition(self.sigGetConditionCplt, waitingTradeSystemState)
+        waitingTradeSystemState.addTransition(self.sigWaitingTrade, waitingTradeSystemState )
+        waitingTradeSystemState.addTransition(self.sigSelectCondition, requestingJangoSystemState)
         requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, calculateStoplossSystemState)
         calculateStoplossSystemState.addTransition(self.sigCalculateStoplossComplete, standbySystemState)
         standbySystemState.addTransition(self.sigRefreshCondition, initSystemState)
@@ -165,7 +166,7 @@ class KiwoomConditon(QObject):
         
         systemState.entered.connect(self.systemStateEntered)
         initSystemState.entered.connect(self.initSystemStateEntered)
-        waittingTradeSystemState.entered.connect(self.waittingTradeSystemStateEntered)
+        waitingTradeSystemState.entered.connect(self.waitingTradeSystemStateEntered)
         requestingJangoSystemState.entered.connect(self.requestingJangoSystemStateEntered)
         calculateStoplossSystemState.entered.connect(self.calculateStoplossPlusStateEntered)
         standbySystemState.entered.connect(self.standbySystemStateEntered)
@@ -279,7 +280,6 @@ class KiwoomConditon(QObject):
         current_time = self.currentTime.time()
         for start, stop in AUTO_TRADING_OPERATION_TIME:
             start_time =  datetime.time(
-
                             hour = start[0],
                             minute = start[1])
             stop_time =   datetime.time( 
@@ -382,7 +382,7 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def waittingTradeSystemStateEntered(self):
+    def waitingTradeSystemStateEntered(self):
         # 장시작 30 분전에 조건이 시작하도록 함 
         time_span = datetime.timedelta(minutes = 40)
         expected_time = (self.currentTime + time_span).time()
@@ -409,7 +409,7 @@ class KiwoomConditon(QObject):
 
             
         else:
-            QTimer.singleShot(1000, self.sigWaittingTrade)
+            QTimer.singleShot(1000, self.sigWaitingTrade)
 
         pass
 
@@ -455,7 +455,9 @@ class KiwoomConditon(QObject):
         for jongmokCode in jango_list:
             self.insertBuyCodeList(jongmokCode) 
         self.refreshRealRequest()
-        self.sigStartProcessBuy.emit()
+
+        # 프로그램 첫 시작시 잔고 요청등의 TR 요청으로 buy process 에서 시세 과부화가 되므로 delay 줌 
+        QTimer.singleShot(1000, self.sigStartProcessBuy)
         pass
 
     @pyqtSlot()
@@ -470,17 +472,20 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
         # print(util.whoami() )
-        condition_cnt = len(self.conditionOccurList)
-        if( condition_cnt ):
+        for jongmok_code in self.conditionRevemoList:
+            self.removeConditionOccurList(jongmok_code)
+        self.conditionRevemoList.clear()
+
+        if( self.getConditionOccurList() ):
             self.sigRequestInfo.emit()
         pass
 
     @pyqtSlot()
     def requestBasicInfoProcessBuyStateEntered(self):
         # print(util.whoami())
-        if( len(self.conditionOccurList )):
-            jongmokInfo_dict = self.conditionOccurList[0]
-            code = jongmokInfo_dict['종목코드']
+        jongmok_info_dict = self.getConditionOccurList()   
+        if( jongmok_info_dict ):
+            code = jongmok_info_dict['종목코드']
             if( self.requestOpt10001(code) == False ):
                 self.sigError.emit()
         else:
@@ -489,9 +494,9 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def request5minInfoProcessBuyStateEntered(self):
         # print(util.whoami() )
-        if( len(self.conditionOccurList )):
-            jongmokInfo_dict = self.conditionOccurList[0]
-            code = jongmokInfo_dict['종목코드']
+        jongmok_info_dict = self.getConditionOccurList()   
+        if( jongmok_info_dict ):
+            code = jongmok_info_dict['종목코드']
             if( self.requestOpt10080(code) == False ):
                 self.sigError.emit()
         else:
@@ -501,9 +506,9 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def requestHogaInfoProcessBuyStateEntered(self):
         # print(util.whoami())
-        if( len(self.conditionOccurList )):
-            jongmokInfo_dict = self.conditionOccurList[0]
-            code = jongmokInfo_dict['종목코드']
+        jongmok_info_dict = self.getConditionOccurList()   
+        if( jongmok_info_dict ):
+            code = jongmok_info_dict['종목코드']
             if( self.requestOpt10004(code) == False ):  
                 self.sigError.emit()
         else:
@@ -512,26 +517,36 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def determineBuyProcessBuyStateEntered(self):
-        print('!', end = '')
-        jongmokInfo_dict = []
+        print('!', end='')
+        jongmok_info_dict = []
+        is_log_print_enable = False
         return_vals = []
         printLog = ''
 
-        if( len(self.conditionOccurList )):
-            jongmokInfo_dict = self.conditionOccurList[0]
+        jongmok_info_dict = self.getConditionOccurList()   
+        if( jongmok_info_dict ):
+            pass
         else:
             printLog += '(조건리스트없음)'
-            self.conditionOccurList.remove(jongmokInfo_dict)
             return
             
-        jongmokName = jongmokInfo_dict['종목명']
-        jongmokCode = jongmokInfo_dict['종목코드']
-        # print(jongmokInfo_dict)
+        jongmokName = jongmok_info_dict['종목명']
+        jongmokCode = jongmok_info_dict['종목코드']
+        # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
+        maedoHoga1 =  abs(int(jongmok_info_dict['매도최우선호가']))
+        maedoHogaAmount1 =  int(jongmok_info_dict['매도최우선잔량'])
+        maedoHoga2 =  abs(int(jongmok_info_dict['매도2차선호가']) )
+        maedoHogaAmount2 =  int(jongmok_info_dict['매도2차선잔량']) 
+        # print( util.whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
+        # print( util.whoami() + jongmokName + " " + str(sum) + (" won") ) 
+        # util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
+                # .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
 
-        printLog += ' ' + jongmokName + ' '  + jongmokCode + ' '
+        printLog += ' ' + jongmokName + ' '  + jongmokCode + ' ' + str(maedoHoga1) + ' '
 
+        # 제외 종목인지 확인 
         if( jongmokCode in DAY_TRADNIG_EXCEPTION_LIST ):
-            printLog += "(장기보유종목)"
+            printLog += "(제외종목)"
             return_vals.append(False)
 
         # 최대 보유 할 수 있는 종목 보유수를 넘었는지 확인 
@@ -541,23 +556,12 @@ class KiwoomConditon(QObject):
             printLog += "(종목최대보유중)"
             return_vals.append(False)
 
+        # 거래 가능시간인지 체크 
         if( self.isTradeAvailable() ):  
             pass
         else:
             printLog += "(거래시간X)"
             return_vals.append(False)
-            
-        # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
-        maedoHoga1 =  abs(int(jongmokInfo_dict['매도최우선호가']))
-        maedoHogaAmount1 =  int(jongmokInfo_dict['매도최우선잔량'])
-        maedoHoga2 =  abs(int(jongmokInfo_dict['매도2차선호가']) )
-        maedoHogaAmount2 =  int(jongmokInfo_dict['매도2차선잔량']) 
-        #    print( util.whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
-        # totalAmount =  maedoHoga1 * maedoHogaAmount1  
-        totalAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
-        # print( util.whoami() + jongmokName + " " + str(sum) + (" won") ) 
-        # util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
-                # .format(jongmokName, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2), '호가잔량' , folder= "log") 
 
         # 이미 보유한 종목 구매 금지 
         if( self.buyCodeList.count(jongmokCode) == 0 ):
@@ -573,37 +577,37 @@ class KiwoomConditon(QObject):
         else:
             printLog += '(종목가격미충족: 매도호가1 {0})'.format(maedoHoga1)
             return_vals.append(False)
-
-        # 호가 잔량이 살만큼 있는 경우  
-        if( totalAmount >= TOTAL_BUY_AMOUNT):
-            pass 
-        else:
-            printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
-            return_vals.append(False)
-    
-        # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
-        updown_percentage = float(jongmokInfo_dict['등락율'] )
         
-        #너무 급등한 종목은 사지 않도록 함 
+        # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
+        # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
+        updown_percentage = float(jongmok_info_dict['등락율'] )
         if( updown_percentage >= 0 and updown_percentage <= 30 - STOP_PLUS_VALUE * 3 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
             return_vals.append(False)
 
-        # 5분봉 1봉전 거래량에 비해 0봉전 거래량 비율이 200% 이상인경우 
+        # 호가 잔량이 살만큼 있는 경우  
+        totalAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
+        # totalAmount =  maedoHoga1 * maedoHogaAmount1  
+        if( totalAmount >= TOTAL_BUY_AMOUNT):
+            pass 
+        else:
+            printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+            return_vals.append(False)
+
+        # 5분봉 1봉전 거래량에 비해 0봉전 거래량 비율이 500% 이상인경우 
         amount_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
-        before0_amount = abs(int(jongmokInfo_dict['5분 0봉전'][amount_index]))
-        before1_amount = abs(int(jongmokInfo_dict['5분 1봉전'][amount_index]))
-        isKeepTracing = False
+        before0_amount = abs(int(jongmok_info_dict['5분 0봉전'][amount_index]))
+        before1_amount = abs(int(jongmok_info_dict['5분 1봉전'][amount_index]))
         
-        if( before0_amount > before1_amount * 2 and before0_amount > 100000 ):
+        if( before0_amount > before1_amount * 5 and before0_amount > 100000 ):
             printLog += '(거래량/증감율충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
             pass
-        elif( before0_amount > before1_amount * 1 and before0_amount > 50000 ):
-            printLog += '(거래량/증감율충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
-            isKeepTracing = True
-            return_vals.append(False)
+
+        elif(before0_amount > before1_amount * 2 and before0_amount > 50000 ):
+            # 너무 로그가 많이 남으므로 2배 거래량에 50000 이상이면 로그를 남기도록 함 
+            is_log_print_enable = True
             pass
         else:
             printLog += '(거래량/증감율미충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
@@ -624,8 +628,8 @@ class KiwoomConditon(QObject):
 
 
         # 시작가 조건 확인 너무 높은 시작가는 급락을 야기함  
-        base_price = int(jongmokInfo_dict['기준가'])
-        start_price = int(jongmokInfo_dict['시가'])
+        base_price = int(jongmok_info_dict['기준가'])
+        start_price = int(jongmok_info_dict['시가'])
         start_price_percent = int((start_price / base_price - 1) * 100)
         if( start_price_percent <= 5 ):
             pass
@@ -643,10 +647,10 @@ class KiwoomConditon(QObject):
             printLog += '((시작가 > 현재가 시가:{0}, 현재가:{1} )'.format(start_price, current_price )
             return_vals.append(False)
 
-        # print(json.dumps(jongmokInfo_dict, ensure_ascii= False, indent = 2, sort_keys = True))
+        # print(json.dumps(jongmok_info_dict, ensure_ascii= False, indent = 2, sort_keys = True))
 
         # 가격 형성이 당일 고가 근처인 종목만 매수
-        # high_price  = int(jongmokInfo_dict['고가'])
+        # high_price  = int(jongmok_info_dict['고가'])
         # current_price = int( maedoHoga1) 
 
         # if( high_price <= current_price ):
@@ -657,7 +661,7 @@ class KiwoomConditon(QObject):
 
 
         # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
-        # low_price = int(jongmokInfo_dict['저가'])
+        # low_price = int(jongmok_info_dict['저가'])
         # if( low_price >= base_price ):
         #     pass
         # else:
@@ -666,11 +670,11 @@ class KiwoomConditon(QObject):
 
 
         # 기존에 이미 수익이 한번 발생한 종목이라면  
-        if( self.todayTradedCodeList.count(jongmokCode) == 0 ):
-            pass
-        else:
-            printLog += '(금일거래종목)'
-            return_vals.append(False)
+        # if( self.todayTradedCodeList.count(jongmokCode) == 0 ):
+        #     pass
+        # else:
+        #     printLog += '(금일거래종목)'
+        #     return_vals.append(False)
 
         # 매수 
         if( return_vals.count(False) == 0 ):
@@ -691,14 +695,10 @@ class KiwoomConditon(QObject):
             self.refreshRealRequest()
             self.sigNoBuy.emit()
 
-        if( isKeepTracing == True ):
-            self.conditionOccurList.remove(jongmokInfo_dict)
-            self.conditionOccurList.append(jongmokInfo_dict)
-            pass
-        else:
-            self.conditionOccurList.remove(jongmokInfo_dict)
+        self.shuffleConditionOccurList()
 
-        util.save_log(printLog, '조건진입', folder = "log")
+        if( is_log_print_enable ):
+            util.save_log(printLog, '조건진입', folder = "log")
         pass
      
     @pyqtSlot()
@@ -733,22 +733,22 @@ class KiwoomConditon(QObject):
 
         if( type == '2x' or type == 'all'):
             rQName, code, req_num = 'buy1', '122630', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 3, price, hogaGb, orgOrderNo) 
             QTimer.singleShot(210 * (req_num - 1), func)
 
             rQName, code, req_num = 'buy2', '252670', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 2, price, hogaGb, orgOrderNo) 
             QTimer.singleShot(210 * (req_num - 1), func)
 
         # kodex 200 과 kodex 인버스의 경우 4배 차이가 나므로 수량차이가 남 
         if( type == 'normal' or type == 'all'):
-            rQName, code, req_num = 'buy3', '114800', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 4, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
+            # rQName, code, req_num = 'buy3', '114800', req_num +1
+            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 4, price, hogaGb, orgOrderNo) 
+            # QTimer.singleShot(210 * (req_num - 1), func)
 
-            rQName, code, req_num = 'buy4', '069500', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
+            # rQName, code, req_num = 'buy4', '069500', req_num +1
+            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            # QTimer.singleShot(210 * (req_num - 1), func)
             pass
 
     def sell_etf(self, type):
@@ -938,14 +938,15 @@ class KiwoomConditon(QObject):
 
     # 주식 기본 정보 
     def makeOpt10001Info(self, rQName):
-        if( len(self.conditionOccurList) ):
-            jongmokInfo_dict = self.conditionOccurList[0]
+        jongmok_info_dict = self.getConditionOccurList()
+        if( jongmok_info_dict ):
+            pass
         else:
             return False
 
         for item_name in kw_util.dict_jusik['TR:주식기본정보']:
             result = self.getCommData("opt10001", rQName, 0, item_name)
-            jongmokInfo_dict[item_name] = result.strip()
+            jongmok_info_dict[item_name] = result.strip()
 
         # print(df)
         return True
@@ -953,22 +954,25 @@ class KiwoomConditon(QObject):
 
     #주식 호가 정보 
     def makeOpt10004Info(self, rQName):
-        if( len(self.conditionOccurList) ):
-            jongmokInfo_dict = self.conditionOccurList[0]
+        jongmok_info_dict = self.getConditionOccurList()
+        if( jongmok_info_dict ):
+            pass
         else:
             return False
+
         for item_name in kw_util.dict_jusik['TR:주식호가요청']:
             result = self.getCommData("opt10004", rQName, 0, item_name)
-            jongmokInfo_dict[item_name] = result.strip()
-        # print(jongmokInfo_dict)
+            jongmok_info_dict[item_name] = result.strip()
+        # print(jongmok_info_dict)
         return True
         pass
     
             
     # 분봉 데이터 생성 
     def makeOpt10080Info(self, rQName):
-        if( len(self.conditionOccurList) ):
-            jongmokInfo_dict = self.conditionOccurList[0]
+        jongmok_info_dict = self.getConditionOccurList()
+        if( jongmok_info_dict ):
+            pass
         else:
             return False
 
@@ -991,11 +995,11 @@ class KiwoomConditon(QObject):
             # currentTime = time.localtime()
             # if( resultTime.tm_mday == currentTime.tm_mday ):
             #     key_value = '5분 {0}봉전'.format(i)
-            #     jongmokInfo_dict[key_value] = line
+            #     jongmok_info_dict[key_value] = linegg
             # else:
             #     break
             key_value = '5분 {0}봉전'.format(i)
-            jongmokInfo_dict[key_value] = line
+            jongmok_info_dict[key_value] = line
         return True
 
     @pyqtSlot()
@@ -1066,7 +1070,7 @@ class KiwoomConditon(QObject):
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
         # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
-        # .format(scrNo, rQName, trCode), end='')
+        # .format(scrNo, rQName, trCode))
 
         # rQName 은 계좌번호임 
         if ( trCode == 'opw00018' ):
@@ -1177,7 +1181,7 @@ class KiwoomConditon(QObject):
                     if( jongmokMaesuHoga1 > 10000 and pair_jongmokMaesuHoga1 > 10000):
                         print(printData, end='')
                         util.save_log(printData, '*** etf 이익실현 ***', 'log')
-                        # TODO: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
+                        # FIXME: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
                         if( self.isTradeAvailable() == True ):
                             # TODO 매도 routine enable 
                             # if( jongmokCode == '122630' or jongmokCode =='252670' ):
@@ -1575,7 +1579,8 @@ class KiwoomConditon(QObject):
         codes = codeList.split(';')[:-1]
         # 마지막 split 결과 None 이므로 삭제 
         for code in codes:
-            print('code: {} '.format(code) + self.getMasterCodeName(code))
+            print('condition occur list add code: {} '.format(code) + self.getMasterCodeName(code))
+            self.addConditionOccurList(code)
 
     # 편입, 이탈 종목이 실시간으로 들어옵니다.
     # strCode : 종목코드
@@ -1585,37 +1590,53 @@ class KiwoomConditon(QObject):
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
         # print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
         # .format(code, type, conditionName, conditionIndex ))
-        typeName = ''
         if type == 'I':
-            typeName = '진입'
+            self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
         else:
-            typeName = '이탈'
+            self.removeConditionOccurList.append(code)
+            pass
 
-        if( typeName == '진입'):
-            printLog = '{}, status: {}'.format( self.getMasterCodeName(code), typeName)
-            self.makeConditionOccurInfo(code) # 조건 발생한 경우 해당 내용 list 에 추가  
-            self.sigConditionOccur.emit()
-        pass 
-
-    def makeConditionOccurInfo(self, jongmok_code):
-
+    def addConditionOccurList(self, jongmok_code):
         #발생시간, 종목코드,  종목명
-        time_str = util.cur_date_time()
         jongmok_name = self.getMasterCodeName(jongmok_code)
         ret_vals = []
 
         # 중복 제거 
         for item_dict in self.conditionOccurList:
-            if( jongmok_code != item_dict['종목코드'] ):
-                ret_vals.append(False)
-            else:
+            if( jongmok_code == item_dict['종목코드'] ):
                 ret_vals.append(True)
             
         if( ret_vals.count(True) ):
             pass
         else:
-            self.conditionOccurList.append( {'발생시간': time_str, '종목이름': jongmok_name, '종목코드': jongmok_code} )
+            self.conditionOccurList.append( {'종목이름': jongmok_name, '종목코드': jongmok_code} )
+
+        self.sigConditionOccur.emit()
         pass
+    
+    def removeConditionOccurList(self, jongmok_code):
+        removing_items = []
+        for cnt, item_dict in enumerate(self.conditionOccurList):
+            if( item_dict['종목코드'] == jongmok_code ):
+                removing_items.append(item_dict)
+
+        for item in removing_items:
+            self.conditionOccurList.remove(item)
+        pass
+
+    def getConditionOccurList(self):
+        if( len(self.conditionOccurList ) ):
+            return self.conditionOccurList[0]
+        else:
+            return None
+        pass
+
+    # 다음 codition list 를 감시 하기 위해 종목 섞기 
+    def shuffleConditionOccurList(self):
+        jongmok_info_dict = self.getConditionOccurList()
+        jongmok_code = jongmok_info_dict['종목코드']
+        self.removeConditionOccurList(jongmok_code)
+        self.addConditionOccurList(jongmok_code)
 
      # 실시간  주식 정보 요청 요청리스트 갱신  
     def refreshRealRequest(self):
@@ -1907,8 +1928,7 @@ if __name__ == "__main__":
         objKiwoom.requestOpt10001("044180")
         pass
     def test_jusik_condition_occur():
-        objKiwoom.conditionOccurList.append({'종목코드': '044180'}) 
-        objKiwoom.sigConditionOccur.emit()
+        objKiwoom.addConditionOccurList('044180')
         pass
     def test_make_jangoInfo():
         objKiwoom.makeJangoInfoFile()
