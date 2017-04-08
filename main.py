@@ -87,6 +87,7 @@ class KiwoomConditon(QObject):
     sigRequestJangoComplete = pyqtSignal()
     sigCalculateStoplossComplete = pyqtSignal()
     sigStartProcessBuy = pyqtSignal()
+    sigStopProcessBuy = pyqtSignal()
     sigTerminating = pyqtSignal()
     
 
@@ -185,8 +186,10 @@ class KiwoomConditon(QObject):
 
         processBuyState.setInitialState(initProcessBuyState)
         initProcessBuyState.addTransition(self.sigStartProcessBuy, standbyProcessBuyState)
+
         standbyProcessBuyState.addTransition(self.sigConditionOccur, standbyProcessBuyState)
         standbyProcessBuyState.addTransition(self.sigRequestInfo, requestBasicInfoProcessBuyState)
+        standbyProcessBuyState.addTransition(self.sigStopProcessBuy, initProcessBuyState)
 
         requestBasicInfoProcessBuyState.addTransition(self.sigGetBasicInfo, request5minInfoProcessBuyState)
         requestBasicInfoProcessBuyState.addTransition(self.sigError, waitingTRlimitProcessBuyState )
@@ -472,6 +475,9 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
         # print(util.whoami() )
+        if( self.isTradeAvailable() == False ):
+            self.sigStopProcessBuy.emit()
+
         for jongmok_code in self.conditionRevemoList:
             self.removeConditionOccurList(jongmok_code)
         self.conditionRevemoList.clear()
