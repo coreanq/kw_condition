@@ -30,8 +30,7 @@ TIME_CUT_MIN = 60 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지
 STOP_PLUS_VALUE = 1
 STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 1.0 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
-STOCK_PRICE_MIN_MAX = { 'min': 3000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격 입력 
-
+STOCK_PRICE_MIN_MAX = { 'min': 3000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
 
 ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
@@ -53,8 +52,8 @@ ETF_PAIR_LIST = {
     '251340':'229200'
 }
 # 장기 보유 종목 번호 리스트 
-DAY_TRADNIG_EXCEPTION_LIST = ['034220']
-STOCK_POSSESION_COUNT = 20
+EXCEPTION_LIST = ['034220']
+STOCK_POSSESION_COUNT = 10  
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
@@ -424,25 +423,30 @@ class KiwoomConditon(QObject):
     
     @pyqtSlot()
     def calculateStoplossPlusStateEntered(self):
-        print(util.whoami() )
-        def requestFunc(jongmokCode):
-            def inner():
-                self.requestOpt10081(jongmokCode)
-            return inner
-        request_jongmok_codes = []
+        # print(util.whoami() )
+        # 이곳으로 온 경우 이미 잔고 TR 은 요청한 상태임 
         for jongmok_code in self.jangoInfo.keys():
-            jango_info = self.jangoInfo[jongmok_code]
-            if( '손절가' not in jango_info.keys() ):
-                request_jongmok_codes.append( jongmok_code )
+            self.makeEtcJangoInfo(jongmok_code)
+        self.sigCalculateStoplossComplete.emit()
 
-        if( len(request_jongmok_codes) == 0 ):
-            self.sigCalculateStoplossComplete.emit()
-        else:
-            # 요청은 1초에 5개뿐이므로 200 ms 나눠서 함 너무 200 딱맞추면 오류 나므로 여유 줌  
-            for index, jongmok_code in enumerate(request_jongmok_codes):
-                func = requestFunc(jongmok_code) 
-                QTimer.singleShot(220 * (index + 1), func)
-            pass
+        # def requestFunc(jongmokCode):
+        #     def inner():
+        #         self.requestOpt10081(jongmokCode)
+        #     return inner
+        # request_jongmok_codes = []
+        # for jongmok_code in self.jangoInfo.keys():
+        #     jango_info = self.jangoInfo[jongmok_code]
+        #     if( '손절가' not in jango_info.keys() ):
+        #         request_jongmok_codes.append( jongmok_code )
+
+        # if( len(request_jongmok_codes) == 0 ):
+        #     self.sigCalculateStoplossComplete.emit()
+        # else:
+        #     # 요청은 1초에 5개뿐이므로 200 ms 나눠서 함 너무 200 딱맞추면 오류 나므로 여유 줌  
+        #     for index, jongmok_code in enumerate(request_jongmok_codes):
+        #         func = requestFunc(jongmok_code) 
+        #         QTimer.singleShot(220 * (index + 1), func)
+        #     pass
 
     @pyqtSlot()
     def terminatingSystemStateEntered(self):
@@ -551,7 +555,7 @@ class KiwoomConditon(QObject):
         printLog += ' ' + jongmokName + ' '  + jongmokCode + ' ' + str(maedoHoga1) + ' '
 
         # 제외 종목인지 확인 
-        if( jongmokCode in DAY_TRADNIG_EXCEPTION_LIST ):
+        if( jongmokCode in EXCEPTION_LIST ):
             printLog += "(제외종목)"
             return_vals.append(False)
 
@@ -917,30 +921,31 @@ class KiwoomConditon(QObject):
         # print(self.jangoInfo)
         return True 
 
+    # 주식 일봉 차트 조회 
     def makeOpt10081Info(self, rQName):
-        repeatCnt = self.getRepeatCnt("opt10081", rQName)
-        jongmok_code = rQName
-        price_list = [] 
+        # repeatCnt = self.getRepeatCnt("opt10081", rQName)
+        # jongmok_code = rQName
+        # price_list = [] 
 
-        for i in range(repeatCnt):
-            line = {} 
-            for item_name in kw_util.dict_jusik['TR:일봉']:
-                if( item_name == "종목명" ):
-                    line[item_name] = self.getMasterCodeName(rQName)
-                    continue
-                result = self.getCommData("opt10081", rQName, i, item_name)
-                line[item_name] = result.strip()
+        # for i in range(repeatCnt):
+        #     line = {} 
+        #     for item_name in kw_util.dict_jusik['TR:일봉']:
+        #         if( item_name == "종목명" ):
+        #             line[item_name] = self.getMasterCodeName(rQName)
+        #             continue
+        #         result = self.getCommData("opt10081", rQName, i, item_name)
+        #         line[item_name] = result.strip()
 
-            # 일자가 맨 마지막 리스트 
-            saved_date_str = line['일자']
-            time_span = datetime.timedelta(days = STOP_LOSS_VALUE_DAY_RANGE) # 몇일 중  저가 계산
-            saved_date = datetime.datetime.strptime(saved_date_str, '%Y%m%d').date()
-            current_date = self.currentTime.date()
-            price_list.append(int(line['저가']))
-            if( saved_date <  current_date - time_span):
-                break
+        #     # 일자가 맨 마지막 리스트 
+        #     saved_date_str = line['일자']
+        #     time_span = datetime.timedelta(days = STOP_LOSS_VALUE_DAY_RANGE) # 몇일 중  저가 계산
+        #     saved_date = datetime.datetime.strptime(saved_date_str, '%Y%m%d').date()
+        #     current_date = self.currentTime.date()
+        #     price_list.append(int(line['저가']))
+        #     if( saved_date <  current_date - time_span):
+        #         break
         
-        self.makeJangoInfo(jongmok_code)
+        # self.makeEtcJangoInfo(jongmok_code)
         return True
 
     # 주식 기본 정보 
@@ -1082,13 +1087,14 @@ class KiwoomConditon(QObject):
         elif( trCode =='opt10081'):
             if( self.makeOpt10081Info(rQName) ):
                 # 잔고 정보를 뒤져서 손절가 책정이 되었는지 확인 
-                ret_vals = []
-                for jangoInfo in self.jangoInfo.values():
-                    if( '손절가' not in jangoInfo.keys() ):
-                        ret_vals.append(False)
-                if( ret_vals.count(False) == 0 ):
-                    self.printStockInfo()
-                    self.sigCalculateStoplossComplete.emit()
+                # ret_vals = []
+                # for jangoInfo in self.jangoInfo.values():
+                #     if( '손절가' not in jangoInfo.keys() ):
+                #         ret_vals.append(False)
+                # if( ret_vals.count(False) == 0 ):
+                #     self.printStockInfo()
+                #     self.sigCalculateStoplossComplete.emit()
+                pass
             else:
                 self.sigError.emit()
 
@@ -1266,7 +1272,7 @@ class KiwoomConditon(QObject):
         jongmokName = self.getMasterCodeName(jongmokCode)
 
         # 예외 처리 리스트이면 종료 
-        if( jongmokCode in DAY_TRADNIG_EXCEPTION_LIST ):
+        if( jongmokCode in EXCEPTION_LIST ):
             return
 
         # 잔고에 없는 종목이면 종료 
@@ -1396,7 +1402,7 @@ class KiwoomConditon(QObject):
                 current_jango['매입가'] = maeip_danga
                 current_jango['종목번호'] = jongmok_code
                 current_jango['종목명'] = jongmok_name.strip()
-                if( jongmok_code in ETF_LIST):
+                if( jongmok_code in ETF_LIST or jongmok_code in EXCEPTION_LIST):
                     current_jango['주문/체결시간'] = '' 
                 else:
                     current_jango['주문/체결시간'] = util.cur_date_time('%y-%m-%d %H:%M:%S')
@@ -1406,7 +1412,7 @@ class KiwoomConditon(QObject):
                 else:
                     self.jangoInfo[jongmok_code].update(current_jango)
 
-            self.makeJangoInfo(jongmok_code)
+            self.makeEtcJangoInfo(jongmok_code)
             self.makeJangoInfoFile()
             pass
 
@@ -1426,22 +1432,21 @@ class KiwoomConditon(QObject):
             f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
         pass
 
-    # TR 잔고 정보 요청에 없는 필드 채우기 위한 함수임 저장을 위해서 jango.json 을 사용하고 첫 실행시 읽을때 JangoInfoFromFile 데이터 구조 사용함  
-    def makeJangoInfo(self, jongmok_code): 
-        # jango Info 를 만들기 위해서 매수/ 매도 의 경우가 있음 
-        # 매도의 경우 아예 잔고 정보를 떼서 버리기 때문에 정보가 없음
-        # print(util.whoami())
+    # TR 잔고 정보 요청에 없는 필드 채우기 위한 함수임 jango.json 을 사용하고 첫 실행시 읽을때 JangoInfoFromFile 데이터 구조 사용함  
+    def makeEtcJangoInfo(self, jongmok_code): 
+        # 잔고 정보 TR 요청 후나 체결 정보 요청후에 실행됨 
         if( jongmok_code not in self.jangoInfo ):
             return
-        
+
         current_jango = {}
-        # 잔고정보를 파일에서 읽어서 로드함 없으면 서버에 요청한 데이터로 함 
+        # 파일에 저장된 정보에 우선순위를 줌 
         if( jongmok_code in self.jangoInfoFromFile ):
             current_jango = self.jangoInfoFromFile[jongmok_code]
         else:
             current_jango = self.jangoInfo[jongmok_code]
 
-        maeip_price = current_jango['매입가']
+        # 파일에 저장된 정보에 우선순위를 주지만 매입가는 서버에서 요청한 데이터가 우선순위임 
+        maeip_price = self.jangoInfo[jongmok_code]['매입가']
 
         # 손절가는 몇일전 저가 에서 정하고 시간이 지나갈수록 올라가는 형태여야 함 
         # info_dict['손절가'] = min(price_list)
