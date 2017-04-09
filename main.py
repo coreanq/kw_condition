@@ -716,7 +716,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami())
         # 1 초에 TR 제한은 5개 이므로 TR 과도한 요청제한을 피하기 위해 기본 정보 요청후 1초 대기함 
         # print(util.whoami() )
-        QTimer.singleShot(1000, self.sigTrWaitComplete)
+        QTimer.singleShot(2000, self.sigTrWaitComplete)
         pass 
 
     @pyqtSlot()
