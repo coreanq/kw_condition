@@ -715,8 +715,9 @@ class KiwoomConditon(QObject):
     def waitingTRlimitProcessBuyStateEntered(self):
         # print(util.whoami())
         # 1 초에 TR 제한은 5개 이므로 TR 과도한 요청제한을 피하기 위해 기본 정보 요청후 1초 대기함 
+        # 1 초 5연속일 경우 17초 대기 해야함 
         # print(util.whoami() )
-        QTimer.singleShot(2000, self.sigTrWaitComplete)
+        QTimer.singleShot(17000, self.sigTrWaitComplete)
         pass 
 
     @pyqtSlot()
