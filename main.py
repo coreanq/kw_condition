@@ -8,7 +8,6 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
 from PyQt5.QtCore import QStateMachine, QState, QTimer, QFinalState
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtQml import QQmlApplicationEngine 
 from PyQt5.QAxContainer import QAxWidget
 from mainwindow_ui import Ui_MainWindow
 
@@ -97,7 +96,6 @@ class KiwoomConditon(QObject):
         super().__init__()
         self.ocx = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
         self.fsm = QStateMachine()
-        self.qmlEngine = QQmlApplicationEngine()
         self.account_list = []
         self.timerSystem = QTimer()
 
@@ -119,7 +117,6 @@ class KiwoomConditon(QObject):
         self.createState()
         self.createConnection()
         self.currentTime = datetime.datetime.now()
-        self.qmlEngine = QQmlApplicationEngine()
         
     def createState(self):
         # state defintion
@@ -606,15 +603,12 @@ class KiwoomConditon(QObject):
         before0_amount = abs(int(jongmok_info_dict['5분 0봉전'][amount_index]))
         before1_amount = abs(int(jongmok_info_dict['5분 1봉전'][amount_index]))
         
-
-        # FIXME:
-        is_log_print_enable = True
-
         if( before0_amount > before1_amount * 5 and before0_amount > 100000 ):
             printLog += '(거래량/증감율충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
             pass
         elif(before0_amount > before1_amount * 2 and before0_amount > 50000 ):
             # 너무 로그가 많이 남으므로 2배 거래량에 50000 이상이면 로그를 남기도록 함 
+            printLog += '(거래량/증감율모니터링: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
             is_log_print_enable = True
             return_vals.append(False)
             pass
@@ -1442,7 +1436,8 @@ class KiwoomConditon(QObject):
         # print(util.whoami())
         remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가총잔량',
                         '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가수량4', '매수호가총잔량',
-                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중' ]
+                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
+                        '거래량', '등락율', '전일대비' ]
         temp = copy.deepcopy(self.jangoInfo)
         # 불필요 필드 제거 
         for jongmok_code, contents in temp.items():
