@@ -29,7 +29,7 @@ TIME_CUT_MIN = 120 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가�
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE = 1
 STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
-SLIPPAGE = 1.0 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
+SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 3000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -1295,13 +1295,17 @@ class KiwoomConditon(QObject):
                 stop_loss = 0  
 
         # 손절 / 익절 계산 
+        # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
+        isSijanga = False
         if( stop_loss == 0 ):
             printData+= "(정리)"
+            isSijanga = True
             isSell = True
-        elif( stop_loss >= maesuHoga1 ) :
+        elif( stop_loss >= maesuHoga2 ) :
             printData += "(손절)"
+            isSijanga = True
             isSell = True
-        elif( stop_plus < maesuHoga1 ) :
+        elif( stop_plus < maesuHoga2 ) :
             if( totalAmount >= TOTAL_BUY_AMOUNT):
                 printData += "(익절)" 
                 isSell = True 
@@ -1324,8 +1328,13 @@ class KiwoomConditon(QObject):
             # processStop 의 경우 체결될때마다 호출되므로 중복 주문이 나가지 않게 함 
             if( '매도중' not in current_jango):
                 current_jango['매도중'] = True
-                result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
-                                    jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
+                if( isSijanga == True ):
+                    result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+                                        jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
+                else:
+                    result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+                                        jongmokCode, jangosuryang, maesuHoga2 , kw_util.dict_order["지정가"], "")
+
                 util.save_log(printData, '매도', 'log')
                 print("S " + jongmokCode + ' ' + str(result), sep= "")
             pass
