@@ -4,7 +4,7 @@ import resource_rc
 
 import util, kw_util
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
 from PyQt5.QtCore import QStateMachine, QState, QTimer, QFinalState
 from PyQt5.QtWidgets import QApplication
@@ -25,13 +25,15 @@ STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range �
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 60 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
+TIME_CUT_MIN = 120 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE = 1
 STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 1.0 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 3000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
+
+TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
 ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
@@ -179,7 +181,6 @@ class KiwoomConditon(QObject):
         standbyProcessBuyState = QState(processBuyState)
         requestBasicInfoProcessBuyState = QState(processBuyState)
         request5minInfoProcessBuyState = QState(processBuyState)
-        requestHogaInfoProcessBuyState = QState(processBuyState)
         determineBuyProcessBuyState = QState(processBuyState)
         calculateStoplossProcessBuyState = QState(processBuyState)
         waitingTRlimitProcessBuyState = QState(processBuyState)
@@ -194,11 +195,8 @@ class KiwoomConditon(QObject):
         requestBasicInfoProcessBuyState.addTransition(self.sigGetBasicInfo, request5minInfoProcessBuyState)
         requestBasicInfoProcessBuyState.addTransition(self.sigError, waitingTRlimitProcessBuyState )
 
-        request5minInfoProcessBuyState.addTransition(self.sigGet5minInfo, requestHogaInfoProcessBuyState)
+        request5minInfoProcessBuyState.addTransition(self.sigGet5minInfo, determineBuyProcessBuyState)
         request5minInfoProcessBuyState.addTransition(self.sigError, waitingTRlimitProcessBuyState )
-
-        requestHogaInfoProcessBuyState.addTransition(self.sigGetHogaInfo, determineBuyProcessBuyState)
-        requestHogaInfoProcessBuyState.addTransition(self.sigError, waitingTRlimitProcessBuyState)
 
         determineBuyProcessBuyState.addTransition(self.sigNoBuy, waitingTRlimitProcessBuyState)
         determineBuyProcessBuyState.addTransition(self.sigBuy, calculateStoplossProcessBuyState)
@@ -212,7 +210,6 @@ class KiwoomConditon(QObject):
         standbyProcessBuyState.entered.connect(self.standbyProcessBuyStateEntered)
         requestBasicInfoProcessBuyState.entered.connect(self.requestBasicInfoProcessBuyStateEntered)
         request5minInfoProcessBuyState.entered.connect(self.request5minInfoProcessBuyStateEntered)
-        requestHogaInfoProcessBuyState.entered.connect(self.requestHogaInfoProcessBuyStateEntered)
         determineBuyProcessBuyState.entered.connect(self.determineBuyProcessBuyStateEntered)
         calculateStoplossProcessBuyState.entered.connect(self.calculateStoplossPlusStateEntered)
         waitingTRlimitProcessBuyState.entered.connect(self.waitingTRlimitProcessBuyStateEntered)
@@ -490,13 +487,15 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
-        print(util.whoami() )
+        # print(util.whoami() )
         if( self.isTradeAvailable() == False ):
             self.sigStopProcessBuy.emit()
 
         for jongmok_code in self.conditionRevemoList:
             self.removeConditionOccurList(jongmok_code)
         self.conditionRevemoList.clear()
+
+        self.refreshRealRequest()
 
         if( self.getConditionOccurList() ):
             self.sigRequestInfo.emit()
@@ -526,18 +525,6 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def requestHogaInfoProcessBuyStateEntered(self):
-        # print(util.whoami())
-        jongmok_info_dict = self.getConditionOccurList()   
-        if( jongmok_info_dict ):
-            code = jongmok_info_dict['종목코드']
-            if( self.requestOpt10004(code) == False ):  
-                self.sigError.emit()
-        else:
-            self.sigError.emit()
-        pass
-
-    @pyqtSlot()
     def determineBuyProcessBuyStateEntered(self):
         print('!', end='')
         jongmok_info_dict = []
@@ -552,13 +539,17 @@ class KiwoomConditon(QObject):
             printLog += '(조건리스트없음)'
             return
             
+        if( '매도호가1' not in jongmok_info_dict ):
+            self.sigNoBuy.emit()
+            return
+
         jongmokName = jongmok_info_dict['종목명']
         jongmokCode = jongmok_info_dict['종목코드']
         # 호가 정보는 문자열로 기준가 대비 + , - 값이 붙어 나옴 
-        maedoHoga1 =  abs(int(jongmok_info_dict['매도최우선호가']))
-        maedoHogaAmount1 =  int(jongmok_info_dict['매도최우선잔량'])
-        maedoHoga2 =  abs(int(jongmok_info_dict['매도2차선호가']) )
-        maedoHogaAmount2 =  int(jongmok_info_dict['매도2차선잔량']) 
+        maedoHoga1 =  abs(int(jongmok_info_dict['매도호가1']))
+        maedoHogaAmount1 =  int(jongmok_info_dict['매도호가수량1'])
+        maedoHoga2 =  abs(int(jongmok_info_dict['매도호가2']) )
+        maedoHogaAmount2 =  int(jongmok_info_dict['매도호가수량2']) 
         # print( util.whoami() +  maedoHoga1 + " " + maedoHogaAmount1 + " " + maedoHoga2 + " " + maedoHogaAmount2 )
         # print( util.whoami() + jongmokName + " " + str(sum) + (" won") ) 
         # util.save_log( '{0:^20} 호가1:{1:>8}, 잔량1:{2:>8} / 호가2:{3:>8}, 잔량2:{4:>8}'
@@ -729,7 +720,7 @@ class KiwoomConditon(QObject):
         # 1 초에 TR 제한은 5개 이므로 TR 과도한 요청제한을 피하기 위해 기본 정보 요청후 1초 대기함 
         # 1 초 5연속일 경우 17초 대기 해야함 
         # print(util.whoami() )
-        QTimer.singleShot(17000, self.sigTrWaitComplete)
+        QTimer.singleShot(12000, self.sigTrWaitComplete)
         pass 
 
     @pyqtSlot()
@@ -873,20 +864,6 @@ class KiwoomConditon(QObject):
             return False
         return True
         
-
-    # 주식 호가 잔량 요청
-    def requestOpt10004(self, jongmokCode):
-        self.setInputValue("종목코드", jongmokCode) 
-        ret = self.commRqData(jongmokCode, "opt10004", 0, kw_util.sendJusikHogaScreenNo) 
-        
-        errorString = None
-        if( ret != 0 ):
-            errorString =   jongmokCode + " commRqData() " + kw_util.parseErrorCode(str(ret))
-            print(util.whoami() + errorString ) 
-            util.save_log(errorString, util.whoami(), folder = "log" )
-            return False
-        return True
-
     # 분봉 tr 요청 
     def requestOpt10080(self, jongmokCode):
      # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
@@ -977,22 +954,6 @@ class KiwoomConditon(QObject):
         return True
         pass
 
-    #주식 호가 정보 
-    def makeOpt10004Info(self, rQName):
-        jongmok_info_dict = self.getConditionOccurList()
-        if( jongmok_info_dict ):
-            pass
-        else:
-            return False
-
-        for item_name in kw_util.dict_jusik['TR:주식호가요청']:
-            result = self.getCommData("opt10004", rQName, 0, item_name)
-            jongmok_info_dict[item_name] = result.strip()
-        # print(jongmok_info_dict)
-        return True
-        pass
-    
-            
     # 분봉 데이터 생성 
     def makeOpt10080Info(self, rQName):
         jongmok_info_dict = self.getConditionOccurList()
@@ -1119,12 +1080,7 @@ class KiwoomConditon(QObject):
             else:
                 self.sigError.emit()
             pass
-        elif( trCode == "opt10004"):
-            if( self.makeOpt10004Info(rQName) ):
-                self.sigGetHogaInfo.emit()
-            else:
-                self.sigError.emit()
-            pass
+
         # 주식 분봉 
         elif( trCode == "opt10080"):     
             if( self.makeOpt10080Info(rQName) ) :
@@ -1144,9 +1100,10 @@ class KiwoomConditon(QObject):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
 
-            if( jongmokCode not in self.jangoInfo ):
-                return
             self.makeHogaJanRyangInfo(jongmokCode)                
+            if( jongmokCode not in ETF_LIST ):
+                return
+            # 여기서부터는 ETF 전용 
             maesuHoga1 = abs(int(self.jangoInfo[jongmokCode]['매수호가1']))
             # 매수 호가 기준으로 수익 측정 
             self.calculateSuik(jongmokCode, maesuHoga1)
@@ -1219,6 +1176,11 @@ class KiwoomConditon(QObject):
             self.processStopLoss(jongmokCode)
             pass
         
+        elif( realType == "주식시세"):
+            print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+                .format(jongmokCode, realType, realData))
+            pass
+        
         elif( realType == "업종지수" ):
             result = '' 
             for col_name in kw_util.dict_jusik['실시간-업종지수']:
@@ -1275,11 +1237,12 @@ class KiwoomConditon(QObject):
         result = None 
         for col_name in kw_util.dict_jusik['실시간-주식호가잔량']:
             result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
-            if( jongmokCode not in self.jangoInfo):
-                break
-            self.jangoInfo[jongmokCode][col_name] = result.strip()
-        pass 
 
+            if( jongmokCode in self.jangoInfo ):
+                self.jangoInfo[jongmokCode][col_name] = result.strip()
+            if( jongmokCode in self.getCodeListConditionOccurList() ):
+                self.setHogaConditionOccurList(jongmokCode, col_name, result.strip() )
+        pass 
 
     def processStopLoss(self, jongmokCode):
         jongmokName = self.getMasterCodeName(jongmokCode)
@@ -1648,7 +1611,19 @@ class KiwoomConditon(QObject):
         else:
             return None
         pass
+    
+    def getCodeListConditionOccurList(self):
+        items = []
+        for item_dict in self.conditionOccurList:
+            items.append(item_dict['종목코드'])
+        return items
+    
+    def setHogaConditionOccurList(self, jongmok_code, hoga_name, value):
+        for index, item_dict in enumerate(self.conditionOccurList):
+            if( item_dict['종목코드'] == jongmok_code ):
+                self.conditionOccurList[index][hoga_name] = value
 
+        
     # 다음 codition list 를 감시 하기 위해 종목 섞기 
     def shuffleConditionOccurList(self):
         jongmok_info_dict = self.getConditionOccurList()
@@ -1661,15 +1636,23 @@ class KiwoomConditon(QObject):
         # 버그로 모두 지우고 새로 등록하게 함 
         self.setRealRemove("ALL", "ALL")
         codeList  = []
-        # 종목 미보유로 실시간 체결 요청 할게 없는 경우 코스닥 코스비 실시간 체결가가 올라오지 않으므로 임시로 하나 등록  
-        if( len(self.buyCodeList) == 0 ):
-            codeList.append('044180')
-            pass
-        else:
-            for code in self.buyCodeList:
+
+        for code in self.buyCodeList:
+            if( code not in codeList):
                 codeList.append(code)
+
+        for code in self.getCodeListConditionOccurList():
+            if( code not in codeList):
+                codeList.append(code)
+
+        if( len(codeList) == 0 ):
+            # 종목 미보유로 실시간 체결 요청 할게 없는 경우 코스닥 코스피 실시간 체결가가 올라오지 않으므로 임시로 하나 등록  
+            codeList.append('044180')
+
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
         if( len(codeList) ):
+            #  WARNING: 주식 시세 실시간은 리턴되지 않음!
+        #    tmp = self.setRealReg(kw_util.sendRealRegSiseSrcNo, ';'.join(codeList), kw_util.type_fidset['주식시세'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
