@@ -27,7 +27,7 @@ TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 TIME_CUT_MIN = 120 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE = 1
+STOP_PLUS_VALUE = 0.5 
 STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 3000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
@@ -747,24 +747,26 @@ class KiwoomConditon(QObject):
         hogaGb =  kw_util.dict_order["시장가"]
         price = 0
 
+        # 거래량 부족으로 시장가 매도 해도 모의 투자 처럼 팔리지 않음 
         if( type == '2x' or type == 'all'):
-            rQName, code, req_num = 'buy1', '122630', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 3, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
+            # rQName, code, req_num = 'buy1', '122630', req_num +1
+            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 3, price, hogaGb, orgOrderNo) 
+            # QTimer.singleShot(210 * (req_num - 1), func)
 
-            rQName, code, req_num = 'buy2', '252670', req_num +1
-            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 2, price, hogaGb, orgOrderNo) 
-            QTimer.singleShot(210 * (req_num - 1), func)
+            # rQName, code, req_num = 'buy2', '252670', req_num +1
+            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 2, price, hogaGb, orgOrderNo) 
+            # QTimer.singleShot(210 * (req_num - 1), func)
+            pass
 
         # kodex 200 과 kodex 인버스의 경우 4배 차이가 나므로 수량차이가 남 
         if( type == 'normal' or type == 'all'):
-            # rQName, code, req_num = 'buy3', '114800', req_num +1
-            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 4, price, hogaGb, orgOrderNo) 
-            # QTimer.singleShot(210 * (req_num - 1), func)
+            rQName, code, req_num = 'buy3', '114800', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty * 4, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
 
-            # rQName, code, req_num = 'buy4', '069500', req_num +1
-            # func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
-            # QTimer.singleShot(210 * (req_num - 1), func)
+            rQName, code, req_num = 'buy4', '069500', req_num +1
+            func = self.sendorder_multi(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo) 
+            QTimer.singleShot(210 * (req_num - 1), func)
             pass
 
     def sell_etf(self, type):
@@ -1105,7 +1107,7 @@ class KiwoomConditon(QObject):
 
                 profit = jongmok_suik + pair_jongmok_suik
 
-                if( profit  >= 20 ):
+                if( profit  >= 15 ):
                     compare_result = ''
                     jongmokMaesuHogaAmount1 = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
                     jongmokMaesuHogaAmount2 = int(self.jangoInfo[jongmokCode]['매수호가수량2'])
