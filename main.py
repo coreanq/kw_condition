@@ -4,12 +4,13 @@ import resource_rc
 
 import util, kw_util
 
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
 from PyQt5.QtCore import QStateMachine, QState, QTimer, QFinalState
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtQml import QQmlApplicationEngine 
 from PyQt5.QAxContainer import QAxWidget
+from mainwindow_ui import Ui_MainWindow
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
@@ -220,6 +221,8 @@ class KiwoomConditon(QObject):
         finalState.entered.connect(self.finalStateEntered)
         self.fsm.start()
 
+        pass
+
     def initQmlEngine(self):
         self.qmlEngine.load(QUrl('qrc:///qml/main.qml'))        
         self.rootObject = self.qmlEngine.rootObjects()[0]
@@ -250,6 +253,16 @@ class KiwoomConditon(QObject):
     def onChegyeolClicked(self):
         self.printChegyeolInfo('all')
 
+    @pyqtSlot()
+    def onBtnRunClicked(self):
+        arg = self.ui.lineCmd.text()
+        if( arg ):
+            eval(arg)
+
+        pass
+    @pyqtSlot()
+    def onConditionClicked(self):
+        pass
 
     @pyqtSlot(str)
     def onTestClicked(self, arg):
@@ -389,7 +402,6 @@ class KiwoomConditon(QObject):
         time_span = datetime.timedelta(minutes = 40)
         expected_time = (self.currentTime + time_span).time()
         if( expected_time >= datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) ):
-            self.initQmlEngine()
             self.sigSelectCondition.emit()       
 
             # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
@@ -478,7 +490,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
-        # print(util.whoami() )
+        print(util.whoami() )
         if( self.isTradeAvailable() == False ):
             self.sigStopProcessBuy.emit()
 
@@ -1599,7 +1611,7 @@ class KiwoomConditon(QObject):
         if type == 'I':
             self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
         else:
-            self.removeConditionOccurList.append(code)
+            self.removeConditionOccurList(code)
             pass
 
     def addConditionOccurList(self, jongmok_code):
@@ -1892,8 +1904,21 @@ if __name__ == "__main__":
     # qml debugging 를 위해 QML_IMPORT_TRACE 환경변수 1로 세팅 후 DebugView 에서 디버깅 메시지 확인 가능  
     os.environ['QML_IMPORT_TRACE'] = '1'
     # print(os.environ['QML_IMPORT_TRACE'])
-    myApp = QApplication(sys.argv)
+    myApp = QtWidgets.QApplication(sys.argv)
+
+    form = QtWidgets.QMainWindow()
+    ui = Ui_MainWindow()
+    ui.setupUi(form)
+    form.show()
+
     objKiwoom = KiwoomConditon()
+    ui.btnStart.clicked.connect(objKiwoom.onStartClicked)
+    ui.btnRestart.clicked.connect(objKiwoom.onRestartClicked)
+    ui.btnJango.clicked.connect(objKiwoom.onRequestJangoClicked)
+    ui.btnChegyeol.clicked.connect(objKiwoom.onChegyeolClicked)
+    ui.btnRun.clicked.connect(objKiwoom.onBtnRunClicked)
+    ui.btnCondition.clicked.connect(objKiwoom.onConditionClicked)
+
 
     def test_etf_buy(type = 'all'):
         #etf 매수

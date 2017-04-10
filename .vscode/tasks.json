@@ -19,7 +19,7 @@
         },
         {
             "taskName": "makeui",
-            "args": ["pyuic5.exe", "mainwindow.ui", "-o", "mainwindow_ui.py"],
+            "args": ["pyuic5", "-x",  "mainwindow.ui", "-o", "mainwindow_ui.py"],
             "isBuildCommand": true
         } 
     ]
