@@ -5,7 +5,7 @@ import resource_rc
 import util, kw_util
 
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl
+from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl, QEvent
 from PyQt5.QtCore import QStateMachine, QState, QTimer, QFinalState
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QAxContainer import QAxWidget
@@ -60,6 +60,14 @@ STOCK_POSSESION_COUNT = 10
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
 JANGO_INFO_FILE_PATH =  "log" + os.path.sep + "jango.json"
+
+class CloseEventEater(QObject):
+    def eventFilter(self, obj, event):
+        if( event.type() == QEvent.Close):
+            test_make_jangoInfo()
+            return True
+        else:
+            return super(CloseEventEater, self).eventFilter(obj, event)
 
 class KiwoomConditon(QObject):
     sigInitOk = pyqtSignal()
@@ -1432,8 +1440,9 @@ class KiwoomConditon(QObject):
         self.jangoInfo[jongmok_code].update(current_jango)
         pass
 
+    @pyqtSlot()
     def makeJangoInfoFile(self):
-        # print(util.whoami())
+        print(util.whoami())
         remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가총잔량',
                         '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가수량4', '매수호가총잔량',
                         '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
@@ -1868,26 +1877,6 @@ class KiwoomConditon(QObject):
 
 
 if __name__ == "__main__":
-    # putenv 는 current process 에 영향을 못끼치므로 environ 에서 직접 세팅 
-    # qml debugging 를 위해 QML_IMPORT_TRACE 환경변수 1로 세팅 후 DebugView 에서 디버깅 메시지 확인 가능  
-    os.environ['QML_IMPORT_TRACE'] = '1'
-    # print(os.environ['QML_IMPORT_TRACE'])
-    myApp = QtWidgets.QApplication(sys.argv)
-
-    form = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(form)
-    form.show()
-
-    objKiwoom = KiwoomConditon()
-    ui.btnStart.clicked.connect(objKiwoom.onStartClicked)
-    ui.btnRestart.clicked.connect(objKiwoom.onRestartClicked)
-    ui.btnJango.clicked.connect(objKiwoom.onRequestJangoClicked)
-    ui.btnChegyeol.clicked.connect(objKiwoom.onChegyeolClicked)
-    ui.btnRun.clicked.connect(objKiwoom.onBtnRunClicked)
-    ui.btnCondition.clicked.connect(objKiwoom.onConditionClicked)
-
-
     def test_etf_buy(type = 'all'):
         #etf 매수
         objKiwoom.buy_etf(type, 1)
@@ -1929,6 +1918,8 @@ if __name__ == "__main__":
     def test_jusik_condition_occur():
         objKiwoom.addConditionOccurList('044180')
         pass
+
+    @pyqtSlot()
     def test_make_jangoInfo():
         objKiwoom.makeJangoInfoFile()
         pass
@@ -1937,4 +1928,28 @@ if __name__ == "__main__":
     def test_terminate():
         objKiwoom.sigTerminating.emit()
         pass
+
+    # putenv 는 current process 에 영향을 못끼치므로 environ 에서 직접 세팅 
+    # qml debugging 를 위해 QML_IMPORT_TRACE 환경변수 1로 세팅 후 DebugView 에서 디버깅 메시지 확인 가능  
+    os.environ['QML_IMPORT_TRACE'] = '1'
+    # print(os.environ['QML_IMPORT_TRACE'])
+    myApp = QtWidgets.QApplication(sys.argv)
+    objKiwoom = KiwoomConditon()
+
+    form = QtWidgets.QMainWindow()
+    ui = Ui_MainWindow()
+    ui.setupUi(form)
+
+    event_filter = CloseEventEater()
+    form.installEventFilter( event_filter )
+
+    ui.btnStart.clicked.connect(objKiwoom.onStartClicked)
+    ui.btnRestart.clicked.connect(objKiwoom.onRestartClicked)
+    ui.btnJango.clicked.connect(objKiwoom.onRequestJangoClicked)
+    ui.btnChegyeol.clicked.connect(objKiwoom.onChegyeolClicked)
+    ui.btnRun.clicked.connect(objKiwoom.onBtnRunClicked)
+    ui.btnCondition.clicked.connect(objKiwoom.onConditionClicked)
+
+    form.show()
+
     sys.exit(myApp.exec_())
