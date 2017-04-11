@@ -34,7 +34,7 @@ SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수
 STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-CHUMAE_LIMIT = 5 # 추가 매수 제한 
+CHUMAE_LIMIT = 4 # 추가 매수 제한 
 
 ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
@@ -735,7 +735,7 @@ class KiwoomConditon(QObject):
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
-                                maesu_count, 0 , kw_util.dict_order["시장가"], "")
+                                maesu_count * (2 ** (chumae_count -1)), 0 , kw_util.dict_order["시장가"], "")
             print("B " + str(result) , sep="")
             printLog = ' 현재가:{0} '.format(maedoHoga1) + printLog
             pass
@@ -1614,7 +1614,7 @@ class KiwoomConditon(QObject):
         if type == 'I':
             self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
         else:
-            self.removeConditionOccurList(code)
+            self.conditionRevemoList.append(code)
             pass
 
     def addConditionOccurList(self, jongmok_code):
