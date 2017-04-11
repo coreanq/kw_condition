@@ -23,12 +23,12 @@ TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시�
 STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
-TOTAL_BUY_AMOUNT = 30000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 TIME_CUT_MIN = 120 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE = 0.5 
-STOP_LOSS_VALUE = 4 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_PLUS_VALUE =  1
+STOP_LOSS_VALUE = 3 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 3000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
 
@@ -41,17 +41,13 @@ ETF_LIST = {
     '252670': "kodex 선물인버스2x",
     '114800': "kodex 인버스",
     '069500': "kodex 200",
-    '229200': "kodex 코스닥 150",
-    '251340': "kodex 코스닥 150 인버스"
 }
 
 ETF_PAIR_LIST = {
     '122630':'252670',
     '252670':'122630',
     '114800':'069500',
-    '069500':'114800',
-    '229200':'251340',
-    '251340':'229200'
+    '069500':'114800'
 }
 # 장기 보유 종목 번호 리스트 
 EXCEPTION_LIST = ['034220']
@@ -533,12 +529,9 @@ class KiwoomConditon(QObject):
             pass
         else:
             printLog += '(조건리스트없음)'
-            return
-            
-        if( '매도호가1' not in jongmok_info_dict ):
             self.sigNoBuy.emit()
             return
-
+            
         jongmokCode = jongmok_info_dict['종목코드']
         jongmokName = jongmok_info_dict['종목명']
 
@@ -573,13 +566,6 @@ class KiwoomConditon(QObject):
             printLog += "(거래시간X)"
             return_vals.append(False)
 
-        # 이미 보유한 종목 구매 금지 
-        if( self.buyCodeList.count(jongmokCode) == 0 ):
-            pass
-        else:
-            printLog += '(____기보유종목____: {0})'.format(jongmokName)
-            return_vals.append(False)
-            pass
 
         # 가격조건 확인 
         if( maedoHoga1 >= STOCK_PRICE_MIN_MAX['min'] and maedoHoga1 <= STOCK_PRICE_MIN_MAX['max']):
@@ -606,23 +592,42 @@ class KiwoomConditon(QObject):
             printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
             return_vals.append(False)
 
-        # 5분봉 1봉전 거래량에 비해 0봉전 거래량 비율이 500% 이상인경우 
+        # 5분봉 1봉전 거래량에 비해 0봉전 거래량 비율 체크  
         amount_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
         before0_amount = abs(int(jongmok_info_dict['5분 0봉전'][amount_index]))
         before1_amount = abs(int(jongmok_info_dict['5분 1봉전'][amount_index]))
+        before2_amount = abs(int(jongmok_info_dict['5분 2봉전'][amount_index]))
         
-        if( before0_amount > before1_amount * 5 and before0_amount > 100000 ):
+        if( before0_amount > before1_amount * 2 and before0_amount > 10000 ):
+            print('1')
             printLog += '(거래량/증감율충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
-            pass
-        elif(before0_amount > before1_amount * 2 and before0_amount > 50000 ):
-            # 너무 로그가 많이 남으므로 2배 거래량에 50000 이상이면 로그를 남기도록 함 
-            printLog += '(거래량/증감율모니터링: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
             is_log_print_enable = True
-            return_vals.append(False)
             pass
         else:
             printLog += '(거래량/증감율미충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
             return_vals.append(False)
+
+        # 이미 보유한 종목 구매 금지 
+        # if( self.buyCodeList.count(jongmokCode) == 0 ):
+        #     pass
+        # else:
+        #     printLog += '(____기보유종목____: {0})'.format(jongmokName)
+        #     return_vals.append(False)
+        #     pass
+        
+        # 5분 0봉전 시간과 체결시간 비교하여 5분 초과한경우 (동일 5분봉에서 추가 매수 금지 하기 위함)
+    
+        if( jongmokCode in self.jangoInfo):
+            chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'] #20170411151000
+            time_span = datetime.timedelta(minutes = 5 )
+            target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%%M%S") + time_span
+
+            if( datetime.datetime.now() > target_time ):
+                pass
+            else:
+                printLog += '(5분내 중복매수 발생)'
+                return_vals.append(False)
+
 
         # 업종 등락율을 살펴서 보합 상승을 제외 > -0.5 면 사지 않음 :
         # if( jongmokCode in  self.kospiCodeList):
@@ -727,6 +732,7 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def finalStateEntered(self):
         print(util.whoami())
+        self.makeJangoInfoFile()
         sys.exit()
         pass
 
@@ -941,7 +947,7 @@ class KiwoomConditon(QObject):
         repeatCnt = self.getRepeatCnt("opt10080", rQName)
         currentTimeStr  = None 
         # 직전 봉만 확인하기 위함 
-        for i in range(min(repeatCnt, 2)):
+        for i in range(min(repeatCnt, 3)):
             line = []
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 if( item_name == "종목명" ):
@@ -1089,61 +1095,60 @@ class KiwoomConditon(QObject):
             if( not self.isTradeAvailable() ):
                 return
 
-            if( jongmokCode in ETF_LIST.keys() ):
-                printData = ''
-                pair_etf_code = ETF_PAIR_LIST[jongmokCode]
+            printData = ''
+            pair_etf_code = ETF_PAIR_LIST[jongmokCode]
 
-                # 하나라도 매도 되었다면 
-                if( jongmokCode not in self.jangoInfo or pair_etf_code not in self.jangoInfo ):
-                    return
-                
-                # 첫 수익 종목 읽을 시 기본 종목 pair 종목 모두 수익 key 값이 존재 하지 않는다면 
-                if( '수익' not in self.jangoInfo[jongmokCode] or '수익' not in self.jangoInfo[pair_etf_code]):
-                    return
+            # 하나라도 매도 되었다면 
+            if( jongmokCode not in self.jangoInfo or pair_etf_code not in self.jangoInfo ):
+                return
+            
+            # 첫 수익 종목 읽을 시 기본 종목 pair 종목 모두 수익 key 값이 존재 하지 않는다면 
+            if( '수익' not in self.jangoInfo[jongmokCode] or '수익' not in self.jangoInfo[pair_etf_code]):
+                return
 
-                pair_jongmok_name = self.getMasterCodeName(pair_etf_code)
-                jongmok_suik= int(self.jangoInfo[jongmokCode]['수익'])
-                pair_jongmok_suik = int(self.jangoInfo[pair_etf_code]['수익'])
+            pair_jongmok_name = self.getMasterCodeName(pair_etf_code)
+            jongmok_suik= int(self.jangoInfo[jongmokCode]['수익'])
+            pair_jongmok_suik = int(self.jangoInfo[pair_etf_code]['수익'])
 
-                profit = jongmok_suik + pair_jongmok_suik
+            profit = jongmok_suik + pair_jongmok_suik
 
-                if( profit  >= 15 ):
-                    compare_result = ''
-                    jongmokMaesuHogaAmount1 = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
-                    jongmokMaesuHogaAmount2 = int(self.jangoInfo[jongmokCode]['매수호가수량2'])
-                    pair_jongmokMaesuHogaAmount1 = int(self.jangoInfo[pair_etf_code]['매수호가수량1'])
-                    pair_jongmokMaesuHogaAmount2 = int(self.jangoInfo[pair_etf_code]['매수호가수량2'])
+            if( profit  >= 15 ):
+                compare_result = ''
+                jongmokMaesuHogaAmount1 = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
+                jongmokMaesuHogaAmount2 = int(self.jangoInfo[jongmokCode]['매수호가수량2'])
+                pair_jongmokMaesuHogaAmount1 = int(self.jangoInfo[pair_etf_code]['매수호가수량1'])
+                pair_jongmokMaesuHogaAmount2 = int(self.jangoInfo[pair_etf_code]['매수호가수량2'])
 
-                    jongmokMaesuHoga1 = int(self.jangoInfo[jongmokCode]['매수호가1'])
-                    pair_jongmokMaesuHoga1 = int(self.jangoInfo[pair_etf_code]['매수호가1'])
+                jongmokMaesuHoga1 = int(self.jangoInfo[jongmokCode]['매수호가1'])
+                pair_jongmokMaesuHoga1 = int(self.jangoInfo[pair_etf_code]['매수호가1'])
 
-                    if( jongmok_suik > pair_jongmok_suik ):
-                        compare_result = '{0}({1:>7}) > {2}({3:>7})'.format(
-                            jongmok_name, jongmokMaesuHoga1, 
-                            pair_jongmok_name, pair_jongmokMaesuHoga1)
-                    else:
-                        compare_result = '{0}({1:>7}) < {2}({3:>7})'.format(
-                            jongmok_name, jongmokMaesuHoga1, 
-                            pair_jongmok_name, pair_jongmokMaesuHoga1)
+                if( jongmok_suik > pair_jongmok_suik ):
+                    compare_result = '{0}({1:>7}) > {2}({3:>7})'.format(
+                        jongmok_name, jongmokMaesuHoga1, 
+                        pair_jongmok_name, pair_jongmokMaesuHoga1)
+                else:
+                    compare_result = '{0}({1:>7}) < {2}({3:>7})'.format(
+                        jongmok_name, jongmokMaesuHoga1, 
+                        pair_jongmok_name, pair_jongmokMaesuHoga1)
 
-                    printData = '{0}] 비교: ({1}), profit:{2:>6}, hoga1:{3:>6}, hoga2:{4:>6}, pair_hoga1:{5:>6}, pair_hoga2:{6:>6}'.format(
-                        util.cur_time(), 
-                        compare_result, profit, jongmokMaesuHogaAmount1, jongmokMaesuHogaAmount2, 
-                        pair_jongmokMaesuHogaAmount1, pair_jongmokMaesuHogaAmount2
-                    )
+                printData = '{0}] 비교: ({1}), profit:{2:>6}, hoga1:{3:>6}, hoga2:{4:>6}, pair_hoga1:{5:>6}, pair_hoga2:{6:>6}'.format(
+                    util.cur_time(), 
+                    compare_result, profit, jongmokMaesuHogaAmount1, jongmokMaesuHogaAmount2, 
+                    pair_jongmokMaesuHogaAmount1, pair_jongmokMaesuHogaAmount2
+                )
 
-                    if( jongmokMaesuHoga1 > 10000 and pair_jongmokMaesuHoga1 > 10000):
-                        print(printData, end='')
-                        util.save_log(printData, '*** etf 이익실현 ***', 'log')
-                        # FIXME: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
-                        if( self.isTradeAvailable() == True ):
-                            # TODO 매도 routine enable 
-                            # if( jongmokCode == '122630' or jongmokCode =='252670' ):
-                            #     self.sell_etf('2x')
-                            # elif( jongmokCode == '114800' or jongmokCode == '069500'):
-                            #     self.sell_etf('normal')
-                            # util.save_log(printData, '*** etf 매도 ***', 'log')
-                            pass
+                if( jongmokMaesuHoga1 > 10000 and pair_jongmokMaesuHoga1 > 10000):
+                    print(printData, end='')
+                    util.save_log(printData, '*** etf 이익실현 ***', 'log')
+                    # FIXME: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
+                    if( self.isTradeAvailable() == True ):
+                        # TODO 매도 routine enable 
+                        # if( jongmokCode == '122630' or jongmokCode =='252670' ):
+                        #     self.sell_etf('2x')
+                        # elif( jongmokCode == '114800' or jongmokCode == '069500'):
+                        #     self.sell_etf('normal')
+                        # util.save_log(printData, '*** etf 매도 ***', 'log')
+                        pass
 
         #주식 체결로는 사고 팔기에는 반응이 너무 느림 
         elif( realType == "주식체결"):
@@ -1156,8 +1161,9 @@ class KiwoomConditon(QObject):
             pass
         
         elif( realType == "주식시세"):
-            print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
-                .format(jongmokCode, realType, realData))
+            # 장종료 후에 나옴 
+            # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+            #     .format(jongmokCode, realType, realData))
             pass
         
         elif( realType == "업종지수" ):
@@ -1382,7 +1388,7 @@ class KiwoomConditon(QObject):
                 if( jongmok_code in ETF_LIST or jongmok_code in EXCEPTION_LIST):
                     current_jango['주문/체결시간'] = '' 
                 else:
-                    current_jango['주문/체결시간'] = util.cur_date_time('%y-%m-%d %H:%M:%S')
+                    current_jango['주문/체결시간'] = util.cur_date_time('%Y%m%d%H%M%S')
 
                 if( jongmok_code not in self.jangoInfo):
                     self.jangoInfo[jongmok_code] = current_jango 
@@ -1508,7 +1514,7 @@ class KiwoomConditon(QObject):
                 info.append(' {} '.format(result))
                 printData += col_name + ": " + result + ", " 
     
-        current_date = self.currentTime.date().strftime("%y%m%d")
+        current_date = self.currentTime.date().strftime('%y%m%d')
 
         if( current_date not in self.chegyeolInfo) :
             self.chegyeolInfo[current_date] = [] 
@@ -1572,8 +1578,8 @@ class KiwoomConditon(QObject):
     # strConditionName : 조건명
     # strConditionIndex : 조건명 인덱스
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
-        # print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
-        # .format(code, type, conditionName, conditionIndex ))
+        print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
+        .format(code, type, conditionName, conditionIndex ))
         if type == 'I':
             self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
         else:
