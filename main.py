@@ -1112,7 +1112,7 @@ class KiwoomConditon(QObject):
 
             profit = jongmok_suik + pair_jongmok_suik
 
-            if( profit  >= 15 ):
+            if( profit  >= 30 ):
                 compare_result = ''
                 jongmokMaesuHogaAmount1 = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
                 jongmokMaesuHogaAmount2 = int(self.jangoInfo[jongmokCode]['매수호가수량2'])
@@ -1137,7 +1137,7 @@ class KiwoomConditon(QObject):
                     pair_jongmokMaesuHogaAmount1, pair_jongmokMaesuHogaAmount2
                 )
 
-                if( jongmokMaesuHoga1 > 10000 and pair_jongmokMaesuHoga1 > 10000):
+                if( jongmokMaesuHogaAmount1 > 10000 and pair_jongmokMaesuHogaAmount1 > 10000):
                     print(printData, end='')
                     util.save_log(printData, '*** etf 이익실현 ***', 'log')
                     # FIXME: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
