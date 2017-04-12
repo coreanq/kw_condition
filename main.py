@@ -741,7 +741,7 @@ class KiwoomConditon(QObject):
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
-                                maesu_count * (2 ** (chumae_count -1)), 0 , kw_util.dict_order["시장가"], "")
+                                maesu_count * (2 ** (chumae_count)), 0 , kw_util.dict_order["시장가"], "")
             print("B " + str(result) , sep="")
             printLog = ' 현재가:{0} '.format(maedoHoga1) + printLog
             pass
