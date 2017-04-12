@@ -481,7 +481,6 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
-        # print(util.whoami() )
         if( self.isTradeAvailable() == False ):
             self.sigStopProcessBuy.emit()
 
@@ -491,8 +490,11 @@ class KiwoomConditon(QObject):
 
         self.refreshRealRequest()
 
-        if( self.getConditionOccurList() ):
+        jongmok_info = self.getConditionOccurList()
+
+        if( jongmok_info ):
             self.sigRequestInfo.emit()
+            print(util.whoami() , jongmok_info['종목명'], jongmok_info['종목코드'])
         pass
 
     @pyqtSlot()
@@ -501,20 +503,21 @@ class KiwoomConditon(QObject):
         jongmok_info_dict = self.getConditionOccurList()   
 
         if( not jongmok_info_dict ):
+            self.shuffleConditionOccurList()
             self.sigError.emit()
             return 
 
         # 아직 실시간 정보를 못받아온 상태라면 
-        if( '매도호가1' not in jongmok_info_dict ):
-            self.sigError.emit()
-            return
-        if( '등락율' not in jongmok_info_dict):
+        # 체결 정보 받는데 시간 걸리므로 다른 종목 폴링 
+        # 혹은 집입했닥 아틸하면 데이터 삭제 하므로 실시간 정보가 없을수도 있다. 
+        if( '매도호가1' not in jongmok_info_dict or '등락율' not in jongmok_info_dict ):
+            self.shuffleConditionOccurList()
             self.sigError.emit()
             return
 
         code = jongmok_info_dict['종목코드']
         if( self.requestOpt10080(code) == False ):
-            self.sigError.emit()
+            QTimer.singleShot(1000, self.sigError)
 
         pass
 
@@ -612,7 +615,7 @@ class KiwoomConditon(QObject):
         if( jongmokCode in self.jangoInfo):
             chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'] #20170411151000
             time_span = datetime.timedelta(minutes = 5 )
-            target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%%M%S") + time_span
+            target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
 
             if( datetime.datetime.now() > target_time ):
                 pass
@@ -622,6 +625,8 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         #  추가 매수 제한   
+
+        chumae_count = 0
         if( jongmokCode in self.jangoInfo):
             chumae_count = int(self.jangoInfo[jongmokCode]['추가매수횟수'])
         if( chumae_count <= CHUMAE_LIMIT ):
@@ -1314,13 +1319,14 @@ class KiwoomConditon(QObject):
         chegyeol_time = current_jango['주문/체결시간']
 
         if( chegyeol_time != ''):
-            maeip_time = datetime.datetime.strptime(chegyeol_time, '%Y%m%d%H:%M:%S')
+            maeip_time = datetime.datetime.strptime(chegyeol_time, '%Y%m%d%H%M%S')
         else: 
             maeip_time = datetime.datetime.now()
 
         if( maeip_time < current_time - time_span ):
             stop_loss = int(current_jango['매입가'] ) 
-        
+
+
         #########################################################################################
         # 추가 매수 횟수 리미트 시 손절가를 매입가로 올림 
         chumae_count = int(self.jangoInfo[jongmokCode]['추가매수횟수'])
@@ -1423,6 +1429,7 @@ class KiwoomConditon(QObject):
                 current_jango['매입가'] = maeip_danga
                 current_jango['종목번호'] = jongmok_code
                 current_jango['종목명'] = jongmok_name.strip()
+
                 if( jongmok_code in ETF_LIST or jongmok_code in EXCEPTION_LIST):
                     current_jango['주문/체결시간'] = '' 
                 else:
@@ -1430,7 +1437,6 @@ class KiwoomConditon(QObject):
 
                 if( jongmok_code not in self.jangoInfo):
                     self.jangoInfo[jongmok_code] = current_jango 
-                    self.jangoInfo[jongmok_code]['추가매수횟수'] = 1
                 else:
                     chumae_count = int(self.jangoInfo[jongmok_code]['추가매수횟수'])
                     self.jangoInfo[jongmok_code]['추가매수횟수'] = str(chumae_count + 1)
@@ -1475,10 +1481,19 @@ class KiwoomConditon(QObject):
                 current_jango['이익실현가'] = 99999999 
 
             # 서버에는 주문 체결 시간 없으므로 파일에 데이터가 존재한다면 넣어줌 
-            if( jongmok_code in self.jangoInfoFromFile ):
-                current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', '')
-            else:
-                current_jango['주문/체결시간'] = '' 
+            if( '주문/체결시간' not in current_jango ):
+                if( jongmok_code in self.jangoInfoFromFile):
+                    current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', '')
+                else:
+                    current_jango['주문/체결시간'] = ''   
+            
+            # 서버에는 추가매수횟수 정보가 없으므로 파일에 데이터가 존재한다면 넣어줌 
+            if( '추가매수횟수' not in current_jango ):
+                if( jongmok_code in self.jangoInfoFromFile):
+                    current_jango['추가매수횟수'] = self.jangoInfoFromFile[jongmok_code].get('추가매수횟수', '1')
+                else:
+                    current_jango['추가매수횟수'] = '1'   
+
         else:
             if( jongmok_code in self.jangoInfoFromFile ):
                 current_jango = self.jangoInfoFromFile[jongmok_code]
@@ -1693,8 +1708,8 @@ class KiwoomConditon(QObject):
 
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
         if( len(codeList) ):
-            #  WARNING: 주식 시세 실시간은 리턴되지 않음!
-        #    tmp = self.setRealReg(kw_util.sendRealRegSiseSrcNo, ';'.join(codeList), kw_util.type_fidset['주식시세'], "0")
+           #  WARNING: 주식 시세 실시간은 리턴되지 않음!
+           #    tmp = self.setRealReg(kw_util.sendRealRegSiseSrcNo, ';'.join(codeList), kw_util.type_fidset['주식시세'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
