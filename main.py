@@ -513,12 +513,12 @@ class KiwoomConditon(QObject):
         # 혹은 집입했닥 아틸하면 데이터 삭제 하므로 실시간 정보가 없을수도 있다. 
         if( '매도호가1' not in jongmok_info_dict or '등락율' not in jongmok_info_dict ):
             self.shuffleConditionOccurList()
-            self.sigError.emit()
+            QTimer.singleShot(500, self.sigError)
             return
 
         code = jongmok_info_dict['종목코드']
         if( self.requestOpt10080(code) == False ):
-            QTimer.singleShot(1000, self.sigError)
+            QTimer.singleShot(500, self.sigError)
 
         pass
 
