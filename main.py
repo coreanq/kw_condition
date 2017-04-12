@@ -24,7 +24,7 @@ STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range �
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 120 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
+TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE =  1
@@ -483,6 +483,7 @@ class KiwoomConditon(QObject):
     def standbyProcessBuyStateEntered(self):
         if( self.isTradeAvailable() == False ):
             self.sigStopProcessBuy.emit()
+            return
 
         for jongmok_code in self.conditionRevemoList:
             self.removeConditionOccurList(jongmok_code)
@@ -599,7 +600,7 @@ class KiwoomConditon(QObject):
         amount_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
         before0_amount = abs(int(jongmok_info_dict['5분 0봉전'][amount_index]))
         before1_amount = abs(int(jongmok_info_dict['5분 1봉전'][amount_index]))
-        before2_amount = abs(int(jongmok_info_dict['5분 2봉전'][amount_index]))
+        # before2_amount = abs(int(jongmok_info_dict['5분 2봉전'][amount_index]))
         
         if( before0_amount > before1_amount * 2 and before0_amount > 10000 ):
             printLog += '(거래량/증감율충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
@@ -638,12 +639,12 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
-        # updown_percentage = float(jongmok_info_dict['등락율'] )
-        # if( updown_percentage >= 0 and updown_percentage <= 30 - STOP_PLUS_VALUE * 3 ):
-        #     pass
-        # else:
-        #     printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
-        #     return_vals.append(False)
+        updown_percentage = float(jongmok_info_dict['등락율'] )
+        if( updown_percentage >= 0 and updown_percentage <= 30 - STOP_PLUS_VALUE * 5 ):
+            pass
+        else:
+            printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
+            return_vals.append(False)
 
 
         ##########################################################################################################
@@ -966,8 +967,6 @@ class KiwoomConditon(QObject):
         #     price_list.append(int(line['저가']))
         #     if( saved_date <  current_date - time_span):
         #         break
-        
-        # self.makeEtcJangoInfo(jongmok_code)
         return True
 
     # 분봉 데이터 생성 
@@ -1462,9 +1461,10 @@ class KiwoomConditon(QObject):
             f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
         pass
 
-    # TR 잔고 정보 요청에 없는 필드 채우기 위한 함수임 jango.json 을 사용하고 첫 실행시 읽을때 JangoInfoFromFile 데이터 구조 사용함  
+    # 첫 잔고 정보 요청시 호출됨 
+    # 매수, 매도후 체결 정보로 잔고 정보 올때 호출됨 
     def makeEtcJangoInfo(self, jongmok_code, priority = 'server'): 
-        # 잔고 정보 TR 요청 후나 체결 정보 요청후에 실행됨 
+
         if( jongmok_code not in self.jangoInfo ):
             return
         current_jango = {}
@@ -1480,21 +1480,15 @@ class KiwoomConditon(QObject):
                 current_jango['손절가'] = 1 
                 current_jango['이익실현가'] = 99999999 
 
-            # 서버에는 주문 체결 시간 없으므로 파일에 데이터가 존재한다면 넣어줌 
             if( '주문/체결시간' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', '')
-                else:
-                    current_jango['주문/체결시간'] = ''   
             
-            # 서버에는 추가매수횟수 정보가 없으므로 파일에 데이터가 존재한다면 넣어줌 
             if( '추가매수횟수' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['추가매수횟수'] = self.jangoInfoFromFile[jongmok_code].get('추가매수횟수', '1')
-                else:
-                    current_jango['추가매수횟수'] = '1'   
-
         else:
+
             if( jongmok_code in self.jangoInfoFromFile ):
                 current_jango = self.jangoInfoFromFile[jongmok_code]
             else:
