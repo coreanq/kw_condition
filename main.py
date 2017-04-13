@@ -16,7 +16,7 @@ TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AM
 AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 10] ] ] #해당 시스템 동작 시간 설정
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 5분전으로 입력해야함 
-DAY_TRADING_ENABLE = False
+DAY_TRADING_ENABLE = True
 DAY_TRADING_END_TIME = [15, 15] 
 
 TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시작하는 시간
@@ -1348,10 +1348,10 @@ class KiwoomConditon(QObject):
             dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
 
             current_time = datetime.datetime.now()
-            if( datetime.time(*DAY_TRADING_END_TIME) <  current_time.time()
-            and dst_time > current_time ):
-                # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
-                stop_loss = 0  
+            if( datetime.time(*DAY_TRADING_END_TIME) <  current_time.time() and dst_time > current_time ):
+                if( jongmokCode in ETF_LIST):
+                    # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
+                    stop_loss = 0  
 
         # 손절 / 익절 계산 
         # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
