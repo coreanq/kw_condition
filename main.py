@@ -464,7 +464,6 @@ class KiwoomConditon(QObject):
         # 잔고 리스트 추가 및 잔고리스트의 실시간 체결 정보를 받도록 함 
         for jongmokCode in jango_list:
             self.insertBuyCodeList(jongmokCode) 
-        self.refreshRealRequest()
 
         # 프로그램 첫 시작시 잔고 요청등의 TR 요청으로 buy process 에서 시세 과부화가 되므로 delay 줌 
         QTimer.singleShot(1000, self.sigStartProcessBuy)
@@ -508,15 +507,19 @@ class KiwoomConditon(QObject):
             self.sigError.emit()
             return 
 
+        code = jongmok_info_dict['종목코드']
         # 아직 실시간 정보를 못받아온 상태라면 
         # 체결 정보 받는데 시간 걸리므로 다른 종목 폴링 
         # 혹은 집입했닥 아틸하면 데이터 삭제 하므로 실시간 정보가 없을수도 있다. 
         if( '매도호가1' not in jongmok_info_dict or '등락율' not in jongmok_info_dict ):
             self.shuffleConditionOccurList()
+            if( '매도호가1' not in jongmok_info_dict ):
+                print('매도호가1 not in {0}'.format(code))
+            else:
+                print('등락율 not in {0}'.format(code))
             QTimer.singleShot(500, self.sigError)
             return
 
-        code = jongmok_info_dict['종목코드']
         if( self.requestOpt10080(code) == False ):
             QTimer.singleShot(500, self.sigError)
 
@@ -561,7 +564,10 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 최대 보유 할 수 있는 종목 보유수를 넘었는지 확인 
-        if( jongmokCode not in self.jangoInfo and  len(self.buyCodeList) < STOCK_POSSESION_COUNT ):
+        if( len(self.buyCodeList) < STOCK_POSSESION_COUNT ):
+            pass
+        elif( jongmokCode in self.jangoInfo ):
+        # 중복매수는 예외 
             pass
         else:
             printLog += "(종목최대보유중)"
@@ -602,7 +608,7 @@ class KiwoomConditon(QObject):
         before1_amount = abs(int(jongmok_info_dict['5분 1봉전'][amount_index]))
         # before2_amount = abs(int(jongmok_info_dict['5분 2봉전'][amount_index]))
         
-        if( before0_amount > before1_amount * 2 and before0_amount > 10000 ):
+        if( before0_amount > before1_amount * 3 and before0_amount > 10000 ):
             printLog += '(거래량/증감율충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
             is_log_print_enable = True
             pass
@@ -1329,9 +1335,9 @@ class KiwoomConditon(QObject):
 
         #########################################################################################
         # 추가 매수 횟수 리미트 시 손절가를 매입가로 올림 
-        chumae_count = int(self.jangoInfo[jongmokCode]['추가매수횟수'])
-        if( chumae_count == CHUMAE_LIMIT ):
-            stop_loss = int(current_jango['매입가'] ) 
+        # chumae_count = int(self.jangoInfo[jongmokCode]['추가매수횟수'])
+        # if( chumae_count == CHUMAE_LIMIT ):
+        #     stop_loss = int(current_jango['매입가'] ) 
 
 
         #########################################################################################
@@ -1669,10 +1675,10 @@ class KiwoomConditon(QObject):
             items.append(item_dict['종목코드'])
         return items
     
-    def setHogaConditionOccurList(self, jongmok_code, hoga_name, value):
+    def setHogaConditionOccurList(self, jongmok_code, col_name, value):
         for index, item_dict in enumerate(self.conditionOccurList):
             if( item_dict['종목코드'] == jongmok_code ):
-                self.conditionOccurList[index][hoga_name] = value
+                item_dict[col_name] = value
 
         
     # 다음 codition list 를 감시 하기 위해 종목 섞기 
