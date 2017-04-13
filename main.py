@@ -608,7 +608,7 @@ class KiwoomConditon(QObject):
         before1_amount = abs(int(jongmok_info_dict['5분 1봉전'][amount_index]))
         # before2_amount = abs(int(jongmok_info_dict['5분 2봉전'][amount_index]))
         
-        if( before0_amount > before1_amount * 3 and before0_amount > 10000 ):
+        if( before0_amount > before1_amount * 3 and before0_amount > 50000 ):
             printLog += '(거래량/증감율충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
             is_log_print_enable = True
             pass
@@ -1528,22 +1528,27 @@ class KiwoomConditon(QObject):
         printData = "" 
         info = [] 
 
-        if( jongmok_code in self.jangoInfo ):
-            current_jango = self.jangoInfo[jongmok_code]
+        nFid = kw_util.name_fid['매도매수구분']
+        if( str(nFid) in fids):
+            result = self.getChejanData(nFid).strip()
+            if( int(result) == 1): #매도
+                current_jango = self.jangoInfo[jongmok_code]
 
-            # 체결가를 통해 수익율 필드 업데이트 
-            current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
-            self.calculateSuik(jongmok_code, current_price)
+                # 체결가를 통해 수익율 필드 업데이트 
+                current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
+                self.calculateSuik(jongmok_code, current_price)
 
-            # 매도시 체결정보는 수익율 필드가 존재 
-            profit = current_jango.get('수익', '0')
-            profit_percent = current_jango.get('수익율', '0' )
-            info.append('{0:>10}'.format(profit_percent))
-            info.append('{0:>10}'.format(profit))
-        else:
-            # 매수시 체결정보는 수익율 / 수익 필드가 없음  
-            info.append('{0:>10}'.format('0'))
-            info.append('{0:>10}'.format('0'))
+                # 매도시 체결정보는 수익율 필드가 존재 
+                profit = current_jango.get('수익', '0')
+                profit_percent = current_jango.get('수익율', '0' )
+                info.append('{0:>10}'.format(profit_percent))
+                info.append('{0:>10}'.format(profit))
+                pass
+            else: #매수 
+                # 매수시 체결정보는 수익율 / 수익 필드가 없음  
+                info.append('{0:>10}'.format('0'))
+                info.append('{0:>10}'.format('0'))
+
 
         for col_name in kw_util.dict_jusik["체결정보"]:
             nFid = None
