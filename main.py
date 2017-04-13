@@ -561,7 +561,7 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 최대 보유 할 수 있는 종목 보유수를 넘었는지 확인 
-        if( len(self.buyCodeList) < STOCK_POSSESION_COUNT ):
+        if( jongmokCode not in self.jangoInfo and  len(self.buyCodeList) < STOCK_POSSESION_COUNT ):
             pass
         else:
             printLog += "(종목최대보유중)"
@@ -616,13 +616,14 @@ class KiwoomConditon(QObject):
         if( jongmokCode in self.jangoInfo):
             chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'] #20170411151000
             time_span = datetime.timedelta(minutes = 5 )
-            target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
-
-            if( datetime.datetime.now() > target_time ):
-                pass
-            else:
-                printLog += '(5분내 중복매수 발생)'
-                return_vals.append(False)
+            
+            if( chegyeol_time_str != ''):
+                target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
+                if( datetime.datetime.now() > target_time ):
+                    pass
+                else:
+                    printLog += '(5분내 중복매수 발생)'
+                    return_vals.append(False)
 
         ##########################################################################################################
         #  추가 매수 제한   
@@ -639,12 +640,12 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
-        updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage >= 0 and updown_percentage <= 30 - STOP_PLUS_VALUE * 5 ):
-            pass
-        else:
-            printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
-            return_vals.append(False)
+        # updown_percentage = float(jongmok_info_dict['등락율'] )
+        # if( updown_percentage <= 30 - STOP_PLUS_VALUE * 5 ):
+        #     pass
+        # else:
+        #     printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
+        #     return_vals.append(False)
 
 
         ##########################################################################################################
@@ -1436,6 +1437,7 @@ class KiwoomConditon(QObject):
 
                 if( jongmok_code not in self.jangoInfo):
                     self.jangoInfo[jongmok_code] = current_jango 
+                    self.jangoInfo[jongmok_code]['추가매수횟수'] = '1' 
                 else:
                     chumae_count = int(self.jangoInfo[jongmok_code]['추가매수횟수'])
                     self.jangoInfo[jongmok_code]['추가매수횟수'] = str(chumae_count + 1)
@@ -1641,8 +1643,7 @@ class KiwoomConditon(QObject):
         else:
             # 종목명은 determine buy 할시 확인하므로 꼭 넣어주어야 함 
             self.conditionOccurList.append( {'종목명': jongmok_name, '종목코드': jongmok_code} )
-
-        self.sigConditionOccur.emit()
+            self.sigConditionOccur.emit()
         pass
     
     def removeConditionOccurList(self, jongmok_code):
@@ -1699,6 +1700,10 @@ class KiwoomConditon(QObject):
         if( len(codeList) == 0 ):
             # 종목 미보유로 실시간 체결 요청 할게 없는 경우 코스닥 코스피 실시간 체결가가 올라오지 않으므로 임시로 하나 등록  
             codeList.append('044180')
+        else:
+            for code in codeList:
+                if ( code not in ETF_LIST and code not in EXCEPTION_LIST):
+                    self.addConditionOccurList(code)
 
         # 실시간 호가 정보 요청 "0" 은 이전거 제외 하고 새로 요청
         if( len(codeList) ):
