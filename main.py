@@ -1703,6 +1703,7 @@ class KiwoomConditon(QObject):
         self.conditionOccurList.append(jongmok_info_dict)
 
      # 실시간  주식 정보 요청 요청리스트 갱신  
+     # WARNING: 실시간 요청도 TR 처럼 초당 횟수 제한이 있으므로 잘 사용해야함 
     def refreshRealRequest(self):
         # 버그로 모두 지우고 새로 등록하게 함 
         print(util.whoami() )
