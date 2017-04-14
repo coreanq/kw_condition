@@ -464,9 +464,9 @@ class KiwoomConditon(QObject):
         # 잔고 리스트 추가 및 잔고리스트의 실시간 체결 정보를 받도록 함 
         for jongmokCode in jango_list:
             self.insertBuyCodeList(jongmokCode) 
-
-        # 프로그램 첫 시작시 잔고 요청등의 TR 요청으로 buy process 에서 시세 과부화가 되므로 delay 줌 
-        QTimer.singleShot(1000, self.sigStartProcessBuy)
+ 
+        # 프로그램 첫 시작시 TR 요청으로 인한 제한 시간  막기 위해 딜레이 줌 
+        QTimer.singleShot(TR_TIME_LIMIT_MS, self.sigStartProcessBuy)
         pass
 
     @pyqtSlot()
@@ -480,8 +480,10 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
+        print(util.whoami() )
+        # 운영 시간이 아닌 경우 운영시간이 될때까지 지속적으로 확인 
         if( self.isTradeAvailable() == False ):
-            self.sigStopProcessBuy.emit()
+            QTimer.singleShot(10000, self.sigConditionOccur)
             return
 
         for jongmok_code in self.conditionRevemoList:
@@ -606,14 +608,30 @@ class KiwoomConditon(QObject):
         amount_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
         before0_amount = abs(int(jongmok_info_dict['5분 0봉전'][amount_index]))
         before1_amount = abs(int(jongmok_info_dict['5분 1봉전'][amount_index]))
-        # before2_amount = abs(int(jongmok_info_dict['5분 2봉전'][amount_index]))
+
+        current_price_index =  kw_util.dict_jusik['TR:분봉'].index('현재가')
+        before0_price = abs(int(jongmok_info_dict['5분 0봉전'][current_price_index]))
+        before1_price = abs(int(jongmok_info_dict['5분 1봉전'][current_price_index]))
+
+        twentybong_avr = int(jongmok_info_dict['20봉평균'])
+        fivebong_avr = int(jongmok_info_dict['5봉평균'])
         
-        if( before0_amount > before1_amount * 3 and before0_amount > 50000 ):
-            printLog += '(거래량/증감율충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
+        if( before0_amount > before1_amount * 3 and before0_amount > 50000 and before1_price > before0_price and twentybong_avr > fivebong_avr):
+            printLog += '(5분봉 미충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4}), 20봉평균: {5}, 5봉평균: {6}'.format(
+                int(before0_amount / before1_amount * 100), 
+                before0_price , before0_amount, 
+                before1_price, before1_amount, 
+                twentybong_avr, fivebong_avr
+                )
             is_log_print_enable = True
             pass
         else:
-            printLog += '(거래량/증감율미충족: {0}% 0: {1}, 1: {2})'.format(int(before0_amount / before1_amount * 100), before0_amount , before1_amount)
+            printLog += '(5분봉 미충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4}), 20봉평균: {5}, 5봉평균: {6}'.format(
+                int(before0_amount / before1_amount * 100), 
+                before0_price , before0_amount, 
+                before1_price, before1_amount, 
+                twentybong_avr, fivebong_avr
+                )
             return_vals.append(False)
 
 
@@ -753,7 +771,6 @@ class KiwoomConditon(QObject):
             printLog = ' 현재가:{0} '.format(maedoHoga1) + printLog
             pass
         else:
-            self.refreshRealRequest()
             self.sigNoBuy.emit()
 
         self.shuffleConditionOccurList()
@@ -976,26 +993,29 @@ class KiwoomConditon(QObject):
         #         break
         return True
 
-    # 분봉 데이터 생성 
-    def makeOpt10080Info(self, rQName):
+    # 분봉 데이터 생성 def makeOpt10080Info(self, rQName):
         jongmok_info_dict = self.getConditionOccurList()
         if( jongmok_info_dict ):
             pass
         else:
             return False
-
         repeatCnt = self.getRepeatCnt("opt10080", rQName)
-        currentTimeStr  = None 
-        # 직전 봉만 확인하기 위함 
-        for i in range(min(repeatCnt, 3)):
+
+        fivebong_sum = 0
+        twentybong_sum = 0 
+        for i in range(min(repeatCnt, 20)):
             line = []
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 if( item_name == "종목명" ):
                     line.append(self.getMasterCodeName(rQName))
                     continue
                 result = self.getCommData("opt10080", rQName, i, item_name)
-                if( item_name == "체결시간"):
-                    currentTimeStr = result.strip()
+
+                if( item_name == "현재가"):
+                    if( i < 5 ):
+                        fivebong_sum += abs(int(result))
+                        pass
+                    twentybong_sum += abs(int(result))
                 line.append(result.strip())
             # print(line)
             # 오늘 이전 데이터는 받지 않는다 --> 장시작시는 전날 데이터도 필요 하므로 삭제 
@@ -1008,6 +1028,9 @@ class KiwoomConditon(QObject):
             #     break
             key_value = '5분 {0}봉전'.format(i)
             jongmok_info_dict[key_value] = line
+        
+        jongmok_info_dict['20봉평균'] = str(int(twentybong_sum / 20))
+        jongmok_info_dict['5봉평균'] = str(int(fivebong_sum / 5))
         return True
 
     @pyqtSlot()
@@ -1070,8 +1093,8 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
-        # .format(scrNo, rQName, trCode))
+        print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
+        .format(scrNo, rQName, trCode))
 
         # rQName 은 계좌번호임 
         if ( trCode == 'opw00018' ):
@@ -1426,7 +1449,7 @@ class KiwoomConditon(QObject):
                 # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
                 # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
                 self.insertBuyCodeList(jongmok_code)
-                QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigBuy )
+                self.sigBuy.emit() 
 
                 # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
                 current_jango = {}
@@ -1579,28 +1602,18 @@ class KiwoomConditon(QObject):
     def insertBuyCodeList(self, jongmok_code):
         if( jongmok_code not in self.buyCodeList ):
             self.buyCodeList.append(jongmok_code)
-            self.refreshRealRequest()
         pass
 
     #주식 호가 잔량 정보 요청리스트 삭제 
     def removeBuyCodeList(self, jongmok_code):
         if( jongmok_code in self.buyCodeList ):
             self.buyCodeList.remove(jongmok_code)
-        self.refreshRealRequest()
+
         # 잔고 정보 삭제 
         if( jongmok_code in self.jangoInfo):
             self.jangoInfo.pop(jongmok_code)
         pass
 
-    def insertSellCodeList(self, jongmok_code):
-        if( jongmok_code not in self.sellCodeList ):
-            self.sellCodeList.append(jongmok_code)
-        pass
-    
-    def removeSellCodeList(self, jongmok_code):
-        if( jongmok_code in self.sellCodeList ):
-            self.buyCodeList.remove(jongmok_code)
-        pass
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
     def _OnReceiveConditionVer(self, ret, msg):
@@ -1658,13 +1671,9 @@ class KiwoomConditon(QObject):
         pass
     
     def removeConditionOccurList(self, jongmok_code):
-        removing_items = []
         for cnt, item_dict in enumerate(self.conditionOccurList):
             if( item_dict['종목코드'] == jongmok_code ):
-                removing_items.append(item_dict)
-
-        for item in removing_items:
-            self.conditionOccurList.remove(item)
+                self.conditionOccurList.remove(item_dict)
         pass
 
     def getConditionOccurList(self):
@@ -1691,11 +1700,12 @@ class KiwoomConditon(QObject):
         jongmok_info_dict = self.getConditionOccurList()
         jongmok_code = jongmok_info_dict['종목코드']
         self.removeConditionOccurList(jongmok_code)
-        self.addConditionOccurList(jongmok_code)
+        self.conditionOccurList.append(jongmok_info_dict)
 
      # 실시간  주식 정보 요청 요청리스트 갱신  
     def refreshRealRequest(self):
         # 버그로 모두 지우고 새로 등록하게 함 
+        print(util.whoami() )
         self.setRealRemove("ALL", "ALL")
         codeList  = []
 
