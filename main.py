@@ -118,7 +118,6 @@ class KiwoomConditon(QObject):
 
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
-        self.remainTimeUntilStart = '000000'
 
         self.createState()
         self.createConnection()
@@ -460,11 +459,6 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def standbySystemStateEntered(self):
         print(util.whoami() )
-        jango_list = self.jangoInfo.keys()
-        # 잔고 리스트 추가 및 잔고리스트의 실시간 체결 정보를 받도록 함 
-        for jongmokCode in jango_list:
-            self.insertBuyCodeList(jongmokCode) 
- 
         # 프로그램 첫 시작시 TR 요청으로 인한 제한 시간  막기 위해 딜레이 줌 
         QTimer.singleShot(TR_TIME_LIMIT_MS, self.sigStartProcessBuy)
         pass
@@ -566,7 +560,7 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 최대 보유 할 수 있는 종목 보유수를 넘었는지 확인 
-        if( len(self.buyCodeList) < STOCK_POSSESION_COUNT ):
+        if( len(self.jangoInfo.keys()) < STOCK_POSSESION_COUNT ):
             pass
         elif( jongmokCode in self.jangoInfo ):
         # 중복매수는 예외 
@@ -674,7 +668,7 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 이미 보유한 종목 구매 금지 
-        # if( self.buyCodeList.count(jongmokCode) == 0 ):
+        # if( jongmokCode not in self.jangoInfo) ):
         #     pass
         # else:
         #     printLog += '(____기보유종목____: {0})'.format(jongmokName)
@@ -1444,11 +1438,10 @@ class KiwoomConditon(QObject):
 
             self.todayTradedCodeList.append(jongmok_code)
             if( boyou_suryang == 0 ):
-                self.removeBuyCodeList(jongmok_code)
+                # 보유 수량이 0 인 경우 매도 수행 
+                self.jangoInfo.pop(jongmok_code)
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
-                # BuyCode List 에 넣지 않으면 호가 정보가 빠르게 올라오는 경우 계속 매수됨   
-                self.insertBuyCodeList(jongmok_code)
                 self.sigBuy.emit() 
 
                 # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
@@ -1597,21 +1590,6 @@ class KiwoomConditon(QObject):
 
         self.chegyeolInfo[current_date].append('|'.join(info))
         util.save_log(printData, "*체결정보", folder= "log")
-        pass
-
-    def insertBuyCodeList(self, jongmok_code):
-        if( jongmok_code not in self.buyCodeList ):
-            self.buyCodeList.append(jongmok_code)
-        pass
-
-    #주식 호가 잔량 정보 요청리스트 삭제 
-    def removeBuyCodeList(self, jongmok_code):
-        if( jongmok_code in self.buyCodeList ):
-            self.buyCodeList.remove(jongmok_code)
-
-        # 잔고 정보 삭제 
-        if( jongmok_code in self.jangoInfo):
-            self.jangoInfo.pop(jongmok_code)
         pass
 
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
