@@ -105,7 +105,6 @@ class KiwoomConditon(QObject):
         self.account_list = []
         self.timerSystem = QTimer()
 
-        self.buyCodeList = []  # 현재 매수후 보유 종목 
         self.todayTradedCodeList = [] # 금일 거래 되었던 종목 
         self.upjongUpdownPercent = {} # 업종 등락율 
 
@@ -474,7 +473,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
-        print(util.whoami() )
+        # print(util.whoami() )
         # 운영 시간이 아닌 경우 운영시간이 될때까지 지속적으로 확인 
         if( self.isTradeAvailable() == False ):
             QTimer.singleShot(10000, self.sigConditionOccur)
@@ -987,7 +986,8 @@ class KiwoomConditon(QObject):
         #         break
         return True
 
-    # 분봉 데이터 생성 def makeOpt10080Info(self, rQName):
+    # 분봉 데이터 생성 
+    def makeOpt10080Info(self, rQName):
         jongmok_info_dict = self.getConditionOccurList()
         if( jongmok_info_dict ):
             pass
@@ -1139,6 +1139,9 @@ class KiwoomConditon(QObject):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
 
+            if( self.isTradeAvailable() == False ):
+                return
+
             self.makeHogaJanRyangInfo(jongmokCode)                
 
             ########################################################################
@@ -1188,7 +1191,7 @@ class KiwoomConditon(QObject):
                         jongmok_name, jongmokMaesuHoga1, 
                         pair_jongmok_name, pair_jongmokMaesuHoga1)
 
-                printData = '{0}] 비교: ({1}), profit:{2:>6}, hoga1:{3:>6}, hoga2:{4:>6}, pair_hoga1:{5:>6}, pair_hoga2:{6:>6}'.format(
+                printData = '{0}] 비교: ({1}), profit:{2:>6}, hoga1:{3:>6}, hoga2:{4:>6}, pair_hoga1:{5:>6}, pair_hoga2: {6:>6}'.format(
                     util.cur_time(), 
                     compare_result, profit, jongmokMaesuHogaAmount1, jongmokMaesuHogaAmount2, 
                     pair_jongmokMaesuHogaAmount1, pair_jongmokMaesuHogaAmount2
@@ -1211,6 +1214,8 @@ class KiwoomConditon(QObject):
         elif( realType == "주식체결"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
+            if( self.isTradeAvailable() == False ):
+                return
             self.makeBasicInfo(jongmokCode)
 
             # WARNING: 장중에 급등으로 거래 정지 되어 동시 호가진행되는 경우에 대비하여 체결가 정보 발생했을때만 stoploss 진행함. 
@@ -1224,6 +1229,10 @@ class KiwoomConditon(QObject):
             pass
         
         elif( realType == "업종지수" ):
+            # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+            #     .format(jongmokCode, realType, realData))
+            if( self.isTradeAvailable() == False ):
+                return
             result = '' 
             for col_name in kw_util.dict_jusik['실시간-업종지수']:
                 result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
@@ -1688,7 +1697,7 @@ class KiwoomConditon(QObject):
         self.setRealRemove("ALL", "ALL")
         codeList  = []
 
-        for code in self.buyCodeList:
+        for code in self.jangoInfo.keys():
             if( code not in codeList):
                 codeList.append(code)
 
