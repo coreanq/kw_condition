@@ -13,11 +13,12 @@ from mainwindow_ui import Ui_MainWindow
 
 TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 10] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 19] ] ] #해당 시스템 동작 시간 설정
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 5분전으로 입력해야함 
+# auto_trading_operation_time 이전값을 잡아야 함 
 DAY_TRADING_ENABLE = True
-DAY_TRADING_END_TIME = [15, 15] 
+DAY_TRADING_END_TIME = [15, 10] 
 
 TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시작하는 시간
 STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
@@ -476,6 +477,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami() )
         # 운영 시간이 아닌 경우 운영시간이 될때까지 지속적으로 확인 
         if( self.isTradeAvailable() == False ):
+            print(util.whoami() )
             QTimer.singleShot(10000, self.sigConditionOccur)
             return
 
@@ -1087,8 +1089,8 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
-        .format(scrNo, rQName, trCode))
+        # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
+        # .format(scrNo, rQName, trCode))
 
         # rQName 은 계좌번호임 
         if ( trCode == 'opw00018' ):
@@ -1139,9 +1141,6 @@ class KiwoomConditon(QObject):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
 
-            if( self.isTradeAvailable() == False ):
-                return
-
             self.makeHogaJanRyangInfo(jongmokCode)                
 
             ########################################################################
@@ -1151,9 +1150,6 @@ class KiwoomConditon(QObject):
             maesuHoga1 = abs(int(self.jangoInfo[jongmokCode]['매수호가1']))
             # 매수 호가 기준으로 수익 측정 
             self.calculateSuik(jongmokCode, maesuHoga1)
-
-            if( not self.isTradeAvailable() ):
-                return
 
             printData = ''
             pair_etf_code = ETF_PAIR_LIST[jongmokCode]
@@ -1214,8 +1210,6 @@ class KiwoomConditon(QObject):
         elif( realType == "주식체결"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
-            if( self.isTradeAvailable() == False ):
-                return
             self.makeBasicInfo(jongmokCode)
 
             # WARNING: 장중에 급등으로 거래 정지 되어 동시 호가진행되는 경우에 대비하여 체결가 정보 발생했을때만 stoploss 진행함. 
@@ -1231,8 +1225,6 @@ class KiwoomConditon(QObject):
         elif( realType == "업종지수" ):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
-            if( self.isTradeAvailable() == False ):
-                return
             result = '' 
             for col_name in kw_util.dict_jusik['실시간-업종지수']:
                 result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
@@ -1310,7 +1302,9 @@ class KiwoomConditon(QObject):
 
     def processStopLoss(self, jongmokCode):
         jongmokName = self.getMasterCodeName(jongmokCode)
-
+        if( self.isTradeAvailable() == False ):
+            return
+        
         # 예외 처리 리스트이면 종료 
         if( jongmokCode in EXCEPTION_LIST ):
             return
@@ -1368,16 +1362,15 @@ class KiwoomConditon(QObject):
 
         #########################################################################################
         # day trading 용 
-        if( DAY_TRADING_ENABLE == True ):
+        if( jongmokCode in ETF_LIST and DAY_TRADING_ENABLE == True ):
             # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
-            time_span = datetime.timedelta(minutes = 5 )
+            time_span = datetime.timedelta(minutes = 10 )
             dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
 
             current_time = datetime.datetime.now()
             if( datetime.time(*DAY_TRADING_END_TIME) <  current_time.time() and dst_time > current_time ):
-                if( jongmokCode in ETF_LIST):
-                    # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
-                    stop_loss = 0  
+                # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
+                stop_loss = 0  
 
         # 손절 / 익절 계산 
         # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
@@ -1695,7 +1688,7 @@ class KiwoomConditon(QObject):
      # WARNING: 실시간 요청도 TR 처럼 초당 횟수 제한이 있으므로 잘 사용해야함 
     def refreshRealRequest(self):
         # 버그로 모두 지우고 새로 등록하게 함 
-        print(util.whoami() )
+        # print(util.whoami() )
         self.setRealRemove("ALL", "ALL")
         codeList  = []
 
