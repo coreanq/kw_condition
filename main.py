@@ -611,13 +611,7 @@ class KiwoomConditon(QObject):
         twentybong_avr = int(jongmok_info_dict['20봉평균'])
         fivebong_avr = int(jongmok_info_dict['5봉평균'])
         
-        if( before0_amount > before1_amount * 3 and before0_amount > 50000 and before1_price > before0_price and twentybong_avr > fivebong_avr):
-            printLog += '(5분봉 미충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4}), 20봉평균: {5}, 5봉평균: {6}'.format(
-                int(before0_amount / before1_amount * 100), 
-                before0_price , before0_amount, 
-                before1_price, before1_amount, 
-                twentybong_avr, fivebong_avr
-                )
+        if( before0_amount > before1_amount * 2 and before0_amount > 20000 and before1_price > before0_price and twentybong_avr > fivebong_avr):
             is_log_print_enable = True
             pass
         else:
