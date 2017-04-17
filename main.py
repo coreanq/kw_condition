@@ -1191,7 +1191,7 @@ class KiwoomConditon(QObject):
                         jongmok_name, jongmokMaesuHoga1, 
                         pair_jongmok_name, pair_jongmokMaesuHoga1)
 
-                printData = '{0}] 비교: ({1}), profit:{2:>6}, hoga1:{3:>6}, hoga2:{4:>6}, pair_hoga1:{5:>6}, pair_hoga2: {6:>6}'.format(
+                printData = '{0}] 비교: ({1}), profit:{2:>8}, hoga1:{3:>7}, hoga2:{4:>7}, pair_hoga1:{5:>7}, pair_hoga2:{6:>7}'.format(
                     util.cur_time(), 
                     compare_result, profit, jongmokMaesuHogaAmount1, jongmokMaesuHogaAmount2, 
                     pair_jongmokMaesuHogaAmount1, pair_jongmokMaesuHogaAmount2
@@ -1449,6 +1449,7 @@ class KiwoomConditon(QObject):
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행 
                 self.jangoInfo.pop(jongmok_code)
+                self.removeConditionOccurList(jongmok_code)
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했다는 소리임 
                 self.sigBuy.emit() 
@@ -1658,9 +1659,10 @@ class KiwoomConditon(QObject):
         pass
     
     def removeConditionOccurList(self, jongmok_code):
-        for cnt, item_dict in enumerate(self.conditionOccurList):
+        for item_dict in self.conditionOccurList:
             if( item_dict['종목코드'] == jongmok_code ):
                 self.conditionOccurList.remove(item_dict)
+                break
         pass
 
     def getConditionOccurList(self):
