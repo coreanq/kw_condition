@@ -1271,7 +1271,7 @@ class KiwoomConditon(QObject):
             if( result == '2'):
                 self.sigTerminating.emit()
             elif( result == '4' ): # 장종료 후 5분뒤에 프로그램 종료 하게 함  
-                QTimer.singleShot(300, self.sigStockComplete)
+                QTimer.singleShot(300000, self.sigStockComplete)
 
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
             #     .format(jongmokCode, realType, realData))
