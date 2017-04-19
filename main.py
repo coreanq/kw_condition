@@ -29,7 +29,7 @@ TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가�
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE =  1
-STOP_LOSS_VALUE = 10 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_LOSS_VALUE = 3 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
@@ -621,10 +621,10 @@ class KiwoomConditon(QObject):
         
         rsi_14 = int( float(jongmok_info_dict['RSI14']) )
         if( 
-            before0_amount > before1_amount * 2 and 
+            before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
             # before0_amount > 10000 and  
             maedoHoga2 <  maeip_price and 
-            before0_price < twentybong_avr and 
+            maedoHoga2 < twentybong_avr and 
             twentybong_avr > fivebong_avr and
             rsi_14 < 45
         ):
