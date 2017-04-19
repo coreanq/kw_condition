@@ -613,7 +613,21 @@ class KiwoomConditon(QObject):
         twentybong_avr = int(jongmok_info_dict['20봉평균'])
         fivebong_avr = int(jongmok_info_dict['5봉평균'])
         
-        if( before0_amount > before1_amount * 2 and before0_amount > 20000 and  before0_price < twentybong_avr and twentybong_avr > fivebong_avr):
+        # 추가 매수시 매입가보다 큰 경우 추가 매수 금지 
+        maeip_price = 9999999
+        if( jongmokCode in self.jangoInfo):
+            maeip_price = int(self.jangoInfo[jongmokCode]['매입가'])
+
+        
+        rsi_14 = int( float(jongmok_info_dict['RSI14']) )
+        if( 
+            before0_amount > before1_amount * 2 and 
+            # before0_amount > 10000 and  
+            maedoHoga2 <  maeip_price and 
+            before0_price < twentybong_avr and 
+            twentybong_avr > fivebong_avr and
+            rsi_14 < 45
+        ):
             is_log_print_enable = True
             pass
         else:
@@ -646,7 +660,7 @@ class KiwoomConditon(QObject):
         chumae_count = 0
         if( jongmokCode in self.jangoInfo):
             chumae_count = int(self.jangoInfo[jongmokCode]['추가매수횟수'])
-        if( chumae_count <= CHUMAE_LIMIT ):
+        if( chumae_count < CHUMAE_LIMIT ):
             pass
         else:
             printLog += '(추가매수한계)'
@@ -1057,7 +1071,7 @@ class KiwoomConditon(QObject):
         rsi_down_avg = rsi_down_sum / 14
         rsi_value = round(rsi_up_avg / ( rsi_up_avg + rsi_down_avg ) * 100 , 1)
         jongmok_info_dict['RSI14'] = str(rsi_value)
-        print(util.whoami(), jongmok_info_dict['종목코드'], 'rsi_value: ',  jongmok_info_dict['RSI14'])
+        # print(util.whoami(), jongmok_info_dict['종목코드'], 'rsi_value: ',  jongmok_info_dict['RSI14'])
         return True
 
     @pyqtSlot()
