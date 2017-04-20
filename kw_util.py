@@ -17,6 +17,10 @@ sendRealRegSiseSrcNo = "006"
 
 sendminTrScreenNo = "100"
 sendOrderScreenNo = "101"
+
+sendOrderETFScreenNo = "201"
+sendOrderETFPairScreenNo = "202"
+
 sendReqYupjongScreenNo = "102"
 sendJusikGibonScreenNo = "103"
 sendJusikHogaScreenNo = "104"
@@ -50,7 +54,7 @@ dict_order = {
 dict_jusik = {
     # 체결 정보는 파일에 저장됨 
     "체결정보": ( 
-        '수익율', # 원래 없는 멤버 
+        '수익율', '수익' , # 원래 없는 멤버 
         '종목코드', '주문구분', '체결가', '체결량', '미체결수량', '주문/체결시간', '종목명'), 
 
     'TR:계좌평가잔고내역요청': (
