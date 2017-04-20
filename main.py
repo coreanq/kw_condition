@@ -35,7 +35,7 @@ SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수
 STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-CHUMAE_LIMIT = 3 # 추가 매수 제한 
+CHUMAE_LIMIT = 4 # 추가 매수 제한 
 
 ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
@@ -657,14 +657,14 @@ class KiwoomConditon(QObject):
         # 5분 0봉전 시간과 체결시간 비교하여 5분 초과한경우만 매수 (동일 5분봉에서 추가 매수 금지 하기 위함)
         if( jongmokCode in self.jangoInfo):
             chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'] #20170411151000
-            time_span = datetime.timedelta(minutes = 5 )
+            time_span = datetime.timedelta(minutes = 30 )
             
             if( chegyeol_time_str != ''):
                 target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
                 if( datetime.datetime.now() > target_time ):
                     pass
                 else:
-                    printLog += '(5분내 중복매수 발생)'
+                    printLog += '(30분내 추가매수 발생)'
                     return_vals.append(False)
 
         ##########################################################################################################
@@ -776,15 +776,21 @@ class KiwoomConditon(QObject):
         # 매수 
         if( return_vals.count(False) == 0 ):
             util.save_log(jongmokName, '매수주문', folder= "log")
-            maesu_count = 0 
+            maesu_amount = 0
             if( TEST_MODE == True ):
-                maesu_count = 1
+                maesu_amount = 1
             else:
-                maesu_count = round((TOTAL_BUY_AMOUNT / maedoHogaAmount2) - 0.5) # 첫번째 자리수 버림
+                maesu_amount = round((TOTAL_BUY_AMOUNT / maedoHogaAmount2) - 0.5) # 첫번째 자리수 버림
+
+            if( chumae_count <= 1 ):
+                qty = maesu_amount 
+                pass
+            else:
+                qty = maesu_amount * (2 ** (chumae_count - 1))
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
-                                maesu_count * (2 ** (chumae_count)), 0 , kw_util.dict_order["시장가"], "")
+                                qty, 0 , kw_util.dict_order["시장가"], "")
             print("B " + str(result) , sep="")
             printLog = ' 현재가:{0} '.format(maedoHoga1) + printLog
             pass
