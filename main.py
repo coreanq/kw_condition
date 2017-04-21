@@ -28,8 +28,8 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE =  1
-STOP_LOSS_VALUE = 2 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_PLUS_VALUE =  1.5
+STOP_LOSS_VALUE = 1.5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
@@ -1221,7 +1221,7 @@ class KiwoomConditon(QObject):
 
             profit = jongmok_suik + pair_jongmok_suik
 
-            if( profit  >= 30):
+            if( profit  >= 20):
                 compare_result = ''
                 jongmokMaesuHogaAmount1 = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
                 jongmokMaesuHogaAmount2 = int(self.jangoInfo[jongmokCode]['매수호가수량2'])
@@ -1252,9 +1252,10 @@ class KiwoomConditon(QObject):
                     # WARNING: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
                     if( self.isTradeAvailable() == True ):
                         if( jongmokCode == '114800' or jongmokCode == '069500'):
-                            self.sell_etf('normal', 
-                            normal_price = self.jangoInfo['069500']['매수호가1'],
-                            inverse_price = self.jangoInfo['114800']['매수호가1'])
+                            # self.sell_etf('normal', 
+                            # normal_price = self.jangoInfo['069500']['매수호가1'],
+                            # inverse_price = self.jangoInfo['114800']['매수호가1'])
+                            pass
                         util.save_log(printData, '*** etf 매도 ***', 'log')
                         pass
 
