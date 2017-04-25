@@ -29,13 +29,13 @@ TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가�
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE =  2.5
-STOP_LOSS_VALUE = 1.5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_LOSS_VALUE = 5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-CHUMAE_LIMIT = 4 # 추가 매수 제한 
+CHUMAE_LIMIT = 2 # 추가 매수 제한 
 
 ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
@@ -623,8 +623,6 @@ class KiwoomConditon(QObject):
         before0_price = abs(int(jongmok_info_dict['5분 0봉전'][current_price_index]))
         before1_price = abs(int(jongmok_info_dict['5분 1봉전'][current_price_index]))
 
-        twentybong_avr = int(jongmok_info_dict['20봉평균'])
-        fivebong_avr = int(jongmok_info_dict['5봉평균'])
         
         # 추가 매수시 매입가보다 큰 경우 추가 매수 금지 
         maeip_price = 9999999
@@ -635,23 +633,44 @@ class KiwoomConditon(QObject):
         rsi_14 = int( float(jongmok_info_dict['RSI14']) )
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
-            # before0_amount > 10000 and  
-            maedoHoga2 <  maeip_price and 
-            maedoHoga2 < twentybong_avr and 
-            twentybong_avr > fivebong_avr and
-            rsi_14 < 45
+            before0_amount > 5000 and  # 아주 거래량이 최소인 경우를 막기 위함 
+            maedoHoga1 <  maeip_price 
         ):
             is_log_print_enable = True
             pass
         else:
-            printLog += '(5분봉 미충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4}), 20봉평균: {5}, 5봉평균: {6}'.format(
+            printLog += '(5분봉 미충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
                 int(before0_amount / before1_amount * 100), 
                 before0_price , before0_amount, 
-                before1_price, before1_amount, 
-                twentybong_avr, fivebong_avr
+                before1_price, before1_amount
                 )
             return_vals.append(False)
 
+        ##########################################################################################################
+        # rsi 조건 미충족  
+        rsi_14 = int( float(jongmok_info_dict['RSI14']) )
+        if( rsi_14 < 45):
+            printLog += '(rsi 충족: {0})'.format( rsi_14 )
+            is_log_print_enable = True
+            pass
+        else:
+            printLog += '(rsi 미충족: {0})'.format( rsi_14 )
+            return_vals.append(False)
+
+        ##########################################################################################################
+        # 이동평균선 조건 미충족  
+        twentybong_avr = int(jongmok_info_dict['20봉평균'])
+        fivebong_avr = int(jongmok_info_dict['5봉평균'])
+        if(
+            twentybong_avr > fivebong_avr and
+            maedoHoga1 < twentybong_avr 
+        ):
+            printLog += '(이평 충족: 20: {0}, 5: {1})'.format( twentybong_avr, fivebong_avr )
+            is_log_print_enable = True
+            pass
+        else:
+            printLog += '(이평 미충족: 20: {0}, 5: {1})'.format( twentybong_avr, fivebong_avr )
+            return_vals.append(False)
 
         ##########################################################################################################
         # 5분 0봉전 시간과 체결시간 비교하여 5분 초과한경우만 매수 (동일 5분봉에서 추가 매수 금지 하기 위함)
