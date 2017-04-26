@@ -377,6 +377,8 @@ class KiwoomConditon(QObject):
                 if( datetime.datetime.strptime(trade_date, "%y%m%d").date() == self.currentTime.date() ): 
                     for trade_info in data_chunk: 
                         parse_str_list = [item.strip() for item in trade_info.split('|') ] 
+                        if( len(parse_str_list)  < 5):
+                            continue
                         jongmok_code_index = kw_util.dict_jusik['체결정보'].index('종목코드')
                         jumun_gubun_index = kw_util.dict_jusik['체결정보'].index('주문구분')
 
@@ -628,9 +630,7 @@ class KiwoomConditon(QObject):
         maeip_price = 9999999
         if( jongmokCode in self.jangoInfo):
             maeip_price = int(self.jangoInfo[jongmokCode]['매입가'])
-
         
-        rsi_14 = int( float(jongmok_info_dict['RSI14']) )
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
             before0_amount > 5000 and  # 아주 거래량이 최소인 경우를 막기 위함 
@@ -648,10 +648,11 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # rsi 조건 미충족  
+        is_rsi = False
         rsi_14 = int( float(jongmok_info_dict['RSI14']) )
         if( rsi_14 < 45):
             printLog += '(rsi 충족: {0})'.format( rsi_14 )
-            is_log_print_enable = True
+            is_rsi = True
             pass
         else:
             printLog += '(rsi 미충족: {0})'.format( rsi_14 )
@@ -661,16 +662,20 @@ class KiwoomConditon(QObject):
         # 이동평균선 조건 미충족  
         twentybong_avr = int(jongmok_info_dict['20봉평균'])
         fivebong_avr = int(jongmok_info_dict['5봉평균'])
+        is_avr = False
         if(
             twentybong_avr > fivebong_avr and
             maedoHoga1 < twentybong_avr 
         ):
             printLog += '(이평 충족: 20: {0}, 5: {1})'.format( twentybong_avr, fivebong_avr )
-            is_log_print_enable = True
+            is_avr = True 
             pass
         else:
             printLog += '(이평 미충족: 20: {0}, 5: {1})'.format( twentybong_avr, fivebong_avr )
             return_vals.append(False)
+        
+        if( is_rsi and is_avr ):
+            is_log_print_enable = True
 
         ##########################################################################################################
         # 5분 0봉전 시간과 체결시간 비교하여 5분 초과한경우만 매수 (동일 5분봉에서 추가 매수 금지 하기 위함)
