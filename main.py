@@ -28,14 +28,14 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE =  2.5
-STOP_LOSS_VALUE = 5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_PLUS_VALUE =  2.0
+STOP_LOSS_VALUE = 1.0 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-CHUMAE_LIMIT = 2 # 추가 매수 제한 
+CHUMAE_LIMIT = 1 # 추가 매수 제한 
 
 ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
@@ -726,17 +726,17 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 업종 등락율을 살펴서 보합 상승을 제외 > -0.5 면 사지 않음 :
-        # if( jongmokCode in  self.kospiCodeList):
-        #     updown_percentage = float(self.upjongUpdownPercent.get('코스피', -99) )
-        #     if( updown_percentage < -0.5 ) :
-        #         printLog +='(코스피등락율미충족: 등락율 {0})'.format(updown_percentage)
-        #         return_vals.append(False)
-        #     pass
-        # else: 
-        #     updown_percentage = float(self.upjongUpdownPercent.get('코스닥', -99) )
-        #     if( updown_percentage < -0.5 ) :
-        #         printLog +='(코스닥등락율미충족: 등락율 {0})'.format(updown_percentage)
-        #         return_vals.append(False)
+        if( jongmokCode in  self.kospiCodeList):
+            updown_percentage = float(self.upjongUpdownPercent.get('코스피', -99) )
+            if( updown_percentage < -0.2 ) :
+                printLog +='(코스피등락율미충족: 등락율 {0})'.format(updown_percentage)
+                return_vals.append(False)
+            pass
+        else: 
+            updown_percentage = float(self.upjongUpdownPercent.get('코스닥', -99) )
+            if( updown_percentage < -0.2 ) :
+                printLog +='(코스닥등락율미충족: 등락율 {0})'.format(updown_percentage)
+                return_vals.append(False)
 
 
         ##########################################################################################################
