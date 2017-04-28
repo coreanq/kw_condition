@@ -28,33 +28,28 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE =  2.0
+STOP_PLUS_VALUE =  1.0
 STOP_LOSS_VALUE = 1.5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-CHUMAE_LIMIT = 1 # 추가 매수 제한 
+CHUMAE_LIMIT = 2 # 추가 매수 제한 
 
 ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
 ETF_LIST = {
-    '122630': "kodex 레버리지",
-    '252670': "kodex 선물인버스2x",
     '114800': "kodex 인버스",
-    '069500': "kodex 200",
+    '069500': "kodex 200"
 }
-
 ETF_PAIR_LIST = {
-    '122630':'252670',
-    '252670':'122630',
     '114800':'069500',
     '069500':'114800'
 }
 # 장기 보유 종목 번호 리스트 
 EXCEPTION_LIST = ['034220']
-STOCK_POSSESION_COUNT = 10  
+STOCK_POSSESION_COUNT = 13  
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
@@ -697,7 +692,6 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         #  추가 매수 제한   
-
         chumae_count = 0
         if( jongmokCode in self.jangoInfo):
             chumae_count = int(self.jangoInfo[jongmokCode]['추가매수횟수'])
@@ -730,7 +724,7 @@ class KiwoomConditon(QObject):
 
 
         ##########################################################################################################
-        # 업종 등락율을 살펴서 보합 상승을 제외 > -0.5 면 사지 않음 :
+        # 업종 등락율을 살펴서 보합 상승을 제외 - 면 사지 않음 :
         if( jongmokCode in  self.kospiCodeList):
             updown_percentage = float(self.upjongUpdownPercent.get('코스피', -99) )
             if( updown_percentage < -0.2 ) :
