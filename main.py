@@ -29,7 +29,7 @@ TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가�
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE =  2.0
-STOP_LOSS_VALUE = 1.0 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_LOSS_VALUE = 1.5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
@@ -122,6 +122,7 @@ class KiwoomConditon(QObject):
         self.createState()
         self.createConnection()
         self.currentTime = datetime.datetime.now()
+        self.etf_profit  = 0
         
     def createState(self):
         # state defintion
@@ -476,7 +477,8 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def terminatingSystemStateEntered(self):
         print(util.whoami() )
-        self.buy_etf('all', ETF_BUY_QTY)
+        if( '069500' not in self.jangoInfo):
+            self.buy_etf('normal', ETF_BUY_QTY)
         pass
 
 
@@ -636,7 +638,11 @@ class KiwoomConditon(QObject):
             before0_amount > 5000 and  # 아주 거래량이 최소인 경우를 막기 위함 
             maedoHoga1 <  maeip_price 
         ):
-            is_log_print_enable = True
+            printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
+                int(before0_amount / before1_amount * 100), 
+                before0_price , before0_amount, 
+                before1_price, before1_amount
+                )
             pass
         else:
             printLog += '(5분봉 미충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
@@ -652,7 +658,6 @@ class KiwoomConditon(QObject):
         rsi_14 = int( float(jongmok_info_dict['RSI14']) )
         if( rsi_14 < 45):
             printLog += '(rsi 충족: {0})'.format( rsi_14 )
-            is_rsi = True
             pass
         else:
             printLog += '(rsi 미충족: {0})'.format( rsi_14 )
@@ -662,7 +667,6 @@ class KiwoomConditon(QObject):
         # 이동평균선 조건 미충족  
         twentybong_avr = int(jongmok_info_dict['20봉평균'])
         fivebong_avr = int(jongmok_info_dict['5봉평균'])
-        is_avr = False
         if(
             twentybong_avr > fivebong_avr and
             maedoHoga1 < twentybong_avr 
@@ -698,6 +702,7 @@ class KiwoomConditon(QObject):
         if( jongmokCode in self.jangoInfo):
             chumae_count = int(self.jangoInfo[jongmokCode]['추가매수횟수'])
         if( chumae_count < CHUMAE_LIMIT ):
+            printLog += '(추가매수 {0})'.format(chumae_count)
             pass
         else:
             printLog += '(추가매수한계)'
@@ -817,6 +822,7 @@ class KiwoomConditon(QObject):
                                 qty, 0 , kw_util.dict_order["시장가"], "")
             print("B " + str(result) , sep="")
             printLog = ' 현재가:{0} '.format(maedoHoga1) + printLog
+            is_log_print_enable = True
             pass
         else:
             self.sigNoBuy.emit()
@@ -1272,15 +1278,17 @@ class KiwoomConditon(QObject):
 
                 if( jongmokMaesuHogaAmount1 > 10000 and pair_jongmokMaesuHogaAmount1 > 10000):
                     print(printData, end='')
-                    util.save_log(printData, '*** etf 이익실현 ***', 'log')
+                    if( self.etf_profit != profit ):
+                        self.etf_profit = profit
+                        util.save_log(printData, '*** etf 이익실현 ***', 'log')
                     # WARNING: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
                     if( self.isTradeAvailable() == True ):
                         if( jongmokCode == '114800' or jongmokCode == '069500'):
-                            # self.sell_etf('normal', 
-                            # normal_price = self.jangoInfo['069500']['매수호가1'],
-                            # inverse_price = self.jangoInfo['114800']['매수호가1'])
+                            if( profit >= 40 ):
+                                normal_price = self.jangoInfo['069500']['매수호가1']
+                                inverse_price = self.jangoInfo['114800']['매수호가1']
+                                self.sell_etf(type = 'normal', normal_price = normal_price, inverse_price = inverse_price)
                             pass
-                        util.save_log(printData, '*** etf 매도 ***', 'log')
                         pass
 
         #주식 체결로는 사고 팔기에는 반응이 너무 느림 
@@ -1447,7 +1455,8 @@ class KiwoomConditon(QObject):
             current_time = datetime.datetime.now()
             if( datetime.time(*DAY_TRADING_END_TIME) <  current_time.time() and dst_time > current_time ):
                 # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
-                stop_loss = 0  
+                # stop_loss = 0  
+                pass
 
         # 손절 / 익절 계산 
         # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
@@ -1709,8 +1718,8 @@ class KiwoomConditon(QObject):
     # strConditionName : 조건명
     # strConditionIndex : 조건명 인덱스
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
-        print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
-        .format(code, type, conditionName, conditionIndex ))
+        # print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
+        # .format(code, type, conditionName, conditionIndex ))
         if type == 'I':
             self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
         else:
