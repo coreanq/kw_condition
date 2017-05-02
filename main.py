@@ -32,7 +32,6 @@ STOP_PLUS_VALUE =  1.0
 STOP_LOSS_VALUE = 1.5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
-STOCK_PRICE_MIN_MAX = { 'min': 1000, 'max':30000} #조건 검색식에서 오류가 가끔 발생하므로 매수 범위 가격
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 CHUMAE_LIMIT = 2 # 추가 매수 제한 
@@ -49,7 +48,7 @@ ETF_PAIR_LIST = {
 }
 # 장기 보유 종목 번호 리스트 
 EXCEPTION_LIST = ['034220']
-STOCK_POSSESION_COUNT = 13  
+STOCK_POSSESION_COUNT = 10 + len(EXCEPTION_LIST) + 2 # etf +2 
 
 ONE_MIN_CANDLE_EXCEL_FILE_PATH = "log" + os.path.sep + util.cur_date() + "_1min_stick.xlsx" 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
@@ -192,7 +191,7 @@ class KiwoomConditon(QObject):
         standbyProcessBuyState.addTransition(self.sigStopProcessBuy, initProcessBuyState)
 
         requestYupjong5minInfoProcessBuyState.addTransition(self.sigGetYupjong5minInfo, waitingTRlimitProcessBuyState)
-        requestYupjong5minInfoProcessBuyState.addTransition(self.sigrequestInfo, request5minInfoProcessBuyState)
+        requestYupjong5minInfoProcessBuyState.addTransition(self.sigRequestInfo, request5minInfoProcessBuyState)
         requestYupjong5minInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState )
 
         request5minInfoProcessBuyState.addTransition(self.sigGet5minInfo, determineBuyProcessBuyState)
@@ -231,20 +230,25 @@ class KiwoomConditon(QObject):
         pass
     
     @pyqtSlot()
-    def onStartClicked(self):
+    def onBtnStartClicked(self):
         print(util.whoami())
         self.sigInitOk.emit()
         
     @pyqtSlot()
-    def onRestartClicked(self):
+    def onBtnRestartClicked(self):
         print(util.whoami())
 
     @pyqtSlot()
-    def onRequestJangoClicked(self):
+    def onBtnJangoClicked(self):
         self.printStockInfo()
 
     @pyqtSlot()
-    def onChegyeolClicked(self):
+    def onBtnYupjongClicked(self):
+        self.printYupjongInfo()
+        pass
+
+    @pyqtSlot()
+    def onBtnChegyeolClicked(self):
         self.printChegyeolInfo('all')
 
     @pyqtSlot()
@@ -252,11 +256,12 @@ class KiwoomConditon(QObject):
         arg = self.lineCmdText
         if( arg ):
             eval(arg)
-
         pass
 
     @pyqtSlot()
-    def onConditionClicked(self):
+    def onBtnConditionClicked(self):
+        items = self.getCodeListConditionOccurList()
+        print(items)
         pass
     
     @pyqtSlot(str)
@@ -628,11 +633,11 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 가격조건 확인 
-        if( maedoHoga1 >= STOCK_PRICE_MIN_MAX['min'] and maedoHoga1 <= STOCK_PRICE_MIN_MAX['max']):
-            pass
-        else:
-            printLog += '(종목가격미충족: 매도호가1 {0})'.format(maedoHoga1)
-            return_vals.append(False)
+        # if( maedoHoga1 >= STOCK_PRICE_MIN_MAX['min'] and maedoHoga1 <= ['max']):
+        #     pass
+        # else:
+        #     printLog += '(종목가격미충족: 매도호가1 {0})'.format(maedoHoga1)
+        #     return_vals.append(False)
         
 
         ##########################################################################################################
@@ -663,7 +668,7 @@ class KiwoomConditon(QObject):
         
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
-            before0_amount > 5000 and  # 아주 거래량이 최소인 경우를 막기 위함 
+            before0_amount > 5000 and  # 거래량이 너무 최소인 경우를 막기 위함 
             maedoHoga1 <  maeip_price 
         ):
             printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
@@ -846,11 +851,11 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 기존에 이미 매도 발생한 종목이라면  
-        if( self.todayTradedCodeList.count(jongmokCode) == 0 ):
-            pass
-        else:
-            printLog += '(금일거래종목)'
-            return_vals.append(False)
+        # if( self.todayTradedCodeList.count(jongmokCode) == 0 ):
+        #     pass
+        # else:
+        #     printLog += '(금일거래종목)'
+        #     return_vals.append(False)
 
         # 매수 
         if( return_vals.count(False) == 0 ):
@@ -990,6 +995,9 @@ class KiwoomConditon(QObject):
             current_date = self.currentTime.date().strftime("%y%m%d")
             if( current_date in self.chegyeolInfo):
                 print(json.dumps(self.chegyeolInfo[current_date], ensure_ascii= False, indent = 2, sort_keys = True))
+
+    def printYupjongInfo(self):
+        print(json.dumps(self.yupjongInfo, ensure_ascii= False, indent =2, sort_keys = True))
 
     # 주식 잔고정보 요청 
     def requestOpw00018(self, account_num):
@@ -2199,13 +2207,16 @@ if __name__ == "__main__":
     event_filter = CloseEventEater()
     form.installEventFilter( event_filter )
 
-    ui.btnStart.clicked.connect(objKiwoom.onStartClicked)
-    ui.btnRestart.clicked.connect(objKiwoom.onRestartClicked)
-    ui.btnJango.clicked.connect(objKiwoom.onRequestJangoClicked)
-    ui.btnChegyeol.clicked.connect(objKiwoom.onChegyeolClicked)
-    ui.btnRun.clicked.connect(objKiwoom.onBtnRunClicked)
-    ui.btnCondition.clicked.connect(objKiwoom.onConditionClicked)
+    ui.btnStart.clicked.connect(objKiwoom.onBtnStartClicked)
+    ui.btnRestart.clicked.connect(objKiwoom.onBtnRestartClicked)
+
+    ui.btnYupjong.clicked.connect(objKiwoom.onBtnYupjongClicked)
+    ui.btnJango.clicked.connect(objKiwoom.onBtnJangoClicked)
+    ui.btnChegyeol.clicked.connect(objKiwoom.onBtnChegyeolClicked)
+    ui.btnCondition.clicked.connect(objKiwoom.onBtnConditionClicked)
+
     ui.lineCmd.textChanged.connect(objKiwoom.onLineCmdTextChanged)
+    ui.btnRun.clicked.connect(objKiwoom.onBtnRunClicked)
 
     form.show()
 

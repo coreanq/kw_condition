@@ -36,16 +36,16 @@
     <item row="1" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
-       <widget class="QPushButton" name="btnCondition">
+       <widget class="QPushButton" name="btnYupjong">
         <property name="text">
-         <string>조건진입리스트</string>
+         <string>정보요청(업종)</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="btnChegyeol">
+       <widget class="QPushButton" name="btnCondition">
         <property name="text">
-         <string>정보요청(체결)</string>
+         <string>조건진입리스트</string>
         </property>
        </widget>
       </item>
@@ -57,6 +57,13 @@
        <widget class="QPushButton" name="btnJango">
         <property name="text">
          <string>정보요청(잔고)</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnChegyeol">
+        <property name="text">
+         <string>정보요청(체결)</string>
         </property>
        </widget>
       </item>
