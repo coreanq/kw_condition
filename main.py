@@ -28,7 +28,7 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE =  1.0
+STOP_PLUS_VALUE =  1.5
 STOP_LOSS_VALUE = 1.5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
@@ -507,7 +507,36 @@ class KiwoomConditon(QObject):
             print(util.whoami() )
             QTimer.singleShot(10000, self.sigConditionOccur)
             return
+        else:
+            self.sigRequestYupjongInfo.emit()
 
+    @pyqtSlot()
+    def requestYupjong5minInfoProcessBuyStateEntered(self):
+        # print(util.whoami())
+        if( '5분 0봉전' not in self.yupjongInfo['코스피']):
+            self.requestOpt20005('001')
+            return
+        elif ( '5분 0봉전' not in self.yupjongInfo['코스닥']):
+            self.requestOpt20005('101')
+            return
+
+        time_span = datetime.timedelta(minutes = 5)
+
+        chegyeol_index = kw_util.dict_jusik['TR:업종분봉'].index('체결시간')
+        chegyeol_time_str = self.yupjongInfo['코스피']['5분 0봉전'][chegyeol_index]   #20170502140359 
+        target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
+        
+        if( datetime.datetime.now() > target_time ):
+            self.requestOpt20005('001')
+            return
+
+        chegyeol_time_str = self.yupjongInfo['코스닥']['5분 0봉전'][chegyeol_index]   #20170502140359 
+        target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
+
+        if( datetime.datetime.now() > target_time ):
+            self.requestOpt20005('101')
+            return
+        
         for jongmok_code in self.conditionRevemoList:
             self.removeConditionOccurList(jongmok_code)
         self.conditionRevemoList.clear()
@@ -519,36 +548,13 @@ class KiwoomConditon(QObject):
         if( jongmok_info ):
             self.sigRequestInfo.emit()
             print(util.whoami() , jongmok_info['종목명'], jongmok_info['종목코드'])
-        pass
-
-    @pyqtSlot()
-    def requestYupjong5minInfoProcessBuyStateEntered(self):
-        print(util.whoami())
-        if( '5분 0봉전' not in self.yupjongInfo['코스피'] or '5분 0봉전' not in self.yupjongInfo['코스닥']):
+        else:
             self.sigError.emit()
-            return
-
-        time_span = datetime.timedelta(minutes = 5)
-
-        chegyeol_time_str = self.yupjongInfo['코스피']['5분 0봉전']['체결시간']   #140359 
-        target_time = datetime.datetime.strptime(chegyeol_time_str, "%H%M%S") + time_span
-        
-        if( datetime.datetime.now() > target_time ):
-            self.requestOpt20005('001')
-            return
-
-        chegyeol_time_str = self.yupjongInfo['코스닥']['5분 0봉전']['체결시간']   #140359 
-        target_time = datetime.datetime.strptime(chegyeol_time_str, "%H%M%S") + time_span
-
-        if( datetime.datetime.now() > target_time ):
-            self.requestOpt20005('101')
-            return
-        self.sigrequestInfo.emit()
         pass
 
     @pyqtSlot()
     def request5minInfoProcessBuyStateEntered(self):
-        # print(util.whoami() )
+        print(util.whoami() )
         jongmok_info_dict = self.getConditionOccurList()   
 
         if( not jongmok_info_dict ):
@@ -1114,7 +1120,7 @@ class KiwoomConditon(QObject):
 
     # 업종 분봉 tr 요청 
     def requestOpt20005(self, yupjong_code):
-        self.setInputValue("종목코드", yupjong_code )
+        self.setInputValue("업종코드", yupjong_code )
         self.setInputValue("틱범위","5:5분") 
         self.setInputValue("수정주가구분","0") 
         ret = 0
@@ -1133,7 +1139,12 @@ class KiwoomConditon(QObject):
 
     # 업종 분봉 데이터 생성 
     def makeOpt20005Info(self, rQName):
-        yupjong_info_dict = self.yupjongInfo[rQName]
+        if( rQName == '001'):
+            yupjong_info_dict = self.yupjongInfo['코스피']
+        elif( rQName == '101'):
+            yupjong_info_dict = self.yupjongInfo['코스닥']
+        else:
+            return
 
         repeatCnt = self.getRepeatCnt("opt20005", rQName)
 
@@ -1143,17 +1154,19 @@ class KiwoomConditon(QObject):
             line = []
             for item_name in kw_util.dict_jusik['TR:업종분봉']:
                 result = self.getCommData("opt20005", rQName, i, item_name)
-                if( item_name == "현재가"):
+                if( item_name == "현재가" ):
+                    current_price = abs(int(result)) / 100
                     if( i < 5 ):
-                        fivebong_sum += abs(int(result))
-                        pass
-                    twentybong_sum += abs(int(result))
-                line.append(result.strip())
+                        fivebong_sum += current_price
+                    twentybong_sum += current_price  
+                    line.append(str(current_price))
+                else:
+                    line.append(result.strip())
             key_value = '5분 {0}봉전'.format(i)
             yupjong_info_dict[key_value] = line
         
-        yupjong_info_dict['20봉평균'] = str(int(twentybong_sum / 20))
-        yupjong_info_dict['5봉평균'] = str(int(fivebong_sum / 5))
+        yupjong_info_dict['20봉평균'] = str(round(twentybong_sum / 20, 2))
+        yupjong_info_dict['5봉평균'] = str(round(fivebong_sum / 5, 2))
         return True
 
     # 주식 잔고 정보 #rQName 의 경우 계좌 번호로 넘겨줌
