@@ -508,7 +508,8 @@ class KiwoomConditon(QObject):
             QTimer.singleShot(10000, self.sigConditionOccur)
             return
         else:
-            self.sigRequestYupjongInfo.emit()
+            # 무한으로 시그널 발생 방지를 위해 딜레이 줌
+            QTimer.singleShot(100, self.sigRequestYupjongInfo)
 
     @pyqtSlot()
     def requestYupjong5minInfoProcessBuyStateEntered(self):
@@ -554,7 +555,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def request5minInfoProcessBuyStateEntered(self):
-        print(util.whoami() )
+        # print(util.whoami() )
         jongmok_info_dict = self.getConditionOccurList()   
 
         if( not jongmok_info_dict ):
@@ -565,18 +566,18 @@ class KiwoomConditon(QObject):
         code = jongmok_info_dict['종목코드']
         # 아직 실시간 정보를 못받아온 상태라면 
         # 체결 정보 받는데 시간 걸리므로 다른 종목 폴링 
-        # 혹은 집입했닥 아틸하면 데이터 삭제 하므로 실시간 정보가 없을수도 있다. 
+        # 혹은 집입했닥 이탈하면 데이터 삭제 하므로 실시간 정보가 없을수도 있다. 
         if( '매도호가1' not in jongmok_info_dict or '등락율' not in jongmok_info_dict ):
             self.shuffleConditionOccurList()
             if( '매도호가1' not in jongmok_info_dict ):
                 print('매도호가1 not in {0}'.format(code))
             else:
                 print('등락율 not in {0}'.format(code))
-            QTimer.singleShot(500, self.sigError)
+            self.sigError.emit()
             return
 
         if( self.requestOpt10080(code) == False ):
-            QTimer.singleShot(500, self.sigError)
+            self.sigError.emit()
 
         pass
 
@@ -724,7 +725,7 @@ class KiwoomConditon(QObject):
         # 업종 이동 평균선 조건 판단 
         if( jongmokCode in  self.kospiCodeList):
             yupjong_name = '코스피'
-            twentybong_avr = float(self.yupjong_info[yupjong_name]['20봉평균'])
+            twentybong_avr = float(self.yupjongInfo[yupjong_name]['20봉평균'])
             fivebong_avr = float(self.yupjongInfo[yupjong_name]['5봉평균'])
             if( fivebong_avr > twentybong_avr ):
                 printLog +='({0}이평조건충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
@@ -734,7 +735,7 @@ class KiwoomConditon(QObject):
             pass
         else: 
             yupjong_name = '코스닥'
-            twentybong_avr = float(self.yupjong_info[yupjong_name]['20봉평균'])
+            twentybong_avr = float(self.yupjongInfo[yupjong_name]['20봉평균'])
             fivebong_avr = float(self.yupjongInfo[yupjong_name]['5봉평균'])
             if( fivebong_avr > twentybong_avr ):
                 printLog +='({0}이평조건충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
@@ -793,13 +794,13 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 업종 등락율을 살펴서 보합 상승을 제외 - 면 사지 않음 :
         # if( jongmokCode in  self.kospiCodeList):
-        #     updown_percentage = float(self.yupjong_info['코스피'].get('등락율', -99) )
+        #     updown_percentage = float(self.yupjongInfo['코스피'].get('등락율', -99) )
         #     if( updown_percentage < -0.2 ) :
         #         printLog +='(코스피등락율미충족: 등락율 {0})'.format(updown_percentage)
         #         return_vals.append(False)
         #     pass
         # else: 
-        #     updown_percentage = float(self.yupjong_info['코스닥'].get('등락율', -99) )
+        #     updown_percentage = float(self.yupjongInfo['코스닥'].get('등락율', -99) )
         #     if( updown_percentage < -0.2 ) :
         #         printLog +='(코스닥등락율미충족: 등락율 {0})'.format(updown_percentage)
         #         return_vals.append(False)
@@ -1427,8 +1428,8 @@ class KiwoomConditon(QObject):
             pass
         
         elif( realType == "업종지수" ):
-            print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
-                .format(jongmokCode, realType, realData))
+            # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
+            #     .format(jongmokCode, realType, realData))
             result = '' 
             for col_name in kw_util.dict_jusik['실시간-업종지수']:
                 result = self.getCommRealData(jongmokCode, kw_util.name_fid[col_name] ) 
@@ -1836,8 +1837,8 @@ class KiwoomConditon(QObject):
     # strConditionName : 조건명
     # strConditionIndex : 조건명 인덱스
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
-        # print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
-        # .format(code, type, conditionName, conditionIndex ))
+        print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
+        .format(code, type, conditionName, conditionIndex ))
         if type == 'I':
             self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
         else:
