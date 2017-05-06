@@ -29,7 +29,7 @@ TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가�
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE =  1.5
-STOP_LOSS_VALUE = 3.5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_LOSS_VALUE = 1.5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 
@@ -1525,7 +1525,28 @@ class KiwoomConditon(QObject):
         if( '손절가' not in current_jango or '매수호가1' not in current_jango):
             return
 
-        stop_loss = int(current_jango['손절가'])
+        stop_loss = 0
+        twenty_avr = 0
+        five_avr = 0
+        if( '20봉평균' in self.yupjongInfo['코스피'] and
+            '5봉평균' in self.yupjongInfo['코스피'] and 
+            '20봉평균' in self.yupjongInfo['코스닥'] and
+            '5봉평균' in self.yupjongInfo['코스닥']  
+        ):
+            if( jongmokCode in self.kospiCodeList):
+                twenty_avr = abs(float(self.yupjongInfo['코스피']['20봉평균']))
+                five_avr = abs(float(self.yupjongInfo['코스피']['5봉평균']))
+            else:
+                twenty_avr = abs(float(self.yupjongInfo['코스닥']['20봉평균']))
+                five_avr = abs(float(self.yupjongInfo['코스닥']['5봉평균']))
+
+            if( twenty_avr < five_avr ):
+                stop_loss = int(current_jango['손절가']) * 3
+            else: 
+                stop_loss = int(current_jango['손절가']) 
+
+        else:
+            stop_loss = int(current_jango['손절가'])
         stop_plus = int(current_jango['이익실현가'])
         maeipga = int(current_jango['매입가'])
 
