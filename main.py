@@ -711,7 +711,10 @@ class KiwoomConditon(QObject):
             twentybong_avr > fivebong_avr and
             maedoHoga1 < twentybong_avr 
         ):
-            printLog += '(이평 충족: 20: {0}, 5: {1})'.format( twentybong_avr, fivebong_avr )
+            printLog += '(이평 충족: 20봉평균: {0}, 5봉평균: {1})'.format( twentybong_avr, fivebong_avr )
+            for i in range(20):
+                key_value = '5분 {0}봉전'.format(i)
+                printLog += key_value + ': ' + jongmok_info_dict[key_value] + '\n'
             is_avr = True 
             pass
         else:
@@ -908,6 +911,9 @@ class KiwoomConditon(QObject):
     def finalStateEntered(self):
         print(util.whoami())
         self.makeJangoInfoFile()
+        util.save_log('', subject= None, floder='log')
+        util.save_log('', subject= None, floder='log')
+        util.save_log('', subject= None, floder='log')
         sys.exit()
         pass
 
@@ -1541,7 +1547,7 @@ class KiwoomConditon(QObject):
                 five_avr = abs(float(self.yupjongInfo['코스닥']['5봉평균']))
 
             if( twenty_avr < five_avr ):
-                stop_loss = int(current_jango['손절가']) * 3
+                stop_loss = int(current_jango['매입가']) * (1 - ((STOP_LOSS_VALUE * 3  - SLIPPAGE) / 100) )
             else: 
                 stop_loss = int(current_jango['손절가']) 
 
