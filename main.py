@@ -714,7 +714,7 @@ class KiwoomConditon(QObject):
             printLog += '(이평 충족: 20봉평균: {0}, 5봉평균: {1})'.format( twentybong_avr, fivebong_avr )
             for i in range(20):
                 key_value = '5분 {0}봉전'.format(i)
-                printLog += key_value + ': ' + jongmok_info_dict[key_value] + '\n'
+                printLog += key_value + ': ' + '/'.join(jongmok_info_dict[key_value]) + '\n'
             is_avr = True 
             pass
         else:
@@ -911,9 +911,9 @@ class KiwoomConditon(QObject):
     def finalStateEntered(self):
         print(util.whoami())
         self.makeJangoInfoFile()
-        util.save_log('', subject= None, floder='log')
-        util.save_log('', subject= None, floder='log')
-        util.save_log('', subject= None, floder='log')
+        util.save_log('', subject= None, folder='log')
+        util.save_log('', subject= None, folder='log')
+        util.save_log('', subject= None, folder='log')
         sys.exit()
         pass
 
