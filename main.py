@@ -28,13 +28,13 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE =  1.5
-STOP_LOSS_VALUE = 1.5 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_PLUS_VALUE =  5 
+STOP_LOSS_VALUE = 15 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 0.5 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-CHUMAE_LIMIT = 2 # 추가 매수 제한 
+CHUMAE_LIMIT = 3 # 추가 매수 제한 
 
 ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
@@ -751,14 +751,14 @@ class KiwoomConditon(QObject):
         # 5분 0봉전 시간과 체결시간 비교하여 5분 초과한경우만 매수 (동일 5분봉에서 추가 매수 금지 하기 위함)
         if( jongmokCode in self.jangoInfo):
             chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'] #20170411151000
-            time_span = datetime.timedelta(minutes = 30 )
+            time_span = datetime.timedelta(minutes = 420 )
             
             if( chegyeol_time_str != ''):
                 target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
                 if( datetime.datetime.now() > target_time ):
                     pass
                 else:
-                    printLog += '(30분내 추가매수 발생)'
+                    printLog += '(추가매수금지)'
                     return_vals.append(False)
 
         ##########################################################################################################
@@ -911,9 +911,9 @@ class KiwoomConditon(QObject):
     def finalStateEntered(self):
         print(util.whoami())
         self.makeJangoInfoFile()
-        util.save_log('', subject= None, folder='log')
-        util.save_log('', subject= None, folder='log')
-        util.save_log('', subject= None, folder='log')
+        util.save_log('', subject= '', folder='log')
+        util.save_log('', subject= '', folder='log')
+        util.save_log('', subject= '', folder='log')
         sys.exit()
         pass
 
@@ -1546,11 +1546,7 @@ class KiwoomConditon(QObject):
                 twenty_avr = abs(float(self.yupjongInfo['코스닥']['20봉평균']))
                 five_avr = abs(float(self.yupjongInfo['코스닥']['5봉평균']))
 
-            if( twenty_avr < five_avr ):
-                stop_loss = int(current_jango['매입가']) * (1 - ((STOP_LOSS_VALUE * 3  - SLIPPAGE) / 100) )
-            else: 
                 stop_loss = int(current_jango['손절가']) 
-
         else:
             stop_loss = int(current_jango['손절가'])
         stop_plus = int(current_jango['이익실현가'])
