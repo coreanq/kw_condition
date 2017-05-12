@@ -17,7 +17,7 @@ AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 19] ] ] #해당 시스템 동작 
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 5분전으로 입력해야함 
 # auto_trading_operation_time 이전값을 잡아야 함 
-DAY_TRADING_ENABLE = True
+DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 10] 
 
 TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시작하는 시간
@@ -1291,8 +1291,8 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
-        .format(scrNo, rQName, trCode))
+        # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
+        # .format(scrNo, rQName, trCode))
 
         # rQName 은 계좌번호임 
         if ( trCode == 'opw00018' ):
@@ -1516,7 +1516,7 @@ class KiwoomConditon(QObject):
             return
         
         # 예외 처리 리스트이면 종료 
-        if( jongmokCode in EXCEPTION_LIST ):
+        if( jongmokCode in EXCEPTION_LIST or jongmokCode in ETF_LIST):
             return
 
         # 잔고에 없는 종목이면 종료 
@@ -1546,7 +1546,7 @@ class KiwoomConditon(QObject):
                 twenty_avr = abs(float(self.yupjongInfo['코스닥']['20봉평균']))
                 five_avr = abs(float(self.yupjongInfo['코스닥']['5봉평균']))
 
-                stop_loss = int(current_jango['손절가']) 
+            stop_loss = int(current_jango['손절가']) 
         else:
             stop_loss = int(current_jango['손절가'])
         stop_plus = int(current_jango['이익실현가'])
@@ -1589,7 +1589,7 @@ class KiwoomConditon(QObject):
 
         #########################################################################################
         # day trading 용 
-        if( jongmokCode in ETF_LIST and DAY_TRADING_ENABLE == True ):
+        if( DAY_TRADING_ENABLE == True ):
             # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
             time_span = datetime.timedelta(minutes = 10 )
             dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
@@ -1597,7 +1597,7 @@ class KiwoomConditon(QObject):
             current_time = datetime.datetime.now()
             if( datetime.time(*DAY_TRADING_END_TIME) <  current_time.time() and dst_time > current_time ):
                 # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
-                # stop_loss = 0  
+                stop_loss = 0  
                 pass
 
         # 손절 / 익절 계산 
