@@ -913,6 +913,12 @@ class KiwoomConditon(QObject):
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
+        util.save_log('', subject= '', folder='log')
+        util.save_log('', subject= '', folder='log')
+        util.save_log('', subject= '', folder='log')
+        util.save_log('', subject= '', folder='log')
+        util.save_log('', subject= '', folder='log')
+        util.save_log('', subject= '', folder='log')
         sys.exit()
         pass
 
