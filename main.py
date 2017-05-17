@@ -1128,7 +1128,10 @@ class KiwoomConditon(QObject):
         
         rsi_up_avg = rsi_up_sum / 14
         rsi_down_avg = rsi_down_sum / 14
-        rsi_value = round(rsi_up_avg / ( rsi_up_avg + rsi_down_avg ) * 100 , 1)
+        if( rsi_up_avg !=0 and rsi_down_avg != 0 ):
+            rsi_value = round(rsi_up_avg / ( rsi_up_avg + rsi_down_avg ) * 100 , 1)
+        else:
+            rsi_value = 100
         jongmok_info_dict['RSI14'] = str(rsi_value)
         # print(util.whoami(), jongmok_info_dict['종목코드'], 'rsi_value: ',  jongmok_info_dict['RSI14'])
         return True
@@ -1791,6 +1794,7 @@ class KiwoomConditon(QObject):
         info = [] 
 
         nFid = kw_util.name_fid['매도매수구분']
+        # 1, 2 컬럼의 수익과 수익율 필드 채움 
         if( str(nFid) in fids):
             result = self.getChejanData(nFid).strip()
             if( int(result) == 1): #매도
