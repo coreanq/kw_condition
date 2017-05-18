@@ -28,8 +28,8 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE =  4 
-STOP_LOSS_VALUE = 8 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_PLUS_VALUE =  6 
+STOP_LOSS_VALUE = 12 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
 
 SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 
@@ -755,7 +755,7 @@ class KiwoomConditon(QObject):
         #  추가 매수 횟수 제한   
         maesu_count = 0
         if( jongmokCode in self.jangoInfo):
-            maesu_count = int(self.jangoInfo[jongmokCode]['매수횟수'])
+            maesu_count = self.jangoInfo[jongmokCode]['매수횟수']
         if( maesu_count + 1 <= MAESU_LIMIT ):
             printLog += '(이전매수횟수 {0})'.format(maesu_count)
             pass
@@ -1698,11 +1698,11 @@ class KiwoomConditon(QObject):
 
                 if( jongmok_code not in self.jangoInfo):
                     self.jangoInfo[jongmok_code] = current_jango 
-                    self.jangoInfo[jongmok_code]['매수횟수'] = '1' 
+                    self.jangoInfo[jongmok_code]['매수횟수'] = 1 
                 else:
-                    chumae_count = int(self.jangoInfo[jongmok_code]['매수횟수'])
+                    chumae_count = self.jangoInfo[jongmok_code]['매수횟수']
                     chumae_count = chumae_count + 1 
-                    current_jango['매수횟수'] = str(chumae_count)
+                    current_jango['매수횟수'] = chumae_count
                     self.jangoInfo[jongmok_code].update(current_jango)
 
 
@@ -1740,12 +1740,12 @@ class KiwoomConditon(QObject):
 
             if( '매수횟수' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
-                    current_jango['매수횟수'] = self.jangoInfoFromFile[jongmok_code].get('매수횟수', '1')
+                    current_jango['매수횟수'] = self.jangoInfoFromFile[jongmok_code].get('매수횟수', 1)
                 else:
-                    current_jango['매수횟수']  = '1'
+                    current_jango['매수횟수']  = 1
                     pass
 
-            maesu_count = int(current_jango['매수횟수'])
+            maesu_count = current_jango['매수횟수']
             # 손절가 다시 계산 
             if( jongmok_code not in ETF_LIST ):
                 current_jango['손절가'] = round( maeip_price *  (1 - ((STOP_LOSS_VALUE - SLIPPAGE) / 100) ) , 2 )
