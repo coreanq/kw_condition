@@ -28,13 +28,14 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE =  6 
+STOP_PLUS_VALUE =  8 
 STOP_LOSS_VALUE = 12 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
+STOP_LOSS_MIN = 3
 
 SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-MAESU_LIMIT = 4 # 추가 매수 제한 
+MAESU_LIMIT = 5 # 추가 매수 제한 
 
 ETF_BUY_QTY = 1
 # 장기 보유 종목 번호 리스트 
@@ -1748,8 +1749,10 @@ class KiwoomConditon(QObject):
             maesu_count = current_jango['매수횟수']
             # 손절가 다시 계산 
             if( jongmok_code not in ETF_LIST ):
-                current_jango['손절가'] = round( maeip_price *  (1 - ((STOP_LOSS_VALUE - SLIPPAGE) / 100) ) , 2 )
-                current_jango['이익실현가'] = round( maeip_price *  (1 + ((STOP_PLUS_VALUE / (2 ** (maesu_count - 1)) ) + SLIPPAGE) / 100) , 2 )
+                stop_loss_value = max(STOP_LOSS_VALUE / ( 2 ** ( maesu_count -1 ) ), STOP_LOSS_MIN )
+                stop_plus_value = STOP_PLUS_VALUE / (2 ** (maesu_count - 1))
+                current_jango['손절가'] =     round( maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
+                current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
             else:
                 current_jango['손절가'] = 1 
                 current_jango['이익실현가'] = 99999999 
