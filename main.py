@@ -30,7 +30,7 @@ TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가�
 #익절 계산하기 위해서 slippage 추가하며 이를 계산함  
 STOP_PLUS_VALUE =  8 
 STOP_LOSS_VALUE = 12 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
-STOP_LOSS_MIN = 3
+STOP_LOSS_MIN = 6
 
 SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 
@@ -1042,7 +1042,7 @@ class KiwoomConditon(QObject):
         datetime_str = datetime.datetime.now().strftime('%Y%m%d')
         self.setInputValue("종목코드", jongmokCode)
         self.setInputValue("기준일자", datetime_str)    
-        self.setInputValue('수정주가구분', '0')
+        self.setInputValue('수정주가구분', '1')
         ret = self.commRqData(jongmokCode, "opt10081", 0, kw_util.sendJusikGibonScreenNo) 
         errorString = None
         if( ret != 0 ):
@@ -1057,7 +1057,7 @@ class KiwoomConditon(QObject):
      # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
         self.setInputValue("종목코드", jongmokCode )
         self.setInputValue("틱범위","5:5분") 
-        self.setInputValue("수정주가구분","0") 
+        self.setInputValue("수정주가구분","1") 
         # rQName 을 데이터로 외부에서 사용
         ret = self.commRqData(jongmokCode , "opt10080", 0, kw_util.sendminTrScreenNo) 
         
@@ -1141,7 +1141,7 @@ class KiwoomConditon(QObject):
     def requestOpt20005(self, yupjong_code):
         self.setInputValue("업종코드", yupjong_code )
         self.setInputValue("틱범위","5:5분") 
-        self.setInputValue("수정주가구분","0") 
+        self.setInputValue("수정주가구분","1") 
         ret = 0
         if( yupjong_code == '001'):
             ret = self.commRqData(yupjong_code , "opt20005", 0, kw_util.sendReqYupjongKospiScreenNo) 
