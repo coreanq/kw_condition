@@ -1784,8 +1784,13 @@ class KiwoomConditon(QObject):
             if( jongmok_code not in ETF_LIST ):
                 stop_loss_value = max(STOP_LOSS_VALUE / ( 2 ** ( maesu_count -1 ) ), STOP_LOSS_MIN )
                 stop_plus_value = STOP_PLUS_VALUE / (2 ** (maesu_count - 1))
-                current_jango['손절가'] =     round( maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
-                current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
+                # 5번째 까지는 무조건 버팀 
+                if( maesu_count < MAESU_LIMIT):
+                    current_jango['손절가'] =   1
+                    current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
+                else:
+                    current_jango['손절가'] =     round( maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
+                    current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
             else:
                 current_jango['손절가'] = 1 
                 current_jango['이익실현가'] = 99999999 
