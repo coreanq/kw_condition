@@ -15,7 +15,6 @@ sendRealRegTradeStartScrNo = '005'
 sendRealRegSiseSrcNo = "006"
 
 
-sendminTrScreenNo = "100"
 sendOrderScreenNo = "101"
 
 sendOrderETFScreenNo = "201"
@@ -24,9 +23,10 @@ sendOrderETFPairScreenNo = "202"
 sendReqYupjongKospiScreenNo = "102"
 sendReqYupjongKosdaqScreenNo = "103"
 
-sendJusikGibonScreenNo = "104"
-sendJusikHogaScreenNo = "105"
-sendJusikAccountInfoScreenNo = '106'
+sendGibonScreenNo = "104"
+send5minScreenNo = "105"
+sendHogaScreenNo = "106"
+sendAccountInfoScreenNo = '107'
 
 
 
@@ -72,6 +72,9 @@ dict_jusik = {
     ),
     "TR:일봉": (
         "현재가", "거래량", "시가", "고가", "저가", '일자'
+    ),
+    "TR:기본정보": (
+        "상한가", "하한가", "기준가"
     ),
 
     "실시간-주식체결":(
