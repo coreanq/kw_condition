@@ -40,11 +40,16 @@ STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST) + 2 # etf +2
 
 ETF_BUY_QTY = 1
 
-# 장기 보유 종목 번호 리스트 
+# etf 종목 리스트로 실시간 조건 검색 리스트에 걸리는 경우 포함하지 않도록 하기 위해 리스팅 필요 
 ETF_LIST = {
     '114800': "kodex 인버스",
-    '069500': "kodex 200"
+    '069500': "kodex 200",
+    '122630': "kodex 레버리지",
+    '123320': "tiger 레버리지",
+    '233160': "tiger 코스닥150 레버리지",
+    '233740': "kodex 코스닥 레버리지"
 }
+# etf 실제 거래 종목 리스트
 ETF_PAIR_LIST = {
     '114800':'069500',
     '069500':'114800'
@@ -1904,6 +1909,8 @@ class KiwoomConditon(QObject):
         codes = codeList.split(';')[:-1]
         # 마지막 split 결과 None 이므로 삭제 
         for code in codes:
+            if( code in ETF_LIST):
+                continue
             print('condition occur list add code: {} '.format(code) + self.getMasterCodeName(code))
             self.addConditionOccurList(code)
 
@@ -1915,6 +1922,8 @@ class KiwoomConditon(QObject):
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
         print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
         .format(code, type, conditionName, conditionIndex ))
+        if( code in ETF_LIST):
+            return
         if type == 'I':
             self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
         else:
