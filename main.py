@@ -15,13 +15,12 @@ TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AM
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
 AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 19] ] ] #해당 시스템 동작 시간 설정
 
-# DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 5분전으로 입력해야함 
+# DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 이전으로 입력해야함 
 # auto_trading_operation_time 이전값을 잡아야 함 
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 10] 
 
 TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시작하는 시간
-STOP_LOSS_VALUE_DAY_RANGE = 4 # stoploss 의 값은 stop_loss_value_day_range 중 저가로 계산됨 ex) 10이면 10일중 저가 
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
@@ -35,6 +34,7 @@ SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수�
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 MAESU_LIMIT = 5 # 추가 매수 제한 
+
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST) + 2 # etf +2 
 
