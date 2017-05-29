@@ -655,6 +655,7 @@ class KiwoomConditon(QObject):
         # 호가 잔량이 살만큼 있는 경우  
         totalAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
         if( totalAmount >= TOTAL_BUY_AMOUNT):
+            printLog += '(호가수량충족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
             pass 
         else:
             printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
@@ -698,14 +699,13 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 14 rsi 조건  판단  
-        is_rsi = False
-        rsi_14 = int( float(jongmok_info_dict['RSI14']) )
-        if( rsi_14 < 45):
-            printLog += '(rsi 충족: {0})'.format( rsi_14 )
-            pass
-        else:
-            printLog += '(rsi 미충족: {0})'.format( rsi_14 )
-            return_vals.append(False)
+        # rsi_14 = int( float(jongmok_info_dict['RSI14']) )
+        # if( rsi_14 < 45):
+        #     printLog += '(rsi 충족: {0})'.format( rsi_14 )
+        #     pass
+        # else:
+        #     printLog += '(rsi 미충족: {0})'.format( rsi_14 )
+        #     return_vals.append(False)
 
         ##########################################################################################################
         # 개별 주식 이동평균선 조건 판단  
@@ -717,15 +717,12 @@ class KiwoomConditon(QObject):
         ):
             printLog += '(이평 충족: 매도호가1 {0}, 200봉평균: {1}, 20봉 평균: {2}, 5봉평균: {3})'\
                 .format( maedoHoga1, twohundred_avr, twentybong_avr, fivebong_avr )
-            is_avr = True 
             pass
         else:
             printLog += '(이평 미충족: 매도호가1 {0}, 200봉평균: {1}, 20봉 평균: {2}, 5봉평균: {3})'\
                 .format( maedoHoga1, twohundred_avr, twentybong_avr, fivebong_avr )
             return_vals.append(False)
         
-        if( is_rsi and is_avr ):
-            is_log_print_enable = True
 
         ##########################################################################################################
         # 업종 이동 평균선 조건 상승일때 매수  
@@ -932,6 +929,8 @@ class KiwoomConditon(QObject):
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
+        import subprocess
+        subprocess.call(["shutdown", "/r", "/t", "500"])
         sys.exit()
         pass
 
