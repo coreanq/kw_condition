@@ -36,9 +36,9 @@ TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜
 MAESU_LIMIT = 5 # 추가 매수 제한 
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST) + 2 # etf +2 
+STOCK_POSSESION_COUNT = 15 + len(EXCEPTION_LIST) + 2 # etf +2 
 
-ETF_BUY_QTY = 1
+ETF_BUY_QTY = 5
 
 # etf 종목 리스트로 실시간 조건 검색 리스트에 걸리는 경우 포함하지 않도록 하기 위해 리스팅 필요 
 ETF_LIST = {
@@ -930,7 +930,7 @@ class KiwoomConditon(QObject):
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
         import subprocess
-        subprocess.call(["shutdown", "/r", "/t", "500"])
+        subprocess.call(["shutdown", "-s", "-t", "500"])
         sys.exit()
         pass
 
