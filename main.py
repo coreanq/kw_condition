@@ -1516,21 +1516,9 @@ class KiwoomConditon(QObject):
         maeip_price = abs(int(current_jango['매입가']))
         boyou_suryang = int(current_jango['보유수량'])
 
-        maeip_commission = maeip_price * boyou_suryang * 0.00015 # 매입시 증권사 수수료 
-        current_commission = 0
-        #etf 는 제세금이 없으므로 
-        if( jongmok_code not in ETF_LIST ):
-            maeip_commission = maeip_price * boyou_suryang * 0.00015 # 매입시 증권사 수수료 
-            current_commission = current_price * boyou_suryang * 0.00315 # 매도시 증권사 수수료 + 제세금 
-        else:
-            #TODO: for test 나중에 증권사 수수료 적용해야함 
-            maeip_commission = 0  
-            current_commission = 0 
-            # current_commission = current_price * boyou_suryang * 0.00015 # 매도시 증권사 수수료 
-
-        suik_price = round( (current_price - maeip_price) * boyou_suryang - maeip_commission - current_commission , 2)
+        suik_price = round( current_price - maeip_price , 2)
         current_jango['수익'] = suik_price 
-        current_jango['수익율'] = round( (suik_price  / (maeip_price * boyou_suryang)) * 100 , 2) 
+        current_jango['수익율'] = round( ( suik_price  / maeip_price ) * 100 , 2) 
         pass
 
     # 실시간 호가 잔량 정보         
