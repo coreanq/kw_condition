@@ -1459,7 +1459,7 @@ class KiwoomConditon(QObject):
                     # WARNING: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
                     if( self.isTradeAvailable() == True ):
                         if( jongmokCode == '114800' or jongmokCode == '069500'):
-                            if( profit >= 40 ):
+                            if( profit >= 45 ):
                                 normal_price = self.jangoInfo['069500']['매수호가1']
                                 inverse_price = self.jangoInfo['114800']['매수호가1']
                                 self.sell_etf(type = 'normal', normal_price = normal_price, inverse_price = inverse_price)
