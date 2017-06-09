@@ -1426,7 +1426,7 @@ class KiwoomConditon(QObject):
 
             profit = jongmok_suik + pair_jongmok_suik
 
-            if( profit  >= 20):
+            if( profit  >= 20 * ETF_BUY_QTY):
                 compare_result = ''
                 jongmokMaesuHogaAmount1 = int(self.jangoInfo[jongmokCode]['매수호가수량1'])
                 jongmokMaesuHogaAmount2 = int(self.jangoInfo[jongmokCode]['매수호가수량2'])
@@ -1459,7 +1459,7 @@ class KiwoomConditon(QObject):
                     # WARNING: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
                     if( self.isTradeAvailable() == True ):
                         if( jongmokCode == '114800' or jongmokCode == '069500'):
-                            if( profit >= 45 ):
+                            if( profit >= 45 * ETF_BUY_QTY):
                                 normal_price = self.jangoInfo['069500']['매수호가1']
                                 inverse_price = self.jangoInfo['114800']['매수호가1']
                                 self.sell_etf(type = 'normal', normal_price = normal_price, inverse_price = inverse_price)
@@ -1516,7 +1516,7 @@ class KiwoomConditon(QObject):
         maeip_price = abs(int(current_jango['매입가']))
         boyou_suryang = int(current_jango['보유수량'])
 
-        suik_price = round( current_price - maeip_price , 2)
+        suik_price = round( (current_price - maeip_price) * boyou_suryang , 2)
         current_jango['수익'] = suik_price 
         current_jango['수익율'] = round( ( suik_price  / maeip_price ) * 100 , 2) 
         pass
