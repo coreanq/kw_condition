@@ -26,14 +26,13 @@ CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 �
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
-#익절 계산하기 위해서 slippage 추가하며 이를 계산함  
-STOP_PLUS_VALUE =  8 
-STOP_LOSS_VALUE = 12 # 매도시  같은 값을 사용하는데 손절 잡기 위해서 슬리피지 포함아여 적용 
-STOP_LOSS_MIN = 6
+MAESU_LIMIT = 5 # 추가 매수 제한 
 SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
+# 추가 매수 진행시마도 stoploss 및 stopplus 퍼센티지 변경 최대 6
+STOP_PLUS_PER_MAESU_COUNT = [ 8,  4,  2,  2,  2,  2]
+STOP_LOSS_PER_MAESU_COUNT = [99, 99, 99, 99,  6,  6]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-MAESU_LIMIT = 5 # 추가 매수 제한 
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 15 + len(EXCEPTION_LIST) + 2 # etf +2 
@@ -1774,15 +1773,11 @@ class KiwoomConditon(QObject):
             maesu_count = current_jango['매수횟수']
             # 손절가 다시 계산 
             if( jongmok_code not in ETF_LIST ):
-                stop_loss_value = max(STOP_LOSS_VALUE / ( 2 ** ( maesu_count -1 ) ), STOP_LOSS_MIN )
-                stop_plus_value = STOP_PLUS_VALUE / (2 ** (maesu_count - 1))
-                # 5번째 까지는 무조건 버팀 
-                if( maesu_count < MAESU_LIMIT):
-                    current_jango['손절가'] =   1
-                    current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
-                else:
-                    current_jango['손절가'] =     round( maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
-                    current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
+                stop_loss_value = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
+                stop_plus_value = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
+
+                current_jango['손절가'] =     round( maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
+                current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
             else:
                 current_jango['손절가'] = 1 
                 current_jango['이익실현가'] = 99999999 
