@@ -46,7 +46,8 @@ ETF_LIST = {
     '122630': "kodex 레버리지",
     '123320': "tiger 레버리지",
     '233160': "tiger 코스닥150 레버리지",
-    '233740': "kodex 코스닥 레버리지"
+    '233740': "kodex 코스닥 레버리지",
+    '204480': "tiger 차이나"
 }
 # etf 실제 거래 종목 리스트
 ETF_PAIR_LIST = {
@@ -265,7 +266,11 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def onBtnConditionClicked(self):
         items = self.getCodeListConditionOccurList()
-        print(items)
+        count = 0
+
+        for item in items:
+            count += 1
+            print( str(count) + " " + item + ': ' + self.getMasterCodeName(item) )
         pass
     
     @pyqtSlot(str)
