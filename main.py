@@ -23,15 +23,16 @@ DAY_TRADING_END_TIME = [15, 10]
 TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시작하는 시간
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
-CHUMAE_UNIT = 50000 # 추가 매수 기본 단위 
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 MAESU_LIMIT = 5 # 추가 매수 제한 
 SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
 # 추가 매수 진행시마도 stoploss 및 stopplus 퍼센티지 변경 최대 6
-STOP_PLUS_PER_MAESU_COUNT = [ 8,  4,  2,  2,  2,  2]
-STOP_LOSS_PER_MAESU_COUNT = [99, 99, 99, 99,  6,  6]
+CHUMAE_UNIT = 50000 # 추가 매수 기본 단위 
+CHUMAE_TOTAL_PRICE =        [ CHUMAE_UNIT * 1,  CHUMAE_UNIT * 1,    CHUMAE_UNIT * 2,    CHUMAE_UNIT * 4,    CHUMAE_UNIT * 8,    CHUMAE_UNIT * 16 ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                4,                  2,                  2,                  2,                  2                ]
+STOP_LOSS_PER_MAESU_COUNT = [ 99,               99,                 99,                 99,                 6,                  6                ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
@@ -769,7 +770,7 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         #  추가 매수 횟수 제한   
-        maesu_count = 0
+        maesu_count = 0 
         if( jongmokCode in self.jangoInfo):
             maesu_count = self.jangoInfo[jongmokCode]['매수횟수']
         if( maesu_count + 1 <= MAESU_LIMIT ):
@@ -889,7 +890,7 @@ class KiwoomConditon(QObject):
             if( TEST_MODE == True ):
                 qty = 1
             else:
-                total_price = CHUMAE_UNIT * ( 2** (maesu_count - 1))
+                total_price = CHUMAE_TOTAL_PRICE[maesu_count] 
                 qty = int(total_price / maedoHoga1 )
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
@@ -897,14 +898,16 @@ class KiwoomConditon(QObject):
                                 qty, 0 , kw_util.dict_order["시장가"], "")
 
             #FIXME: 로그 찍기 위해 테스트로 추가함
-            total_price = CHUMAE_UNIT * ( 2** (maesu_count - 1))
             qty = int(total_price / maedoHoga1 )
+            total_price = CHUMAE_TOTAL_PRICE[maesu_count] 
+            ###############################################################
 
             print("B " + str(result) , sep="")
-            printLog = '**** [총매입 금액{0}, 매수수량{1}, 매수가:{2}] ****'.format(
+            printLog = '**** [총매입 금액{0}, 매수수량{1}, 매수가:{2}, 추가매수횟수 {3}] ****'.format(
                 total_price,
                 maedoHoga1, 
-                qty
+                qty, 
+                maesu_count
                 ) + printLog
             is_log_print_enable = True
             pass
