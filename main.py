@@ -1522,7 +1522,7 @@ class KiwoomConditon(QObject):
 
         suik_price = round( (current_price - maeip_price) * boyou_suryang , 2)
         current_jango['수익'] = suik_price 
-        current_jango['수익율'] = round( ( suik_price  / maeip_price ) * 100 , 2) 
+        current_jango['수익율'] = round( ( (current_price-maeip_price)  / maeip_price ) * 100 , 2) 
         pass
 
     # 실시간 호가 잔량 정보         
