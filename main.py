@@ -28,11 +28,12 @@ TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가�
 
 MAESU_LIMIT = 5 # 추가 매수 제한 
 SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
-# 추가 매수 진행시마도 stoploss 및 stopplus 퍼센티지 변경 최대 6
-CHUMAE_UNIT = 50000 # 추가 매수 기본 단위 
-CHUMAE_TOTAL_PRICE =        [ CHUMAE_UNIT * 1,  CHUMAE_UNIT * 1,    CHUMAE_UNIT * 2,    CHUMAE_UNIT * 4,    CHUMAE_UNIT * 8,    CHUMAE_UNIT * 16 ]
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                4,                  2,                  2,                  2,                  2                ]
-STOP_LOSS_PER_MAESU_COUNT = [ 99,               99,                 99,                 99,                 6,                  6                ]
+
+MAESU_BASE_UNIT = 50000 # 추가 매수 기본 단위 
+MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
+# 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      2,                      2                ]
+STOP_LOSS_PER_MAESU_COUNT = [ 99,                   99,                     99,                     99,                     6,                      6                ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
@@ -731,29 +732,7 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
         
 
-        ##########################################################################################################
-        # 업종 이동 평균선 조건 상승일때 매수  
-        # if( jongmokCode in  self.kospiCodeList):
-        #     yupjong_name = '코스피'
-        #     twentybong_avr = float(self.yupjongInfo[yupjong_name]['20봉평균'])
-        #     fivebong_avr = float(self.yupjongInfo[yupjong_name]['5봉평균'])
-        #     if( fivebong_avr > twentybong_avr ):
-        #         printLog +='({0}이평조건충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
-        #     else:
-        #         printLog +='({0}이평조건미충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
-        #         return_vals.append(False)
-        #     pass
-        # else: 
-        #     yupjong_name = '코스닥'
-        #     twentybong_avr = float(self.yupjongInfo[yupjong_name]['20봉평균'])
-        #     fivebong_avr = float(self.yupjongInfo[yupjong_name]['5봉평균'])
-        #     if( fivebong_avr > twentybong_avr ):
-        #         printLog +='({0}이평조건충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
-        #     else:
-        #         printLog +='({0}이평조건미충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
-        #         return_vals.append(False)
-        #     pass
-
+      
         ##########################################################################################################
         # 추가 매수는 하루에 한번  
         if( jongmokCode in self.jangoInfo):
@@ -779,6 +758,29 @@ class KiwoomConditon(QObject):
         else:
             printLog += '(추가매수한계)'
             return_vals.append(False)
+
+        ##########################################################################################################
+        # 업종 이동 평균선 조건 상승일때 매수  
+        # if( jongmokCode in  self.kospiCodeList):
+        #     yupjong_name = '코스피'
+        #     twentybong_avr = float(self.yupjongInfo[yupjong_name]['20봉평균'])
+        #     fivebong_avr = float(self.yupjongInfo[yupjong_name]['5봉평균'])
+        #     if( fivebong_avr > twentybong_avr ):
+        #         printLog +='({0}이평조건충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
+        #     else:
+        #         printLog +='({0}이평조건미충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
+        #         return_vals.append(False)
+        #     pass
+        # else: 
+        #     yupjong_name = '코스닥'
+        #     twentybong_avr = float(self.yupjongInfo[yupjong_name]['20봉평균'])
+        #     fivebong_avr = float(self.yupjongInfo[yupjong_name]['5봉평균'])
+        #     if( fivebong_avr > twentybong_avr ):
+        #         printLog +='({0}이평조건충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
+        #     else:
+        #         printLog +='({0}이평조건미충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
+        #         return_vals.append(False)
+        #     pass
 
         ##########################################################################################################
         # 가격조건 확인 
@@ -888,9 +890,9 @@ class KiwoomConditon(QObject):
             util.save_log(jongmokName, '매수주문', folder= "log")
             qty = 0
             if( TEST_MODE == True ):
-                qty = 1
+                qty = MAESU_TOTAL_PRICE[maesu_count] / MAESU_BASE_UNIT 
             else:
-                total_price = CHUMAE_TOTAL_PRICE[maesu_count] 
+                total_price = MAESU_TOTAL_PRICE[maesu_count] 
                 qty = int(total_price / maedoHoga1 )
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
@@ -898,15 +900,16 @@ class KiwoomConditon(QObject):
                                 qty, 0 , kw_util.dict_order["시장가"], "")
 
             #FIXME: 로그 찍기 위해 테스트로 추가함
-            qty = int(total_price / maedoHoga1 )
-            total_price = CHUMAE_TOTAL_PRICE[maesu_count] 
+            test_total_price = MAESU_TOTAL_PRICE[maesu_count] 
+            test_qty = int(test_total_price / maedoHoga1 )
             ###############################################################
 
             print("B " + str(result) , sep="")
-            printLog = '**** [총매입 금액{0}, 매수수량{1}, 매수가:{2}, 추가매수횟수 {3}] ****'.format(
-                total_price,
+            printLog = '**** [테스트 총매입 금액{0}, 테스트 매수수량{1}, 매수수량 {2}, 매수가:{3}, 추가매수횟수 {4}] ****'.format(
+                test_total_price,
+                test_qty, 
+                qty,
                 maedoHoga1, 
-                qty, 
                 maesu_count
                 ) + printLog
             is_log_print_enable = True
