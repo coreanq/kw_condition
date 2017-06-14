@@ -677,15 +677,16 @@ class KiwoomConditon(QObject):
         before1_price = abs(int(jongmok_info_dict['5분 1봉전'][current_price_index]))
 
         
-        # 추가 매수시 매입가보다 큰 경우 추가 매수 금지 
-        maeip_price = 9999999
+        # 추가 매수시 최근 매수가 -2% 하락 하지 않은 경우 추가 매수 금지 (비슷한 가격에서 추가 매수 하는거 금지  )
+        # --> 즉, 5 번 추가 매수시 총 10% 하락에 손절 합치면 -16% 하락해야지만 팔리게 됨 
+        maeip_price = 99999999
         if( jongmokCode in self.jangoInfo):
-            maeip_price = int(self.jangoInfo[jongmokCode]['매입가'])
+            maeip_price = int(self.jangoInfo[jongmokCode]['최근매수가'])
         
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
             before0_amount > 5000 and  # 거래량이 너무 최소인 경우를 막기 위함 
-            maedoHoga1 <  maeip_price 
+            maedoHoga1 <  maeip_price * 0.98 
         ):
             printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
                 int(before0_amount / before1_amount * 100), 
@@ -1698,10 +1699,11 @@ class KiwoomConditon(QObject):
         if( gubun == "1"): # 잔고 정보
             # 잔고 정보에서는 매도/매수 구분이 되지 않음 
             jongmok_code = self.getChejanData(9001)[1:]
-            boyou_suryang = int(self.getChejanData(930))
-            jumun_ganeung_suryang = int(self.getChejanData(933))
-            maeip_danga = int(self.getChejanData(931))
-            jongmok_name= self.getChejanData(302)
+            boyou_suryang = int(self.getChejanData(kw_util.name_fid['보유수량']))
+            jumun_ganeung_suryang = int(self.getChejanData(kw_util.name_fid['주문가능수량']))
+            maeip_danga = int(self.getChejanData(kw_util.name_fid['매입단가']))
+            jongmok_name= self.getChejanData(kw_util.name_fid['종목명']).strip()
+            current_price = int(self.getChejanData(kw_util.namd_fid['현재가']))
 
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행 
@@ -1720,6 +1722,7 @@ class KiwoomConditon(QObject):
                 current_jango['매입가'] = maeip_danga
                 current_jango['종목번호'] = jongmok_code
                 current_jango['종목명'] = jongmok_name.strip()
+                current_jango['최근매수가'] = current_price 
 
                 if( jongmok_code in ETF_LIST or jongmok_code in EXCEPTION_LIST):
                     current_jango['주문/체결시간'] = '' 
@@ -1793,6 +1796,11 @@ class KiwoomConditon(QObject):
                 else:
                     current_jango['주문/체결시간'] = ''      
 
+            if( '최근매수가' not in current_jango ):
+                if( jongmok_code in self.jangoInfoFromFile):
+                    current_jango['최근매수가'] = self.jangoInfoFromFile[jongmok_code].get('최근매수가', 0)
+                else:
+                    current_jango['최근매수가'] =  0      
         else:
 
             if( jongmok_code in self.jangoInfoFromFile ):
