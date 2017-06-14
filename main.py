@@ -23,6 +23,7 @@ DAY_TRADING_END_TIME = [15, 10]
 TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시작하는 시간
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
+CHUMAE_UNIT = 50000 # 추가 매수 기본 단위 
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
@@ -37,7 +38,7 @@ TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 15 + len(EXCEPTION_LIST) + 2 # etf +2 
 
-ETF_BUY_QTY = 5
+ETF_BUY_QTY = 3
 
 # etf 종목 리스트로 실시간 조건 검색 리스트에 걸리는 경우 포함하지 않도록 하기 위해 리스팅 필요 
 ETF_LIST = {
@@ -681,7 +682,7 @@ class KiwoomConditon(QObject):
         # --> 즉, 5 번 추가 매수시 총 10% 하락에 손절 합치면 -16% 하락해야지만 팔리게 됨 
         maeip_price = 99999999
         if( jongmokCode in self.jangoInfo):
-            maeip_price = int(self.jangoInfo[jongmokCode]['최근매수가'])
+            maeip_price = int(self.jangoInfo[jongmokCode]['최근매수가'][-1])
         
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
@@ -884,23 +885,27 @@ class KiwoomConditon(QObject):
         # 매수 
         if( return_vals.count(False) == 0 ):
             util.save_log(jongmokName, '매수주문', folder= "log")
-            maesu_amount = 0
+            qty = 0
             if( TEST_MODE == True ):
-                maesu_amount = 1
+                qty = 1
             else:
-                maesu_amount = round((TOTAL_BUY_AMOUNT / maedoHogaAmount2) - 0.5) # 첫번째 자리수 버림
-
-            if( maesu_count <= 1 ):
-                qty = maesu_amount 
-                pass
-            else:
-                qty = maesu_amount * (2 ** (maesu_count - 1))
+                total_price = CHUMAE_UNIT * ( 2** (maesu_count - 1))
+                qty = int(total_price / maedoHoga1 )
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
                                 qty, 0 , kw_util.dict_order["시장가"], "")
+
+            #FIXME: 로그 찍기 위해 테스트로 추가함
+            total_price = CHUMAE_UNIT * ( 2** (maesu_count - 1))
+            qty = int(total_price / maedoHoga1 )
+
             print("B " + str(result) , sep="")
-            printLog = ' 현재가:{0} '.format(maedoHoga1) + printLog
+            printLog = '**** [총매입 금액{0}, 매수수량{1}, 매수가:{2}] ****'.format(
+                total_price,
+                maedoHoga1, 
+                qty
+                ) + printLog
             is_log_print_enable = True
             pass
         else:
@@ -1722,7 +1727,6 @@ class KiwoomConditon(QObject):
                 current_jango['매입가'] = maeip_danga
                 current_jango['종목번호'] = jongmok_code
                 current_jango['종목명'] = jongmok_name.strip()
-                current_jango['최근매수가'] = current_price 
 
                 if( jongmok_code in ETF_LIST or jongmok_code in EXCEPTION_LIST):
                     current_jango['주문/체결시간'] = '' 
@@ -1732,11 +1736,15 @@ class KiwoomConditon(QObject):
                 if( jongmok_code not in self.jangoInfo):
                     self.jangoInfo[jongmok_code] = current_jango 
                     self.jangoInfo[jongmok_code]['매수횟수'] = 1 
+
+                    current_jango['최근매수가'] = [current_price]
                 else:
                     chumae_count = self.jangoInfo[jongmok_code]['매수횟수']
                     chumae_count = chumae_count + 1 
                     current_jango['매수횟수'] = chumae_count
                     self.jangoInfo[jongmok_code].update(current_jango)
+
+                    current_jango['최근매수가'].append( current_price )
 
 
             self.makeEtcJangoInfo(jongmok_code)
@@ -1798,9 +1806,9 @@ class KiwoomConditon(QObject):
 
             if( '최근매수가' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
-                    current_jango['최근매수가'] = self.jangoInfoFromFile[jongmok_code].get('최근매수가', 0)
+                    current_jango['최근매수가'] = self.jangoInfoFromFile[jongmok_code].get('최근매수가', [])
                 else:
-                    current_jango['최근매수가'] =  0      
+                    current_jango['최근매수가'] =  []      
         else:
 
             if( jongmok_code in self.jangoInfoFromFile ):
