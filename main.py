@@ -32,7 +32,7 @@ SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수�
 MAESU_BASE_UNIT = 50000 # 추가 매수 기본 단위 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      2,                      2                ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      4,                      2,                      2,                      2                ]
 STOP_LOSS_PER_MAESU_COUNT = [ 99,                   99,                     99,                     99,                     6,                      6                ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -905,7 +905,7 @@ class KiwoomConditon(QObject):
             ###############################################################
 
             print("B " + str(result) , sep="")
-            printLog = '**** [테스트 총매입 금액{0}, 테스트 매수수량{1}, 매수수량 {2}, 매수가:{3}, 추가매수횟수 {4}] ****'.format(
+            printLog = '**** [테스트 총매입 금액: {0}, 테스트 매수수량: {1}, 매수수량: {2}, 매수가: {3}, 추가매수횟수: {4}] ****'.format(
                 test_total_price,
                 test_qty, 
                 qty,
@@ -1714,7 +1714,7 @@ class KiwoomConditon(QObject):
             jumun_ganeung_suryang = int(self.getChejanData(kw_util.name_fid['주문가능수량']))
             maeip_danga = int(self.getChejanData(kw_util.name_fid['매입단가']))
             jongmok_name= self.getChejanData(kw_util.name_fid['종목명']).strip()
-            current_price = int(self.getChejanData(kw_util.namd_fid['현재가']))
+            current_price = int(self.getChejanData(kw_util.name_fid['현재가']))
 
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행 
@@ -1748,9 +1748,8 @@ class KiwoomConditon(QObject):
                     chumae_count = self.jangoInfo[jongmok_code]['매수횟수']
                     chumae_count = chumae_count + 1 
                     current_jango['매수횟수'] = chumae_count
+                    self.jangoInfo[jongmok_code]['최근매수가'].append( current_price )
                     self.jangoInfo[jongmok_code].update(current_jango)
-
-                    current_jango['최근매수가'].append( current_price )
 
 
             self.makeEtcJangoInfo(jongmok_code)
