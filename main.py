@@ -1714,7 +1714,7 @@ class KiwoomConditon(QObject):
             jumun_ganeung_suryang = int(self.getChejanData(kw_util.name_fid['주문가능수량']))
             maeip_danga = int(self.getChejanData(kw_util.name_fid['매입단가']))
             jongmok_name= self.getChejanData(kw_util.name_fid['종목명']).strip()
-            current_price = int(self.getChejanData(kw_util.name_fid['현재가']))
+            current_price = abs(int(self.getChejanData(kw_util.name_fid['현재가'])))
 
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행 
