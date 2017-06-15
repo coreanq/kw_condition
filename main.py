@@ -736,7 +736,7 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 추가 매수는 하루에 한번  
         if( jongmokCode in self.jangoInfo):
-            chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'] #20170411151000
+            chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'][-1] #20170411151000
             time_span = datetime.timedelta(minutes = 420 )
             
             if( chegyeol_time_str != ''):
@@ -1625,7 +1625,7 @@ class KiwoomConditon(QObject):
         # time cut 적용 
         current_time = datetime.datetime.now()
         time_span = datetime.timedelta(minutes = TIME_CUT_MIN )
-        chegyeol_time = current_jango['주문/체결시간']
+        chegyeol_time = current_jango['주문/체결시간'][-1]
 
         if( chegyeol_time != ''):
             maeip_time = datetime.datetime.strptime(chegyeol_time, '%Y%m%d%H%M%S')
@@ -1734,21 +1734,26 @@ class KiwoomConditon(QObject):
                 current_jango['종목번호'] = jongmok_code
                 current_jango['종목명'] = jongmok_name.strip()
 
-                if( jongmok_code in ETF_LIST or jongmok_code in EXCEPTION_LIST):
-                    current_jango['주문/체결시간'] = '' 
-                else:
-                    current_jango['주문/체결시간'] = util.cur_date_time('%Y%m%d%H%M%S')
-
                 if( jongmok_code not in self.jangoInfo):
-                    self.jangoInfo[jongmok_code] = current_jango 
-                    self.jangoInfo[jongmok_code]['매수횟수'] = 1 
-
+                    current_jango['주문/체결시간'] = [util.cur_date_time('%Y%m%d%H%M%S')] 
+                    current_jango['매수횟수'] = 1 
                     current_jango['최근매수가'] = [current_price]
+
+                    self.jangoInfo[jongmok_code] = current_jango 
+
                 else:
+                    chegyeol_time_list = self.jangoInfo[jongmok_code]['주문/체결시간']  
+                    chegyeol_time_list.append( util.cur_date_time('%Y%m%d%H%M%S'))
+                    current_jango['주문/체결시간'] = chegyeol_time_list
+
                     chumae_count = self.jangoInfo[jongmok_code]['매수횟수']
                     chumae_count = chumae_count + 1 
                     current_jango['매수횟수'] = chumae_count
-                    self.jangoInfo[jongmok_code]['최근매수가'].append( current_price )
+
+                    last_price_list = self.jangoInfo[jongmok_code]['최근매수가']
+                    last_price_list.append( current_price )
+                    current_jango['최근매수가'] = last_price_list
+
                     self.jangoInfo[jongmok_code].update(current_jango)
 
 
@@ -1805,9 +1810,9 @@ class KiwoomConditon(QObject):
 
             if( '주문/체결시간' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
-                    current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', '')
+                    current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', [])
                 else:
-                    current_jango['주문/체결시간'] = ''      
+                    current_jango['주문/체결시간'] = []      
 
             if( '최근매수가' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
