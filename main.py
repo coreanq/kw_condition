@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QAxContainer import QAxWidget
 from mainwindow_ui import Ui_MainWindow
 
-TEST_MODE = True    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
+TEST_MODE = False    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
 AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 19] ] ] #해당 시스템 동작 시간 설정
 
@@ -32,7 +32,7 @@ SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수�
 MAESU_BASE_UNIT = 50000 # 추가 매수 기본 단위 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      4,                      2,                      2,                      2                ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      4,                      2,                      2,                      1                ]
 STOP_LOSS_PER_MAESU_COUNT = [ 99,                   99,                     99,                     99,                     6,                      6                ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -40,7 +40,7 @@ TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 15 + len(EXCEPTION_LIST) + 2 # etf +2 
 
-ETF_BUY_QTY = 3
+ETF_BUY_QTY = 5
 
 # etf 종목 리스트로 실시간 조건 검색 리스트에 걸리는 경우 포함하지 않도록 하기 위해 리스팅 필요 
 ETF_LIST = {
@@ -892,8 +892,27 @@ class KiwoomConditon(QObject):
             if( TEST_MODE == True ):
                 qty = MAESU_TOTAL_PRICE[maesu_count] / MAESU_BASE_UNIT 
             else:
-                total_price = MAESU_TOTAL_PRICE[maesu_count] 
-                qty = int(total_price / maedoHoga1 )
+                # 매수 수량을 조절하기 위함 
+                if( jongmokCode in self.jangoInfo):
+                    chegyeol_time_list = self.jangoInfo[jongmokCode].get('주문/체결시간', [])
+                    first_chegyeol_time_str = ""
+                    if( len(chegyeol_time_list ) ):
+                        first_chegyeol_time_str = chegyeol_time_list[0]
+
+                    if( first_chegyeol_time_str != ''):
+                        base_time = datetime.datetime.strptime("20170616102400", "%Y%m%d%H%M%S") 
+
+                        target_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
+                        if( base_time  < target_time ):
+                            total_price = MAESU_TOTAL_PRICE[maesu_count] 
+                            qty = int(total_price / maedoHoga1 )
+                            pass
+                        else:
+                            qty = MAESU_TOTAL_PRICE[maesu_count] / MAESU_BASE_UNIT 
+                else:
+                    total_price = MAESU_TOTAL_PRICE[maesu_count] 
+                    qty = int(total_price / maedoHoga1 )
+
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
