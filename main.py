@@ -25,13 +25,11 @@ TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시�
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
-MAESU_LIMIT = 5 # 추가 매수 제한 
-SLIPPAGE = 0.5 # 기본 매수 매도시 보통가로 하므로 수수료만 계산 수수료 0.5  
 
 MAESU_BASE_UNIT = 50000 # 추가 매수 기본 단위 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
-iTOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      1,                      0.5,                    2                ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      2,                      2                ]
 STOP_LOSS_PER_MAESU_COUNT = [ 80,                   40,                     20,                     10,                     5,                      5                ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -1675,6 +1673,10 @@ class KiwoomConditon(QObject):
         isSijanga = False
         if( stop_loss == 0 ):
             printData+= "(정리)"
+            isSijanga = True
+            isSell = True
+        elif( stop_loss == 99999999 ):
+            printData += "(타임컷)"
             isSijanga = True
             isSell = True
         elif( stop_loss >= maesuHoga1 ) :
