@@ -24,15 +24,14 @@ TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시�
 
 CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-TIME_CUT_MIN = 9999 # 타임컷 분값으로 해당 TIME_CUT_MIN 분 동안 가지고 있다가 시간이 지나면 손익분기점으로 손절가를 올림  
 
 MAESU_LIMIT = 5 # 추가 매수 제한 
-SLIPPAGE = 1 # 기본 매수 매도시 슬리피지는 0.5 이므로 +  수수료 0.5  
+SLIPPAGE = 0.5 # 기본 매수 매도시 보통가로 하므로 수수료만 계산 수수료 0.5  
 
 MAESU_BASE_UNIT = 50000 # 추가 매수 기본 단위 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      4,                      2,                      2,                      1                ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      2,                      2                ]
 STOP_LOSS_PER_MAESU_COUNT = [ 80,                   40,                     20,                     10,                     5,                      5                ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -689,7 +688,7 @@ class KiwoomConditon(QObject):
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
             before0_amount > 5000 and  # 거래량이 너무 최소인 경우를 막기 위함 
-            maedoHoga1 <  maeip_price * 0.98 
+            maedoHoga1 <  maeip_price  
         ):
             printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
                 int(before0_amount / before1_amount * 100), 
@@ -1207,31 +1206,36 @@ class KiwoomConditon(QObject):
         jongmok_info_dict['20봉평균'] = str(int(twentybong_sum / 20))
         jongmok_info_dict['5봉평균'] = str(int(fivebong_sum / 5))
 
-        # RSI 14 calculate
-        rsi_up_sum = 0 
-        rsi_down_sum = 0
-        index_current_price = kw_util.dict_jusik['TR:분봉'].index('현재가')
+        jongmok_code = jongmok_info_dict['종목코드']
+        if( jongmok_code in self.jangoInfo) :
+            self.jangoInfo[jongmok_code]['5분 199봉전'] = jongmok_info_dict['5분 199봉전']
 
-        for i in range(14, -1, -1):
-            key_value = '5분 {0}봉전'.format(i)
-            if( i != 14 ):
-                key_value = '5분 {0}봉전'.format(i + 1)
-                prev_fivemin_close = abs(int(jongmok_info_dict[key_value][index_current_price]))
-                key_value = '5분 {0}봉전'.format(i)
-                fivemin_close = abs(int(jongmok_info_dict[key_value][index_current_price]))
-                if( prev_fivemin_close < fivemin_close):
-                    rsi_up_sum += fivemin_close - prev_fivemin_close
-                elif( prev_fivemin_close > fivemin_close):
-                    rsi_down_sum += prev_fivemin_close - fivemin_close 
-            pass
+
+        # RSI 14 calculate
+        # rsi_up_sum = 0 
+        # rsi_down_sum = 0
+        # index_current_price = kw_util.dict_jusik['TR:분봉'].index('현재가')
+
+        # for i in range(14, -1, -1):
+        #     key_value = '5분 {0}봉전'.format(i)
+        #     if( i != 14 ):
+        #         key_value = '5분 {0}봉전'.format(i + 1)
+        #         prev_fivemin_close = abs(int(jongmok_info_dict[key_value][index_current_price]))
+        #         key_value = '5분 {0}봉전'.format(i)
+        #         fivemin_close = abs(int(jongmok_info_dict[key_value][index_current_price]))
+        #         if( prev_fivemin_close < fivemin_close):
+        #             rsi_up_sum += fivemin_close - prev_fivemin_close
+        #         elif( prev_fivemin_close > fivemin_close):
+        #             rsi_down_sum += prev_fivemin_close - fivemin_close 
+        #     pass
         
-        rsi_up_avg = rsi_up_sum / 14
-        rsi_down_avg = rsi_down_sum / 14
-        if( rsi_up_avg !=0 and rsi_down_avg != 0 ):
-            rsi_value = round(rsi_up_avg / ( rsi_up_avg + rsi_down_avg ) * 100 , 1)
-        else:
-            rsi_value = 100
-        jongmok_info_dict['RSI14'] = str(rsi_value)
+        # rsi_up_avg = rsi_up_sum / 14
+        # rsi_down_avg = rsi_down_sum / 14
+        # if( rsi_up_avg !=0 and rsi_down_avg != 0 ):
+        #     rsi_value = round(rsi_up_avg / ( rsi_up_avg + rsi_down_avg ) * 100 , 1)
+        # else:
+        #     rsi_value = 100
+        # jongmok_info_dict['RSI14'] = str(rsi_value)
         # print(util.whoami(), jongmok_info_dict['종목코드'], 'rsi_value: ',  jongmok_info_dict['RSI14'])
         return True
 
@@ -1600,7 +1604,7 @@ class KiwoomConditon(QObject):
         jangosuryang = int( current_jango['매매가능수량'] )
 
         # after buy command, before stoploss calculate this routine can run 
-        if( '손절가' not in current_jango or '매수호가1' not in current_jango):
+        if( '손절가' not in current_jango or '매수호가1' not in current_jango ):
             return
 
         stop_loss = 0
@@ -1642,18 +1646,16 @@ class KiwoomConditon(QObject):
 
         ########################################################################################
         # time cut 적용 
-        current_time = datetime.datetime.now()
-        time_span = datetime.timedelta(minutes = TIME_CUT_MIN )
-        chegyeol_time = current_jango['주문/체결시간'][-1]
+        base_time_str = ''
+        last_chegyeol_time_str = ''
+        if( '5분 199봉전' in current_jango ):
+            base_time_str =  current_jango['5분 199봉전'][2]
+            base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
+            last_chegyeol_time_str = current_jango['주문/체결시간'][-1]
+            maeip_time = datetime.datetime.strptime(last_chegyeol_time_str, '%Y%m%d%H%M%S')
 
-        if( chegyeol_time != ''):
-            maeip_time = datetime.datetime.strptime(chegyeol_time, '%Y%m%d%H%M%S')
-        else: 
-            maeip_time = datetime.datetime.now()
-
-        if( maeip_time < current_time - time_span ):
-            stop_loss = int(current_jango['매입가'] ) 
-
+            if( maeip_time < base_time ):
+                stop_loss = 99999999 
 
         #########################################################################################
         # day trading 용 
@@ -1691,7 +1693,8 @@ class KiwoomConditon(QObject):
                         ' 이익실현가: {0:7}/'.format(str(stop_plus)) + \
                         ' 매입가: {0:7}/'.format(str(maeipga)) + \
                         ' 잔고수량: {0:7}'.format(str(jangosuryang)) +\
-                        ' 주문/체결시간: {0:7}'.format(chegyeol_time) + \
+                        ' 타임컷 기준 시간: {0:7}'.format(base_time_str) + \
+                        ' 최근 주문/체결시간: {0:7}'.format(last_chegyeol_time_str) + \
                         ' 매수호가1 {0:7}/'.format(str(maesuHoga1)) + \
                         ' 매수호가수량1 {0:7}/'.format(str(maesuHogaAmount1)) + \
                         ' 매수호가2 {0:7}/'.format(str(maesuHoga2)) + \
