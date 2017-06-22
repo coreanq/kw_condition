@@ -27,9 +27,11 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 
 
 MAESU_BASE_UNIT = 50000 # 추가 매수 기본 단위 
+SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용 
+MAESU_LIMIT = 5 # 추가 매수 제한 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      2,                      2                ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      1,                      1                ]
 STOP_LOSS_PER_MAESU_COUNT = [ 80,                   40,                     20,                     10,                     5,                      5                ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -47,7 +49,8 @@ ETF_LIST = {
     '123320': "tiger 레버리지",
     '233160': "tiger 코스닥150 레버리지",
     '233740': "kodex 코스닥 레버리지",
-    '204480': "tiger 차이나"
+    '204480': "tiger 차이나",
+    '192090': "timer csi300"
 }
 # etf 실제 거래 종목 리스트
 ETF_PAIR_LIST = {
@@ -1760,8 +1763,8 @@ class KiwoomConditon(QObject):
 
                 if( jongmok_code not in self.jangoInfo):
                     current_jango['주문/체결시간'] = [util.cur_date_time('%Y%m%d%H%M%S')] 
-                    current_jango['매수횟수'] = 1 
                     current_jango['최근매수가'] = [current_price]
+                    current_jango['매수횟수'] = 1 
 
                     self.jangoInfo[jongmok_code] = current_jango 
 
@@ -1770,13 +1773,18 @@ class KiwoomConditon(QObject):
                     chegyeol_time_list.append( util.cur_date_time('%Y%m%d%H%M%S'))
                     current_jango['주문/체결시간'] = chegyeol_time_list
 
-                    chumae_count = self.jangoInfo[jongmok_code]['매수횟수']
-                    chumae_count = chumae_count + 1 
-                    current_jango['매수횟수'] = chumae_count
+                    price_list = self.jangoInfo[jongmok_code]['최근매수가']
+                    last_price = price_list[-1] 
+                    if( last_price != current_price):
+                        #매수가 나눠져서 진행 중이므로 자료 매수횟수 업데이트 안함 
+                        price_list.append( current_price )
+                    current_jango['최근매수가'] = price_list
 
-                    last_price_list = self.jangoInfo[jongmok_code]['최근매수가']
-                    last_price_list.append( current_price )
-                    current_jango['최근매수가'] = last_price_list
+                    chumae_count = self.jangoInfo[jongmok_code]['매수횟수']
+                    if( last_price != current_price):
+                        current_jango['매수횟수'] = chumae_count + 1
+                    else:
+                        current_jango['매수횟수'] = chumae_count
 
                     self.jangoInfo[jongmok_code].update(current_jango)
 
@@ -1859,7 +1867,7 @@ class KiwoomConditon(QObject):
         remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가총잔량',
                         '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가수량4', '매수호가총잔량',
                         '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
-                        '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가' ]
+                        '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가', '5분 199봉전' ]
         temp = copy.deepcopy(self.jangoInfo)
         # 불필요 필드 제거 
         for jongmok_code, contents in temp.items():
