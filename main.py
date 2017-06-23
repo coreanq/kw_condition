@@ -31,7 +31,7 @@ SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용
 MAESU_LIMIT = 5 # 추가 매수 제한 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      1,                      1                ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      2,                      1                ]
 STOP_LOSS_PER_MAESU_COUNT = [ 80,                   40,                     20,                     10,                     5,                      5                ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -159,11 +159,13 @@ class KiwoomConditon(QObject):
         connectedState.addTransition(self.sigDisconnected, disconnectedState)
         
         systemState.setInitialState(initSystemState)
-        initSystemState.addTransition(self.sigGetConditionCplt, waitingTradeSystemState)
-        waitingTradeSystemState.addTransition(self.sigWaitingTrade, waitingTradeSystemState )
-        waitingTradeSystemState.addTransition(self.sigSelectCondition, requestingJangoSystemState)
+        initSystemState.addTransition(self.sigGetConditionCplt, requestingJangoSystemState)
         requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, calculateStoplossSystemState)
-        calculateStoplossSystemState.addTransition(self.sigCalculateStoplossComplete, standbySystemState)
+        calculateStoplossSystemState.addTransition(self.sigCalculateStoplossComplete, waitingTradeSystemState)
+
+        waitingTradeSystemState.addTransition(self.sigWaitingTrade, waitingTradeSystemState )
+        waitingTradeSystemState.addTransition(self.sigSelectCondition, standbySystemState)
+
         standbySystemState.addTransition(self.sigRefreshCondition, initSystemState)
         standbySystemState.addTransition(self.sigTerminating,  terminatingSystemState )
         
@@ -424,7 +426,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def waitingTradeSystemStateEntered(self):
-        # 장시작 30 분전에 조건이 시작하도록 함 
+        # 장시작 전에 조건이 시작하도록 함 
         time_span = datetime.timedelta(minutes = 40)
         expected_time = (self.currentTime + time_span).time()
         if( expected_time >= datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) ):
@@ -467,25 +469,6 @@ class KiwoomConditon(QObject):
             self.makeEtcJangoInfo(jongmok_code)
         self.makeJangoInfoFile()
         self.sigCalculateStoplossComplete.emit()
-
-        # def requestFunc(jongmokCode):
-        #     def inner():
-        #         self.requestOpt10081(jongmokCode)
-        #     return inner
-        # request_jongmok_codes = []
-        # for jongmok_code in self.jangoInfo.keys():
-        #     jango_info = self.jangoInfo[jongmok_code]
-        #     if( '손절가' not in jango_info.keys() ):
-        #         request_jongmok_codes.append( jongmok_code )
-
-        # if( len(request_jongmok_codes) == 0 ):
-        #     self.sigCalculateStoplossComplete.emit()
-        # else:
-        #     # 요청은 1초에 5개뿐이므로 200 ms 나눠서 함 너무 200 딱맞추면 오류 나므로 여유 줌  
-        #     for index, jongmok_code in enumerate(request_jongmok_codes):
-        #         func = requestFunc(jongmok_code) 
-        #         QTimer.singleShot(220 * (index + 1), func)
-        #     pass
 
     @pyqtSlot()
     def standbySystemStateEntered(self):
