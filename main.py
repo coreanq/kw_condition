@@ -13,7 +13,7 @@ from mainwindow_ui import Ui_MainWindow
 
 TEST_MODE = False    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 19] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ] #해당 시스템 동작 시간 설정
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 이전으로 입력해야함 
 # auto_trading_operation_time 이전값을 잡아야 함 
@@ -32,7 +32,7 @@ MAESU_LIMIT = 5 # 추가 매수 제한
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
 STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      2,                      1                ]
-STOP_LOSS_PER_MAESU_COUNT = [ 80,                   40,                     20,                     10,                     5,                      5                ]
+STOP_LOSS_PER_MAESU_COUNT = [ 99,                   99,                     40,                     20,                     10,                     10               ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
@@ -50,7 +50,9 @@ ETF_LIST = {
     '233160': "tiger 코스닥150 레버리지",
     '233740': "kodex 코스닥 레버리지",
     '204480': "tiger 차이나",
-    '192090': "timer csi300"
+    '192090': "tiger csi300",
+    '139260': "tiger 200 it",
+    '169950': "kodex 중국본토 as0"
 }
 # etf 실제 거래 종목 리스트
 ETF_PAIR_LIST = {
@@ -888,13 +890,13 @@ class KiwoomConditon(QObject):
                         target_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
                         if( base_time  < target_time ):
                             total_price = MAESU_TOTAL_PRICE[maesu_count] 
-                            qty = int(total_price / maedoHoga1 )
+                            qty = int(total_price / maedoHoga1 ) + 1 #  약간 오버하게 삼 
                             pass
                         else:
                             qty = MAESU_TOTAL_PRICE[maesu_count] / MAESU_BASE_UNIT 
                 else:
                     total_price = MAESU_TOTAL_PRICE[maesu_count] 
-                    qty = int(total_price / maedoHoga1 )
+                    qty = int(total_price / maedoHoga1 ) + 1
 
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
@@ -1482,7 +1484,7 @@ class KiwoomConditon(QObject):
                     # WARNING: 이곳은 실시간 호가 이므로 장 전에도 실행되므로 장중에만 팔리도록 해야함 
                     if( self.isTradeAvailable() == True ):
                         if( jongmokCode == '114800' or jongmokCode == '069500'):
-                            if( profit >= 45 * ETF_BUY_QTY):
+                            if( profit >= 35 * ETF_BUY_QTY):
                                 normal_price = self.jangoInfo['069500']['매수호가1']
                                 inverse_price = self.jangoInfo['114800']['매수호가1']
                                 self.sell_etf(type = 'normal', normal_price = normal_price, inverse_price = inverse_price)
