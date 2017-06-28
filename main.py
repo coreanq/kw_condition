@@ -13,7 +13,7 @@ from mainwindow_ui import Ui_MainWindow
 
 TEST_MODE = False    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
-AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ] #해당 시스템 동작 시간 설정
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 19] ] ] #해당 시스템 동작 시간 설정 장시작시 급등하고 급락하여 매수 / 매도 시 손해 나는 것을 막기 위해 1분 유예 둠 (반드시 할것)
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 이전으로 입력해야함 
 # auto_trading_operation_time 이전값을 잡아야 함 
@@ -32,7 +32,7 @@ MAESU_LIMIT = 5 # 추가 매수 제한
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
 STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      2,                      1                ]
-STOP_LOSS_PER_MAESU_COUNT = [ 99,                   99,                     40,                     20,                     10,                     10               ]
+STOP_LOSS_PER_MAESU_COUNT = [ 99,                   99,                     48,                     24,                     12,                     8               ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
@@ -1721,13 +1721,17 @@ class KiwoomConditon(QObject):
         #         .format(gubun, itemCnt, fidList))
         if( gubun == "1"): # 잔고 정보
             # 잔고 정보에서는 매도/매수 구분이 되지 않음 
-            jongmok_code = self.getChejanData(9001)[1:]
+
+            jongmok_code = self.getChejanData(kw_util.name_fid['종목코드'])[1:]
             boyou_suryang = int(self.getChejanData(kw_util.name_fid['보유수량']))
             jumun_ganeung_suryang = int(self.getChejanData(kw_util.name_fid['주문가능수량']))
             maeip_danga = int(self.getChejanData(kw_util.name_fid['매입단가']))
             jongmok_name= self.getChejanData(kw_util.name_fid['종목명']).strip()
             current_price = abs(int(self.getChejanData(kw_util.name_fid['현재가'])))
 
+            #미체결 수량이 있는 경우 잔고 정보 저장하지 않도록 함 
+            if( self.jangoInfo[jongmok_code]['미체결수량'] ):
+                return 
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행 
                 if( jongmok_code not in self.todayTradedCodeList):
@@ -1779,14 +1783,24 @@ class KiwoomConditon(QObject):
             pass
 
         elif ( gubun == "0"):
-            jumun_sangtae =  self.getChejanData(913)
-            jongmok_code = self.getChejanData(9001)[1:]
-            # 매수나 매도나 
+            jumun_sangtae =  self.getChejanData(kw_util.name_fid['주문상태'])
+            jongmok_code = self.getChejanData(kw_util.name_fid['종목코드'])[1:]
+            michegyeol_suryang = int(self.getChejanData(kw_util.name_fid['미체결수량']))
+            # 주문 상태 
+            # 매수 시 접수(gubun-0) - 체결(gubun-0) - 잔고(gubun-1)     
+            # 매도 시 접수(gubun-0) - 잔고(gubun-1) - 체결(gubun-0) - 잔고(gubun-1)   순임 
+            # 미체결 수량 정보를 입력하여 잔고 정보 처리시 미체결 수량 있는 경우에 대한 처리를 하도록 함 
+            if( jongmok_code not in self.jangoInfo):
+                self.jangoInfo[jongmok_code] = {}
+            self.jangoInfo[jongmok_code]['미체결수량'] = michegyeol_suryang
+
             if( jumun_sangtae == "체결"):
                 self.makeChegyeolInfo(jongmok_code, fidList)
                 self.makeChegyeolInfoFile()
                 pass
+            
             pass
+
 
     def makeChegyeolInfoFile(self):
         # print(util.whoami())
