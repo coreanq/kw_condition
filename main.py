@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QAxContainer import QAxWidget
 from mainwindow_ui import Ui_MainWindow
 
-TEST_MODE = False    # 주의 TEST_MODE 를 False 로 하는 경우, TOTAL_BUY_AMOUNT 만큼 구매하게 됨  
+TEST_MODE = False    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
 # AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
 AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 19] ] ] #해당 시스템 동작 시간 설정 장시작시 급등하고 급락하여 매수 / 매도 시 손해 나는 것을 막기 위해 1분 유예 둠 (반드시 할것)
 
@@ -52,7 +52,8 @@ ETF_LIST = {
     '204480': "tiger 차이나",
     '192090': "tiger csi300",
     '139260': "tiger 200 it",
-    '169950': "kodex 중국본토 as0"
+    '169950': "kodex 중국본토 as0",
+    '091170': "kodex 은행"
 }
 # etf 실제 거래 종목 리스트
 ETF_PAIR_LIST = {
@@ -116,6 +117,7 @@ class KiwoomConditon(QObject):
         self.todayTradedCodeList = [] # 금일 거래 되었던 종목 
 
         self.yupjongInfo = {'코스피': {}, '코스닥': {} } # { 'yupjong_code': { '현재가': 222, ...} }
+        self.michegyeolInfo = {}
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
         self.jangoInfoFromFile = {} # TR 잔고 정보 요청 조회로는 얻을 수 없는 데이터를 파일로 저장하고 첫 실행시 로드함  
         self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '주문/체결시간', '체결가' , '체결수량', '미체결수량'] ] }
@@ -1584,15 +1586,12 @@ class KiwoomConditon(QObject):
         # 잔고에 없는 종목이면 종료 
         if( jongmokCode not in self.jangoInfo ):
             return 
-
         current_jango = self.jangoInfo[jongmokCode]
 
-        jangosuryang = int( current_jango['매매가능수량'] )
-
-        # after buy command, before stoploss calculate this routine can run 
-        if( '손절가' not in current_jango or '매수호가1' not in current_jango ):
+        if( '손절가' not in current_jango or '매수호가1' not in current_jango or '매매가능수량' not in current_jango  ):
             return
 
+        jangosuryang = int( current_jango['매매가능수량'] )
         stop_loss = 0
         ########################################################################################
         # 업종 이평가를 기준으로 stop loss 값 조정 
@@ -1730,8 +1729,10 @@ class KiwoomConditon(QObject):
             current_price = abs(int(self.getChejanData(kw_util.name_fid['현재가'])))
 
             #미체결 수량이 있는 경우 잔고 정보 저장하지 않도록 함 
-            if( self.jangoInfo[jongmok_code]['미체결수량'] ):
+            if( self.michegyeolInfo[jongmok_code]['미체결수량'] ):
                 return 
+            # 미체결 수량이 없으므로 정보 삭제 
+            del ( self.michegyeolInfo[jongmok_code] )
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행 
                 if( jongmok_code not in self.todayTradedCodeList):
@@ -1790,9 +1791,9 @@ class KiwoomConditon(QObject):
             # 매수 시 접수(gubun-0) - 체결(gubun-0) - 잔고(gubun-1)     
             # 매도 시 접수(gubun-0) - 잔고(gubun-1) - 체결(gubun-0) - 잔고(gubun-1)   순임 
             # 미체결 수량 정보를 입력하여 잔고 정보 처리시 미체결 수량 있는 경우에 대한 처리를 하도록 함 
-            if( jongmok_code not in self.jangoInfo):
-                self.jangoInfo[jongmok_code] = {}
-            self.jangoInfo[jongmok_code]['미체결수량'] = michegyeol_suryang
+            if( jongmok_code not in self.michegyeolInfo):
+                self.michegyeolInfo[jongmok_code] = {}
+            self.michegyeolInfo[jongmok_code]['미체결수량'] = michegyeol_suryang
 
             if( jumun_sangtae == "체결"):
                 self.makeChegyeolInfo(jongmok_code, fidList)
