@@ -26,13 +26,13 @@ CONDITION_NAME = '거래량' #키움증권 HTS 에서 설정한 조건 검색 �
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 
-MAESU_BASE_UNIT = 50000 # 추가 매수 기본 단위 
+MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용 
-MAESU_LIMIT = 5 # 추가 매수 제한 
-MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,    MAESU_BASE_UNIT * 16 ]
+MAESU_LIMIT = 4 # 추가 매수 제한 
+MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      2,                      2,                      1                ]
-STOP_LOSS_PER_MAESU_COUNT = [ 99,                   99,                     48,                     24,                     12,                     8               ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      1,                      1                  ]
+STOP_LOSS_PER_MAESU_COUNT = [ 32,                   16,                     8,                      4,                      2                  ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
@@ -676,7 +676,7 @@ class KiwoomConditon(QObject):
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
             before0_amount > 5000 and  # 거래량이 너무 최소인 경우를 막기 위함 
-            maedoHoga1 <  maeip_price  
+            maedoHoga1 <  maeip_price * 0.99
         ):
             printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
                 int(before0_amount / before1_amount * 100), 
@@ -887,7 +887,7 @@ class KiwoomConditon(QObject):
                         first_chegyeol_time_str = chegyeol_time_list[0]
 
                     if( first_chegyeol_time_str != ''):
-                        base_time = datetime.datetime.strptime("20170616102400", "%Y%m%d%H%M%S") 
+                        base_time = datetime.datetime.strptime("20170630102400", "%Y%m%d%H%M%S") 
 
                         target_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
                         if( base_time  < target_time ):
@@ -895,7 +895,7 @@ class KiwoomConditon(QObject):
                             qty = int(total_price / maedoHoga1 ) + 1 #  약간 오버하게 삼 
                             pass
                         else:
-                            qty = MAESU_TOTAL_PRICE[maesu_count] / MAESU_BASE_UNIT 
+                            qty = MAESU_TOTAL_PRICE[maesu_count] / 2 
                 else:
                     total_price = MAESU_TOTAL_PRICE[maesu_count] 
                     qty = int(total_price / maedoHoga1 ) + 1
@@ -1164,7 +1164,7 @@ class KiwoomConditon(QObject):
         repeatCnt = self.getRepeatCnt("opt10080", rQName)
         fivebong_sum, twentybong_sum, twohundred_sum = 0, 0, 0
 
-        for i in range(min(repeatCnt, 200)):
+        for i in range(min(repeatCnt, 256)):
             line = []
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 result = self.getCommData("opt10080", rQName, i, item_name)
@@ -1175,7 +1175,8 @@ class KiwoomConditon(QObject):
                         pass
                     if( i < 20 ):
                         twentybong_sum += abs(int(result))
-                    twohundred_sum += abs(int(result))
+                    if( i < 200 ):
+                        twohundred_sum += abs(int(result))
 
                 line.append(result.strip())
             # print(line)
@@ -1196,7 +1197,7 @@ class KiwoomConditon(QObject):
 
         jongmok_code = jongmok_info_dict['종목코드']
         if( jongmok_code in self.jangoInfo) :
-            self.jangoInfo[jongmok_code]['5분 199봉전'] = jongmok_info_dict['5분 199봉전']
+            self.jangoInfo[jongmok_code]['5분봉타임컷기준'] = jongmok_info_dict['5분봉 250봉전']
 
 
         # RSI 14 calculate
@@ -1633,8 +1634,8 @@ class KiwoomConditon(QObject):
         # time cut 적용 
         base_time_str = ''
         last_chegyeol_time_str = ''
-        if( '5분 199봉전' in current_jango ):
-            base_time_str =  current_jango['5분 199봉전'][2]
+        if( '5분봉타임컷기준' in current_jango ):
+            base_time_str =  current_jango['5분봉타임컷기준'][2]
             base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
             last_chegyeol_time_str = current_jango['주문/체결시간'][-1]
             maeip_time = datetime.datetime.strptime(last_chegyeol_time_str, '%Y%m%d%H%M%S')
@@ -1867,7 +1868,7 @@ class KiwoomConditon(QObject):
         remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가총잔량',
                         '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가수량4', '매수호가총잔량',
                         '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
-                        '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가', '5분 199봉전' ]
+                        '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가', '5분봉타임컷기준' ]
         temp = copy.deepcopy(self.jangoInfo)
         # 불필요 필드 제거 
         for jongmok_code, contents in temp.items():
