@@ -890,12 +890,12 @@ class KiwoomConditon(QObject):
                         base_time = datetime.datetime.strptime("20170630102400", "%Y%m%d%H%M%S") 
 
                         target_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
+                        total_price = MAESU_TOTAL_PRICE[maesu_count] 
                         if( base_time  < target_time ):
-                            total_price = MAESU_TOTAL_PRICE[maesu_count] 
                             qty = int(total_price / maedoHoga1 ) + 1 #  약간 오버하게 삼 
                             pass
                         else:
-                            qty = MAESU_TOTAL_PRICE[maesu_count] / 2 
+                            qty = int(total_price / maedoHoga1 / 2 ) + 1
                 else:
                     total_price = MAESU_TOTAL_PRICE[maesu_count] 
                     qty = int(total_price / maedoHoga1 ) + 1
@@ -905,15 +905,8 @@ class KiwoomConditon(QObject):
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
                                 qty, 0 , kw_util.dict_order["시장가"], "")
 
-            #FIXME: 로그 찍기 위해 테스트로 추가함
-            test_total_price = MAESU_TOTAL_PRICE[maesu_count] 
-            test_qty = int(test_total_price / maedoHoga1 )
-            ###############################################################
-
             print("B " + str(result) , sep="")
-            printLog = '**** [테스트 총매입 금액: {0}, 테스트 매수수량: {1}, 매수수량: {2}, 매수가: {3}, 추가매수횟수: {4}] ****'.format(
-                test_total_price,
-                test_qty, 
+            printLog = '**** [매수수량: {0}, 매수가: {1}, 매수횟수: {2}] ****'.format(
                 qty,
                 maedoHoga1, 
                 maesu_count
@@ -1197,7 +1190,7 @@ class KiwoomConditon(QObject):
 
         jongmok_code = jongmok_info_dict['종목코드']
         if( jongmok_code in self.jangoInfo) :
-            self.jangoInfo[jongmok_code]['5분봉타임컷기준'] = jongmok_info_dict['5분봉 250봉전']
+            self.jangoInfo[jongmok_code]['5분봉타임컷기준'] = jongmok_info_dict['5분 250봉전']
 
 
         # RSI 14 calculate
@@ -1889,9 +1882,8 @@ class KiwoomConditon(QObject):
         # 1, 2 컬럼의 수익과 수익율 필드 채움 
         if( str(nFid) in fids):
             result = self.getChejanData(nFid).strip()
+            current_jango = self.jangoInfo[jongmok_code]
             if( int(result) == 1): #매도
-                current_jango = self.jangoInfo[jongmok_code]
-
                 # 체결가를 통해 수익율 필드 업데이트 
                 current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
                 self.calculateSuik(jongmok_code, current_price)
@@ -1899,13 +1891,22 @@ class KiwoomConditon(QObject):
                 # 매도시 체결정보는 수익율 필드가 존재 
                 profit = current_jango.get('수익', '0')
                 profit_percent = current_jango.get('수익율', '0' )
+                chumae_count = int(current_jango.get('매수횟수', '0'))
                 info.append('{0:>10}'.format(profit_percent))
                 info.append('{0:>10}'.format(profit))
+                info.append(' 매수횟수: {0:>3} '.format(chumae_count))
                 pass
             else: #매수 
-                # 매수시 체결정보는 수익율 / 수익 필드가 없음  
+                # 매수시 체결정보는 수익율 / 수익 필드가  
                 info.append('{0:>10}'.format('0'))
                 info.append('{0:>10}'.format('0'))
+                # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
+                if( '매수횟수' in current_jango):
+                    chumae_count = int(current_jango.get('매수횟수', '0'))
+                    info.append(' 매수횟수: {0:>3} '.format(chumae_count + 1))
+                else:
+                    info.append(' 매수횟수: {0:>3} '.format('0'))
+
 
 
         for col_name in kw_util.dict_jusik["체결정보"]:
