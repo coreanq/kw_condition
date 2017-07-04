@@ -676,7 +676,7 @@ class KiwoomConditon(QObject):
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
             before0_amount > 5000 and  # 거래량이 너무 최소인 경우를 막기 위함 
-            maedoHoga1 <  maeip_price * 0.99
+            maedoHoga1 <  maeip_price * 0.96
         ):
             printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
                 int(before0_amount / before1_amount * 100), 
@@ -721,14 +721,19 @@ class KiwoomConditon(QObject):
 
       
         ##########################################################################################################
-        # 추가 매수는 하루에 한번  
+        # 추가 매수는 이틀에 한번  
         if( jongmokCode in self.jangoInfo):
             chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'][-1] #20170411151000
-            time_span = datetime.timedelta(minutes = 420 )
-            
+            target_time_index = kw_util.dict_jusik['TR:분봉'].index('체결시간')
+            days = 2 
+            fivemin_time_str = '5분 {3}봉전'.format(days * 78)
+            target_time_str = jongmok_info_dict[fivemin_time_str][target_time_index] 
+
             if( chegyeol_time_str != ''):
-                target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
-                if( datetime.datetime.now() > target_time ):
+                chegyeol_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") 
+                target_time = datetime.datetime.strptime(target_time_str, "%Y%m%d%H%M%S") 
+                print('체결:{0}, 타겟:{1}'.format( chegyeol_time_str, target_time_str))
+                if( chegyeol_time < target_time ):
                     pass
                 else:
                     printLog += '(추가매수금지)'
@@ -1882,7 +1887,8 @@ class KiwoomConditon(QObject):
         # 1, 2 컬럼의 수익과 수익율 필드 채움 
         if( str(nFid) in fids):
             result = self.getChejanData(nFid).strip()
-            current_jango = self.jangoInfo[jongmok_code]
+            # 첫 매수시는 잔고 정보가 없을 수 있으므로 
+            current_jango = self.jangoInfo.get(jongmok_code, {})
             if( int(result) == 1): #매도
                 # 체결가를 통해 수익율 필드 업데이트 
                 current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
@@ -1901,11 +1907,8 @@ class KiwoomConditon(QObject):
                 info.append('{0:>10}'.format('0'))
                 info.append('{0:>10}'.format('0'))
                 # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
-                if( '매수횟수' in current_jango):
-                    chumae_count = int(current_jango.get('매수횟수', '0'))
-                    info.append(' 매수횟수: {0:>3} '.format(chumae_count + 1))
-                else:
-                    info.append(' 매수횟수: {0:>3} '.format('0'))
+                chumae_count = int(current_jango.get('매수횟수', '0'))
+                info.append(' 매수횟수: {0:>3} '.format(chumae_count + 1))
 
 
 
