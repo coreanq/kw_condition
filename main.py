@@ -726,7 +726,7 @@ class KiwoomConditon(QObject):
             chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'][-1] #20170411151000
             target_time_index = kw_util.dict_jusik['TR:분봉'].index('체결시간')
             days = 2 
-            fivemin_time_str = '5분 {3}봉전'.format(days * 78)
+            fivemin_time_str = '5분 {0}봉전'.format(days * 78)
             target_time_str = jongmok_info_dict[fivemin_time_str][target_time_index] 
 
             if( chegyeol_time_str != ''):
