@@ -1728,8 +1728,9 @@ class KiwoomConditon(QObject):
             current_price = abs(int(self.getChejanData(kw_util.name_fid['현재가'])))
 
             #미체결 수량이 있는 경우 잔고 정보 저장하지 않도록 함 
-            if( self.michegyeolInfo[jongmok_code]['미체결수량'] ):
-                return 
+            if( jongmok_code in self.michegyeolInfo):
+                if( self.michegyeolInfo[jongmok_code]['미체결수량'] ):
+                    return 
             # 미체결 수량이 없으므로 정보 삭제 
             del ( self.michegyeolInfo[jongmok_code] )
             if( boyou_suryang == 0 ):
