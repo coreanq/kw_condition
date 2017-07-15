@@ -667,8 +667,7 @@ class KiwoomConditon(QObject):
         before1_price = abs(int(jongmok_info_dict['5분 1봉전'][current_price_index]))
 
         
-        # 추가 매수시 최근 매수가 -2% 하락 하지 않은 경우 추가 매수 금지 (비슷한 가격에서 추가 매수 하는거 금지  )
-        # --> 즉, 5 번 추가 매수시 총 10% 하락에 손절 합치면 -16% 하락해야지만 팔리게 됨 
+        # 추가 매수시 최근 매수가 -4% 하락 하지 않은 경우 추가 매수 금지 (비슷한 가격에서 추가 매수 하는거 금지  )
         maeip_price = 99999999
         if( jongmokCode in self.jangoInfo):
             maeip_price = int(self.jangoInfo[jongmokCode]['최근매수가'][-1])
@@ -692,40 +691,39 @@ class KiwoomConditon(QObject):
                 )
             return_vals.append(False)
 
-        ##########################################################################################################
-        # 14 rsi 조건  판단  
-        # rsi_14 = int( float(jongmok_info_dict['RSI14']) )
-        # if( rsi_14 < 45):
-        #     printLog += '(rsi 충족: {0})'.format( rsi_14 )
-        #     pass
-        # else:
-        #     printLog += '(rsi 미충족: {0})'.format( rsi_14 )
-        #     return_vals.append(False)
 
         ##########################################################################################################
-        # 개별 주식 이동평균선 조건 판단  
+        # 개별 주식 이동평균선 조건 판단 첫 매수시는 200봉 평균 보다 낮은 경우 매수 추가 매수시는 200봉 평균보다 높은 경우 삼
+        # 매수후 지속적으로 하락 시 (200봉 평균보다 낮은 경우 계속 발생) 사지 않도록 함  
         twohundred_avr = int(jongmok_info_dict['200봉평균'])
         twentybong_avr = int(jongmok_info_dict['20봉평균'])
         fivebong_avr = int(jongmok_info_dict['5봉평균'])
-        if(
-            twohundred_avr > maedoHoga1 
-        ):
-            printLog += '(이평 충족: 매도호가1 {0}, 200봉평균: {1}, 20봉 평균: {2}, 5봉평균: {3})'\
-                .format( maedoHoga1, twohundred_avr, twentybong_avr, fivebong_avr )
-            pass
+        twohundred_avr_condition = True if (twohundred_avr > maedoHoga1) else False
+
+        # 처음 매수 종목인 경우 
+        if( jongmokCode not in self.jangoInfo ):
+            if( twohundred_avr_condition == True ):
+                printLog += '(처음매수 이평 충족: 매도호가1 {0}, 200봉평균: {1}, 20봉 평균: {2}, 5봉평균: {3})'\
+                    .format( maedoHoga1, twohundred_avr, twentybong_avr, fivebong_avr )
+                pass
+            else:
+                return_vals.append(False)
         else:
-            printLog += '(이평 미충족: 매도호가1 {0}, 200봉평균: {1}, 20봉 평균: {2}, 5봉평균: {3})'\
-                .format( maedoHoga1, twohundred_avr, twentybong_avr, fivebong_avr )
-            return_vals.append(False)
+            if( twohundred_avr_condition == False ):
+                printLog += '(추가매수 이평 충족: 매도호가1 {0}, 200봉평균: {1}, 20봉 평균: {2}, 5봉평균: {3})'\
+                    .format( maedoHoga1, twohundred_avr, twentybong_avr, fivebong_avr )
+                pass
+            else:
+                return_vals.append(False)
         
 
       
         ##########################################################################################################
-        # 추가 매수는 이틀에 한번  
+        # 추가 매수는 하루에 한번 
         if( jongmokCode in self.jangoInfo):
             chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'][-1] #20170411151000
             target_time_index = kw_util.dict_jusik['TR:분봉'].index('체결시간')
-            days = 2 
+            days = 1 
             fivemin_time_str = '5분 {0}봉전'.format(days * 78)
             target_time_str = jongmok_info_dict[fivemin_time_str][target_time_index] 
 
@@ -750,6 +748,16 @@ class KiwoomConditon(QObject):
         else:
             printLog += '(추가매수한계)'
             return_vals.append(False)
+
+        ##########################################################################################################
+        # 14 rsi 조건  판단  
+        # rsi_14 = int( float(jongmok_info_dict['RSI14']) )
+        # if( rsi_14 < 45):
+        #     printLog += '(rsi 충족: {0})'.format( rsi_14 )
+        #     pass
+        # else:
+        #     printLog += '(rsi 미충족: {0})'.format( rsi_14 )
+        #     return_vals.append(False)
 
         ##########################################################################################################
         # 업종 이동 평균선 조건 상승일때 매수  
