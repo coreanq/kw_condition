@@ -37,7 +37,7 @@ STOP_LOSS_PER_MAESU_COUNT = [ 32,                   16,                     8,  
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-STOCK_POSSESION_COUNT = 15 + len(EXCEPTION_LIST) + 2 # etf +2 
+STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST) + 2 # etf +2 
 
 ETF_BUY_QTY = 5
 
@@ -53,7 +53,8 @@ ETF_LIST = {
     '192090': "tiger csi300",
     '139260': "tiger 200 it",
     '169950': "kodex 중국본토 as0",
-    '091170': "kodex 은행"
+    '091170': "kodex 은행",
+    '252710': "tiget 선물"
 }
 # etf 실제 거래 종목 리스트
 ETF_PAIR_LIST = {
@@ -1437,7 +1438,7 @@ class KiwoomConditon(QObject):
 
             ########################################################################
             # 여기서부터는 ETF 전용 
-            if( jongmokCode not in ETF_LIST or jongmokCode not in self.jangoInfo):
+            if( jongmokCode not in ETF_PAIR_LIST or jongmokCode not in self.jangoInfo):
                 return
             maesuHoga1 = abs(int(self.jangoInfo[jongmokCode]['매수호가1']))
             # 매수 호가 기준으로 수익 측정 
