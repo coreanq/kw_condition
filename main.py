@@ -32,7 +32,7 @@ MAESU_LIMIT = 4 # 추가 매수 제한
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
 STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      1,                      1                  ]
-STOP_LOSS_PER_MAESU_COUNT = [ 32,                   16,                     8,                      4,                      2                  ]
+STOP_LOSS_PER_MAESU_COUNT = [ 24,                   12,                     6,                      3,                      2                  ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
@@ -676,7 +676,7 @@ class KiwoomConditon(QObject):
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
             before0_amount > 5000 and  # 거래량이 너무 최소인 경우를 막기 위함 
-            maedoHoga1 <  maeip_price * 0.96
+            maedoHoga1 <  maeip_price * 0.98
         ):
             printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
                 int(before0_amount / before1_amount * 100), 
@@ -1029,14 +1029,14 @@ class KiwoomConditon(QObject):
             qty = self.jangoInfo['114800']['매매가능수량']
             screenNo = kw_util.sendOrderETFScreenNo
             if( '매도중' not in self.jangoInfo['114800']):
-                self.jangoInfo['114800']['매도중'] = True
+                self.jangoInfo['114800']['매도중'] = '(이티에프)'
                 self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, inverse_price , hogaGb, orgOrderNo) 
 
             rQName, code, req_num = 'sell4', '069500', req_num +1
             qty = self.jangoInfo['069500']['매매가능수량']
             screenNo = kw_util.sendOrderETFPairScreenNo
             if( '매도중' not in self.jangoInfo['069500']):
-                self.jangoInfo['069500']['매도중'] = True
+                self.jangoInfo['069500']['매도중'] = '(이티에프)'
                 self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, normal_price, hogaGb, orgOrderNo) 
         pass
 
@@ -1666,24 +1666,30 @@ class KiwoomConditon(QObject):
         # 손절 / 익절 계산 
         # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
         isSijanga = False
+        maedo_type = ''
         if( stop_loss == 0 ):
-            printData+= "(정리)"
+            maedo_type = "(당일정리)"
+            printData += maedo_type 
             isSijanga = True
             isSell = True
         elif( stop_loss == 99999999 ):
-            printData += "(타임컷)"
+            maedo_type = "(타임컷임)"
+            printData += maedo_type 
             isSijanga = True
             isSell = True
         elif( stop_loss >= maesuHoga1 ) :
-            printData += "(손절)"
+            maedo_type = "(손절이다)"
+            printData += maedo_type 
             isSijanga = True
             isSell = True
         elif( stop_plus < maesuHoga1 ) :
             if( totalAmount >= TOTAL_BUY_AMOUNT):
-                printData += "(익절)" 
+                maedo_type = "(익절이다)"
+                printData += maedo_type 
                 isSell = True 
             else:
-                printData += "(익절조건미달)" 
+                maedo_type = "(익절미달)"
+                printData += maedo_type 
                 isSell = True
 
         printData +=    ' 손절가: {0:7}/'.format(str(stop_loss)) + \
@@ -1700,7 +1706,7 @@ class KiwoomConditon(QObject):
         if( isSell == True ):
             # processStop 의 경우 체결될때마다 호출되므로 중복 주문이 나가지 않게 함 
             if( '매도중' not in current_jango):
-                current_jango['매도중'] = True
+                current_jango['매도중'] = maedo_type
                 if( isSijanga == True ):
                     result = self.sendOrder("sell_"  + jongmokCode, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
                                         jongmokCode, jangosuryang, 0 , kw_util.dict_order["시장가"], "")
@@ -1893,6 +1899,10 @@ class KiwoomConditon(QObject):
         printData = "" 
         info = [] 
 
+        # 미체결 수량이 0 이 아닌 경우 다시 체결 정보가 올라 오므로 0인경우 처리 안함 
+        michegyeol_suryung = int(self.getChejanData(kw_util.name_fid['미체결수량']).strip())
+        if( michegyeol_suryung != 0 ):
+            return
         nFid = kw_util.name_fid['매도매수구분']
         # 1, 2 컬럼의 수익과 수익율 필드 채움 
         if( str(nFid) in fids):
@@ -1908,9 +1918,11 @@ class KiwoomConditon(QObject):
                 profit = current_jango.get('수익', '0')
                 profit_percent = current_jango.get('수익율', '0' )
                 chumae_count = int(current_jango.get('매수횟수', '0'))
+                maedo_type = current_jango.get('매도중', '0')
                 info.append('{0:>10}'.format(profit_percent))
                 info.append('{0:>10}'.format(profit))
-                info.append(' 매수횟수: {0:>3} '.format(chumae_count))
+                info.append(' 매수횟수: {0:>1} '.format(chumae_count))
+                info.append(' {0} '.format(maedo_type))
                 pass
             else: #매수 
                 # 매수시 체결정보는 수익율 / 수익 필드가  
@@ -1918,7 +1930,8 @@ class KiwoomConditon(QObject):
                 info.append('{0:>10}'.format('0'))
                 # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
                 chumae_count = int(current_jango.get('매수횟수', '0'))
-                info.append(' 매수횟수: {0:>3} '.format(chumae_count + 1))
+                info.append(' 매수횟수: {0:>1} '.format(chumae_count + 1))
+                info.append(' {0} '.format('(단순매수)'))
 
 
 
@@ -1934,8 +1947,12 @@ class KiwoomConditon(QObject):
                 result = self.getChejanData(nFid).strip()
                 if( col_name == '종목코드'):
                     result = result[1:] 
-                if( col_name == '체결가' or col_name == '체결량' or col_name == '미체결수량'):
+                if( col_name == '체결가' ):
                     result = '{0:>10}'.format(result)
+                
+                if( col_name == '체결량' or col_name == '미체결수량'):
+                    result = '{0:>7}'.format(result)
+
                 info.append(' {} '.format(result))
                 printData += col_name + ": " + result + ", " 
     
