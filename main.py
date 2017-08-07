@@ -28,11 +28,12 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용 
-MAESU_LIMIT = 4 # 추가 매수 제한 
+TIME_CUT_MAX_DAY = 5  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
+MAESU_LIMIT = 3 # 추가 매수 제한 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
 STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      1,                      1                  ]
-STOP_LOSS_PER_MAESU_COUNT = [ 24,                   12,                     6,                      3,                      2                  ]
+STOP_LOSS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      1,                      2                  ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
@@ -46,15 +47,7 @@ ETF_LIST = {
     '114800': "kodex 인버스",
     '069500': "kodex 200",
     '122630': "kodex 레버리지",
-    '123320': "tiger 레버리지",
-    '233160': "tiger 코스닥150 레버리지",
-    '233740': "kodex 코스닥 레버리지",
-    '204480': "tiger 차이나",
-    '192090': "tiger csi300",
-    '139260': "tiger 200 it",
-    '169950': "kodex 중국본토 as0",
-    '091170': "kodex 은행",
-    '252710': "tiget 선물"
+    '233740': "kodex 코스닥 레버리지"
 }
 # etf 실제 거래 종목 리스트
 ETF_PAIR_LIST = {
@@ -668,7 +661,7 @@ class KiwoomConditon(QObject):
         before1_price = abs(int(jongmok_info_dict['5분 1봉전'][current_price_index]))
 
         
-        # 추가 매수시 최근 매수가 -4% 하락 하지 않은 경우 추가 매수 금지 (비슷한 가격에서 추가 매수 하는거 금지  )
+        # 추가 매수시 최근 매수가 보다 하락하지  않은 경우 추가 매수 금지 (비슷한 가격에서 추가 매수 하는거 금지  )
         maeip_price = 99999999
         if( jongmokCode in self.jangoInfo):
             maeip_price = int(self.jangoInfo[jongmokCode]['최근매수가'][-1])
@@ -676,7 +669,7 @@ class KiwoomConditon(QObject):
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 2배 조건 반드시 넣기 
             before0_amount > 5000 and  # 거래량이 너무 최소인 경우를 막기 위함 
-            maedoHoga1 <  maeip_price * 0.98
+            maedoHoga1 <  maeip_price 
         ):
             printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
                 int(before0_amount / before1_amount * 100), 
@@ -701,9 +694,11 @@ class KiwoomConditon(QObject):
         fivebong_avr = int(jongmok_info_dict['5봉평균'])
         twohundred_avr_condition = True if (twohundred_avr > maedoHoga1) else False
 
-        # 처음 매수 종목인 경우 
+        rsi_14 = int( float(jongmok_info_dict['RSI14']) )
+
+        # 처음 매수 종목인 경우 200이평 보다 낮고 rsi_14 가 낮은 경우만 매수  
         if( jongmokCode not in self.jangoInfo ):
-            if( twohundred_avr_condition == True ):
+            if( twohundred_avr_condition == True and rsi_14 < 30 ):
                 printLog += '(처음매수 이평 충족: 매도호가1 {0}, 200봉평균: {1}, 20봉 평균: {2}, 5봉평균: {3})'\
                     .format( maedoHoga1, twohundred_avr, twentybong_avr, fivebong_avr )
                 pass
@@ -720,12 +715,12 @@ class KiwoomConditon(QObject):
 
       
         ##########################################################################################################
-        # 추가 매수는 하루에 한번 
+        # 추가 매수 시간 제한  
         if( jongmokCode in self.jangoInfo):
             chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'][-1] #20170411151000
             target_time_index = kw_util.dict_jusik['TR:분봉'].index('체결시간')
-            days = 1 
-            fivemin_time_str = '5분 {0}봉전'.format(days * 78)
+            hours = 2 
+            fivemin_time_str = '5분 {0}봉전'.format(hours * 12)
             target_time_str = jongmok_info_dict[fivemin_time_str][target_time_index] 
 
             if( chegyeol_time_str != ''):
@@ -749,16 +744,6 @@ class KiwoomConditon(QObject):
         else:
             printLog += '(추가매수한계)'
             return_vals.append(False)
-
-        ##########################################################################################################
-        # 14 rsi 조건  판단  
-        # rsi_14 = int( float(jongmok_info_dict['RSI14']) )
-        # if( rsi_14 < 45):
-        #     printLog += '(rsi 충족: {0})'.format( rsi_14 )
-        #     pass
-        # else:
-        #     printLog += '(rsi 미충족: {0})'.format( rsi_14 )
-        #     return_vals.append(False)
 
         ##########################################################################################################
         # 업종 이동 평균선 조건 상승일때 매수  
@@ -1171,7 +1156,7 @@ class KiwoomConditon(QObject):
         repeatCnt = self.getRepeatCnt("opt10080", rQName)
         fivebong_sum, twentybong_sum, twohundred_sum = 0, 0, 0
 
-        for i in range(min(repeatCnt, 256)):
+        for i in range(min(repeatCnt, 400)):
             line = []
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 result = self.getCommData("opt10080", rQName, i, item_name)
@@ -1204,35 +1189,36 @@ class KiwoomConditon(QObject):
 
         jongmok_code = jongmok_info_dict['종목코드']
         if( jongmok_code in self.jangoInfo) :
-            self.jangoInfo[jongmok_code]['5분봉타임컷기준'] = jongmok_info_dict['5분 250봉전']
+            time_cut_5min = '5분 {0}봉전'.format(TIME_CUT_MAX_DAY * 78)
+            self.jangoInfo[jongmok_code]['5분봉타임컷기준'] = jongmok_info_dict[time_cut_5min]
 
 
         # RSI 14 calculate
-        # rsi_up_sum = 0 
-        # rsi_down_sum = 0
-        # index_current_price = kw_util.dict_jusik['TR:분봉'].index('현재가')
+        rsi_up_sum = 0 
+        rsi_down_sum = 0
+        index_current_price = kw_util.dict_jusik['TR:분봉'].index('현재가')
 
-        # for i in range(14, -1, -1):
-        #     key_value = '5분 {0}봉전'.format(i)
-        #     if( i != 14 ):
-        #         key_value = '5분 {0}봉전'.format(i + 1)
-        #         prev_fivemin_close = abs(int(jongmok_info_dict[key_value][index_current_price]))
-        #         key_value = '5분 {0}봉전'.format(i)
-        #         fivemin_close = abs(int(jongmok_info_dict[key_value][index_current_price]))
-        #         if( prev_fivemin_close < fivemin_close):
-        #             rsi_up_sum += fivemin_close - prev_fivemin_close
-        #         elif( prev_fivemin_close > fivemin_close):
-        #             rsi_down_sum += prev_fivemin_close - fivemin_close 
-        #     pass
+        for i in range(14, -1, -1):
+            key_value = '5분 {0}봉전'.format(i)
+            if( i != 14 ):
+                key_value = '5분 {0}봉전'.format(i + 1)
+                prev_fivemin_close = abs(int(jongmok_info_dict[key_value][index_current_price]))
+                key_value = '5분 {0}봉전'.format(i)
+                fivemin_close = abs(int(jongmok_info_dict[key_value][index_current_price]))
+                if( prev_fivemin_close < fivemin_close):
+                    rsi_up_sum += fivemin_close - prev_fivemin_close
+                elif( prev_fivemin_close > fivemin_close):
+                    rsi_down_sum += prev_fivemin_close - fivemin_close 
+            pass
         
-        # rsi_up_avg = rsi_up_sum / 14
-        # rsi_down_avg = rsi_down_sum / 14
-        # if( rsi_up_avg !=0 and rsi_down_avg != 0 ):
-        #     rsi_value = round(rsi_up_avg / ( rsi_up_avg + rsi_down_avg ) * 100 , 1)
-        # else:
-        #     rsi_value = 100
-        # jongmok_info_dict['RSI14'] = str(rsi_value)
-        # print(util.whoami(), jongmok_info_dict['종목코드'], 'rsi_value: ',  jongmok_info_dict['RSI14'])
+        rsi_up_avg = rsi_up_sum / 14
+        rsi_down_avg = rsi_down_sum / 14
+        if( rsi_up_avg !=0 and rsi_down_avg != 0 ):
+            rsi_value = round(rsi_up_avg / ( rsi_up_avg + rsi_down_avg ) * 100 , 1)
+        else:
+            rsi_value = 100
+        jongmok_info_dict['RSI14'] = str(rsi_value)
+        print(util.whoami(), jongmok_info_dict['종목코드'], 'rsi_value: ',  jongmok_info_dict['RSI14'])
         return True
 
     # 업종 분봉 tr 요청 
