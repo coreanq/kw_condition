@@ -32,8 +32,8 @@ TIME_CUT_MAX_DAY = 5  # 추가 매수 안한지 ?일 지나면 타임컷 수행�
 MAESU_LIMIT = 3 # 추가 매수 제한 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                    4,                      2,                      1,                      1                  ]
-STOP_LOSS_PER_MAESU_COUNT = [ 12,                   6,                      3,                      1,                      1                  ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    8,                      8,                      1,                      1                  ]
+STOP_LOSS_PER_MAESU_COUNT = [ 40,                   40,                     40,                      1,                      1                  ]
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
@@ -659,6 +659,8 @@ class KiwoomConditon(QObject):
         current_price_index =  kw_util.dict_jusik['TR:분봉'].index('현재가')
         before0_price = abs(int(jongmok_info_dict['5분 0봉전'][current_price_index]))
         before1_price = abs(int(jongmok_info_dict['5분 1봉전'][current_price_index]))
+        before2_price = abs(int(jongmok_info_dict['5분 2봉전'][current_price_index]))
+        before3_price = abs(int(jongmok_info_dict['5분 3봉전'][current_price_index]))
 
         
         # 추가 매수시 최근 매수가 보다 하락하지  않은 경우 추가 매수 금지 (비슷한 가격에서 추가 매수 하는거 금지  )
@@ -668,7 +670,7 @@ class KiwoomConditon(QObject):
         
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 조건 반드시 넣기 
-            before0_amount * maedoHoga1 > 100000000 and  # 1억원 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함 ( 10000원 짜리 10000주 이상 기준 ) 
+            before0_amount * maedoHoga1 > 100000000 and  # 얼마 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함
             maedoHoga1 <  last_maeip_price 
         ):
             printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
@@ -695,12 +697,19 @@ class KiwoomConditon(QObject):
         fivebong_avr = int(jongmok_info_dict['5봉평균'])
         avr_condition = True if (sixtybong_avr > maedoHoga1) else False
 
+        rsi_14 = int( float(jongmok_info_dict['RSI14']) )
 
-        # 추가 매수 종목인 경우 200이평 보다 낮은 경우 
+        # 첫  매수 종목인 경우 이평 보다 낮은 경우  추가 매수는 이평보다 높은 경우 
         if( jongmokCode not in self.jangoInfo ):
+            # if( avr_condition == True and rsi_14 < 40 ):
+            #     printLog += '(첫매수 이평 충족: 매도호가1 {0}, 200봉평균: {1}, 60봉평균: {2}, 20봉 평균: {3}, 5봉평균: {4})'\
+            #         .format( maedoHoga1, twohundred_avr, sixtybong_avr, twentybong_avr, fivebong_avr )
+            #     pass
+            # else:
+            #     return_vals.append(False)
             pass
         else:
-            if( avr_condition == True ):
+            if( avr_condition == False and before1_price < sixtybong_avr  and before2_price < sixtybong_avr and before3_price < sixtybong_avr ) :
                 printLog += '(추가매수 이평 충족: 매도호가1 {0}, 200봉평균: {1}, 60봉평균: {2}, 20봉 평균: {3}, 5봉평균: {4})'\
                     .format( maedoHoga1, twohundred_avr, sixtybong_avr, twentybong_avr, fivebong_avr )
                 pass
