@@ -668,7 +668,7 @@ class KiwoomConditon(QObject):
         
         if( 
             before0_amount > before1_amount * 2 and  # 거래량 조건 반드시 넣기 
-            before0_amount * maedoHoga1 > 50000000 and  # 5000만원 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함 ( 10000원 짜리 5000주 이상 기준 ) 
+            before0_amount * maedoHoga1 > 100000000 and  # 1억원 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함 ( 10000원 짜리 10000주 이상 기준 ) 
             maedoHoga1 <  last_maeip_price 
         ):
             printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
@@ -690,18 +690,19 @@ class KiwoomConditon(QObject):
         # 개별 주식 이동평균선 조건 판단 첫 매수시는 200봉 평균 보다 낮은 경우 매수 추가 매수시는 200봉 평균보다 높은 경우 삼
         # 매수후 지속적으로 하락 시 (200봉 평균보다 낮은 경우 계속 발생) 사지 않도록 함  
         twohundred_avr = int(jongmok_info_dict['200봉평균'])
+        sixtybong_avr = int(jongmok_info_dict['60봉평균'])
         twentybong_avr = int(jongmok_info_dict['20봉평균'])
         fivebong_avr = int(jongmok_info_dict['5봉평균'])
-        twohundred_avr_condition = True if (twohundred_avr > maedoHoga1) else False
+        avr_condition = True if (sixtybong_avr > maedoHoga1) else False
 
 
         # 추가 매수 종목인 경우 200이평 보다 낮은 경우 
         if( jongmokCode not in self.jangoInfo ):
             pass
         else:
-            if( twohundred_avr_condition == True ):
-                printLog += '(추가매수 이평 충족: 매도호가1 {0}, 200봉평균: {1}, 20봉 평균: {2}, 5봉평균: {3})'\
-                    .format( maedoHoga1, twohundred_avr, twentybong_avr, fivebong_avr )
+            if( avr_condition == True ):
+                printLog += '(추가매수 이평 충족: 매도호가1 {0}, 200봉평균: {1}, 60봉평균: {2}, 20봉 평균: {3}, 5봉평균: {4})'\
+                    .format( maedoHoga1, twohundred_avr, sixtybong_avr, twentybong_avr, fivebong_avr )
                 pass
             else:
                 return_vals.append(False)
@@ -1148,7 +1149,7 @@ class KiwoomConditon(QObject):
         else:
             return False
         repeatCnt = self.getRepeatCnt("opt10080", rQName)
-        fivebong_sum, twentybong_sum, twohundred_sum = 0, 0, 0
+        fivebong_sum, twentybong_sum, sixtybong_sum, twohundred_sum = 0, 0, 0, 0
 
         for i in range(min(repeatCnt, 400)):
             line = []
@@ -1161,6 +1162,8 @@ class KiwoomConditon(QObject):
                         pass
                     if( i < 20 ):
                         twentybong_sum += abs(int(result))
+                    if( i < 60 ):
+                        sixtybong_sum += abs(int(result))
                     if( i < 200 ):
                         twohundred_sum += abs(int(result))
 
@@ -1178,6 +1181,7 @@ class KiwoomConditon(QObject):
             jongmok_info_dict[key_value] = line
         
         jongmok_info_dict['200봉평균'] = str(int(twohundred_sum/ 200))
+        jongmok_info_dict['60봉평균'] = str(int(sixtybong_sum / 60))
         jongmok_info_dict['20봉평균'] = str(int(twentybong_sum / 20))
         jongmok_info_dict['5봉평균'] = str(int(fivebong_sum / 5))
 
