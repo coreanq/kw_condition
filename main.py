@@ -28,8 +28,8 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용 
-CHUMAE_TIME_LILMIT_HOURS  = 24  # 다음 추가 매수시 보내야될 시간 조건
-TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
+CHUMAE_TIME_LILMIT_HOURS  = 7  # 다음 추가 매수시 보내야될 시간 조건   장 운영 시간으로만 계산하므로 약 6.5 시간이 하루임 
+TIME_CUT_MAX_DAY = 20  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
 MAESU_LIMIT = 4 # 추가 매수 제한 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
@@ -692,10 +692,12 @@ class KiwoomConditon(QObject):
             #     return_vals.append(False)
             pass
         else:
+            temp = '(추가매수 이평 충족: 매도호가1 {0}, 200봉평균: {1},  5분 1봉전 {2}, 5분 2봉전 {3}, 5분 3봉전 {4})'\
+                .format( maedoHoga1, twohundred_avr, before1_price, before2_price, before3_price)
+            print(temp)
+
             if( avr_condition == False and before1_price < twohundred_avr  and before2_price < twohundred_avr and before3_price < twohundred_avr ) :
-                printLog += '(추가매수 이평 충족: 매도호가1 {0}, 200봉평균: {1}, 60봉평균: {2}, 20봉 평균: {3}, 5봉평균: {4})'\
-                    .format( maedoHoga1, twohundred_avr, sixtybong_avr, twentybong_avr, fivebong_avr )
-                pass
+                printLog += temp
             else:
                 return_vals.append(False)
         
@@ -712,7 +714,7 @@ class KiwoomConditon(QObject):
             if( chegyeol_time_str != ''):
                 chegyeol_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") 
                 target_time = datetime.datetime.strptime(target_time_str, "%Y%m%d%H%M%S") 
-                print('체결:{0}, 타겟:{1}'.format( chegyeol_time_str, target_time_str))
+                # print('체결:{0}, 타겟:{1}'.format( chegyeol_time_str, target_time_str))
                 if( chegyeol_time < target_time ):
                     pass
                 else:
@@ -1137,7 +1139,7 @@ class KiwoomConditon(QObject):
         else:
             rsi_value = 100
         jongmok_info_dict['RSI14'] = str(rsi_value)
-        print(util.whoami(), jongmok_info_dict['종목코드'], 'rsi_value: ',  jongmok_info_dict['RSI14'])
+        print(util.whoami(), self.getMasterCodeName(jongmok_code), jongmok_code,  'rsi_value: ',  rsi_value)
         return True
 
     # 업종 분봉 tr 요청 
@@ -1281,8 +1283,8 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
-        .format(scrNo, rQName, trCode))
+        # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
+        # .format(scrNo, rQName, trCode))
 
         # rQName 은 계좌번호임 
         if ( trCode == 'opw00018' ):
@@ -1852,7 +1854,6 @@ class KiwoomConditon(QObject):
         if( ret_vals.count(True) ):
             pass
         else:
-            # 종목명은 determine buy 할시 확인하므로 꼭 넣어주어야 함 
             self.conditionOccurList.append( {'종목명': jongmok_name, '종목코드': jongmok_code} )
             self.sigConditionOccur.emit()
         pass
