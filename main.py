@@ -29,7 +29,7 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용 
 CHUMAE_TIME_LILMIT_HOURS  = 7  # 다음 추가 매수시 보내야될 시간 조건   장 운영 시간으로만 계산하므로 약 6.5 시간이 하루임 
-TIME_CUT_MAX_DAY = 20  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
+TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
 MAESU_LIMIT = 4 # 추가 매수 제한 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
@@ -531,7 +531,7 @@ class KiwoomConditon(QObject):
                 self.requestOpt10001(jongmok_code)
             else:
                 self.sigRequestInfo.emit()
-            print(util.whoami() , jongmok_name, jongmok_code ) 
+            # print(util.whoami() , jongmok_name, jongmok_code ) 
             return
         else:
             self.sigError.emit()
@@ -636,38 +636,36 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 5분봉 1봉전 거래량에 비해 0봉전 거래량 비율 체크  
         amount_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
-        before0_amount = abs(int(jongmok_info_dict['5분 0봉전'][amount_index]))
-        before1_amount = abs(int(jongmok_info_dict['5분 1봉전'][amount_index]))
-
         current_price_index =  kw_util.dict_jusik['TR:분봉'].index('현재가')
-        before0_price = abs(int(jongmok_info_dict['5분 0봉전'][current_price_index]))
-        before1_price = abs(int(jongmok_info_dict['5분 1봉전'][current_price_index]))
-        before2_price = abs(int(jongmok_info_dict['5분 2봉전'][current_price_index]))
-        before3_price = abs(int(jongmok_info_dict['5분 3봉전'][current_price_index]))
 
+        before_prices = []
+        before_amounts = []
+        five_min_template = '5분 {}봉전'
+
+        for index in range(100):
+            five_min_str = five_min_template.format(index)
+            price = abs(int(jongmok_info_dict[five_min_str][current_price_index]))
+            amount = abs(int(jongmok_info_dict[five_min_str][amount_index]))
+            before_amounts.append(amount)
+            before_prices.append(price)
         
         # 추가 매수시 최근 매수가 보다 하락하지  않은 경우 추가 매수 금지 (비슷한 가격에서 추가 매수 하는거 금지  )
         last_maeip_price = 99999999
         if( jongmokCode in self.jangoInfo):
             last_maeip_price = int(self.jangoInfo[jongmokCode]['최근매수가'][-1])
         
+        printLog += '(5분봉: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
+            int(before_amounts[0] / before_amounts[1] * 100), 
+            before_prices[0], before_amounts[0], 
+            before_prices[1], before_amounts[1]
+            )
+
         if( 
-            before0_amount > before1_amount * 2 and  # 거래량 조건 반드시 넣기 
-            before0_amount * maedoHoga1 > 100000000 and  # 얼마 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함
-            maedoHoga1 <  last_maeip_price 
+            before_amounts[0] * maedoHoga1 > 100000000 and  # 얼마 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함
+            maedoHoga1 <  last_maeip_price   # 최근 매입가보다 낮은 경우만 매수 
         ):
-            printLog += '(5분봉 충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
-                int(before0_amount / before1_amount * 100), 
-                before0_price , before0_amount, 
-                before1_price, before1_amount
-                )
             pass
         else:
-            printLog += '(5분봉 미충족: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
-                int(before0_amount / before1_amount * 100), 
-                before0_price , before0_amount, 
-                before1_price, before1_amount
-                )
             return_vals.append(False)
 
 
@@ -678,28 +676,28 @@ class KiwoomConditon(QObject):
         sixtybong_avr = int(jongmok_info_dict['60봉평균'])
         twentybong_avr = int(jongmok_info_dict['20봉평균'])
         fivebong_avr = int(jongmok_info_dict['5봉평균'])
-        avr_condition = True if (twohundred_avr > maedoHoga1) else False
-
         rsi_14 = int( float(jongmok_info_dict['RSI14']) )
 
         # 첫  매수 종목인 경우 이평 보다 낮은 경우  추가 매수는 이평보다 높은 경우 
         if( jongmokCode not in self.jangoInfo ):
-            # if( avr_condition == True and rsi_14 < 40 ):
-            #     printLog += '(첫매수 이평 충족: 매도호가1 {0}, 200봉평균: {1}, 60봉평균: {2}, 20봉 평균: {3}, 5봉평균: {4})'\
-            #         .format( maedoHoga1, twohundred_avr, sixtybong_avr, twentybong_avr, fivebong_avr )
-            #     pass
-            # else:
-            #     return_vals.append(False)
-            pass
-        else:
-            temp = '(추가매수 이평 충족: 매도호가1 {0}, 200봉평균: {1},  5분 1봉전 {2}, 5분 2봉전 {3}, 5분 3봉전 {4})'\
-                .format( maedoHoga1, twohundred_avr, before1_price, before2_price, before3_price)
-            print(temp)
-
-            if( avr_condition == False and before1_price < twohundred_avr  and before2_price < twohundred_avr and before3_price < twohundred_avr ) :
-                printLog += temp
+            if( before_amounts[0]> before_amounts[1] * 2 ): # 첫 매수는 거래량 조건 보기 
+                pass
             else:
                 return_vals.append(False)
+            pass
+        else:
+            temp = '({} {}, 200봉평균: {},  5분 최근 10봉 가격: {}, 거래량: {} )'\
+                .format( jongmokName,  maedoHoga1, twohundred_avr, before_prices[:10],  before_amounts[:10])
+            print( util.cur_time_msec() , temp)
+            printLog += temp
+
+            if(  twohundred_avr > maedoHoga1 ):  # 현재가가 이평보다 낮은 경우 제외 
+                return_vals.append(False)
+
+            # 이전 하루 봉들이 200평 아래 있다가 갑자기 오른 경우 
+            for count in range(1, 78):
+                if( before_prices[count] > twohundred_avr ):
+                    return_vals.append(False)
         
 
       
@@ -1139,7 +1137,7 @@ class KiwoomConditon(QObject):
         else:
             rsi_value = 100
         jongmok_info_dict['RSI14'] = str(rsi_value)
-        print(util.whoami(), self.getMasterCodeName(jongmok_code), jongmok_code,  'rsi_value: ',  rsi_value)
+        # print(util.whoami(), self.getMasterCodeName(jongmok_code), jongmok_code,  'rsi_value: ',  rsi_value)
         return True
 
     # 업종 분봉 tr 요청 
@@ -1283,8 +1281,8 @@ class KiwoomConditon(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}' 
-        # .format(scrNo, rQName, trCode))
+        # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, prevNext {}' 
+        # .format(scrNo, rQName, trCode, prevNext))
 
         # rQName 은 계좌번호임 
         if ( trCode == 'opw00018' ):
@@ -1335,7 +1333,7 @@ class KiwoomConditon(QObject):
     def _OnReceiveRealData(self, jongmokCode, realType, realData):
         # print(util.whoami() + 'jongmokCode: {}, {}, realType: {}'
         #         .format(jongmokCode, self.getMasterCodeName(jongmokCode),  realType))
-        jongmok_name = self.getMasterCodeName(jongmokCode) 
+
         # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
         if( realType == "주식호가잔량"):
             # print(util.whoami() + 'jongmokCode: {}, realType: {}, realData: {}'
@@ -1483,14 +1481,14 @@ class KiwoomConditon(QObject):
         # time cut 적용 
         base_time_str = ''
         last_chegyeol_time_str = ''
-        if( '5분봉타임컷기준' in current_jango ):
-            base_time_str =  current_jango['5분봉타임컷기준'][2]
-            base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
-            last_chegyeol_time_str = current_jango['주문/체결시간'][-1]
-            maeip_time = datetime.datetime.strptime(last_chegyeol_time_str, '%Y%m%d%H%M%S')
+        # if( '5분봉타임컷기준' in current_jango ):
+        #     base_time_str =  current_jango['5분봉타임컷기준'][2]
+        #     base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
+        #     last_chegyeol_time_str = current_jango['주문/체결시간'][-1]
+        #     maeip_time = datetime.datetime.strptime(last_chegyeol_time_str, '%Y%m%d%H%M%S')
 
-            if( maeip_time < base_time ):
-                stop_loss = 99999999 
+        #     if( maeip_time < base_time ):
+        #         stop_loss = 99999999 
 
         #########################################################################################
         # day trading 용 
@@ -1757,6 +1755,8 @@ class KiwoomConditon(QObject):
                 profit_percent = current_jango.get('수익율', '0' )
                 chumae_count = int(current_jango.get('매수횟수', '0'))
                 maedo_type = current_jango.get('매도중', '0')
+                if( maedo_type == ''):
+                    maedo_type = '수동매도'
                 info.append('{0:>10}'.format(profit_percent))
                 info.append('{0:>10}'.format(profit))
                 info.append(' 매수횟수: {0:>1} '.format(chumae_count))
