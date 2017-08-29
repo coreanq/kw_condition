@@ -254,11 +254,18 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def onBtnConditionClicked(self):
         items = self.getCodeListConditionOccurList()
-        count = 0
+        buffer = [] 
 
-        for item in items:
-            count += 1
-            print( str(count) + " " + item + ': ' + self.getMasterCodeName(item) )
+        for item in items: 
+            boyou = "보유" if item in self.jangoInfo else ""
+            log_string = "{} {} ({})".format(item,  self.getMasterCodeName(item), boyou) 
+
+            if( boyou == "보유" ):
+                buffer.append(log_string)
+            else:
+                buffer.insert(0, log_string)
+        
+        print( '\n'.join(buffer) )
         pass
     
     @pyqtSlot(str)
@@ -642,7 +649,7 @@ class KiwoomConditon(QObject):
         before_amounts = []
         five_min_template = '5분 {}봉전'
 
-        for index in range(100):
+        for index in range(200):
             five_min_str = five_min_template.format(index)
             price = abs(int(jongmok_info_dict[five_min_str][current_price_index]))
             amount = abs(int(jongmok_info_dict[five_min_str][amount_index]))
@@ -672,10 +679,6 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 개별 주식 이동평균선 조건 판단 첫 매수시는 200봉 평균 보다 낮은 경우 매수 추가 매수시는 200봉 평균보다 높은 경우 삼
         # 매수후 지속적으로 하락 시 (200봉 평균보다 낮은 경우 계속 발생) 사지 않도록 함  
-        twohundred_avr = int(jongmok_info_dict['200봉평균'])
-        sixtybong_avr = int(jongmok_info_dict['60봉평균'])
-        twentybong_avr = int(jongmok_info_dict['20봉평균'])
-        fivebong_avr = int(jongmok_info_dict['5봉평균'])
         rsi_14 = int( float(jongmok_info_dict['RSI14']) )
 
         # 첫  매수 종목인 경우 이평 보다 낮은 경우  추가 매수는 이평보다 높은 경우 
@@ -686,19 +689,22 @@ class KiwoomConditon(QObject):
                 return_vals.append(False)
             pass
         else:
-            temp = '({} {}, 200봉평균: {},  5분 최근 10봉 가격: {}, 거래량: {} )'\
-                .format( jongmokName,  maedoHoga1, twohundred_avr, before_prices[:10],  before_amounts[:10])
-            print( util.cur_time_msec() , temp)
-            printLog += temp
+            twohundred_avr = jongmok_info_dict['200봉0평균'] 
 
             if(  twohundred_avr > maedoHoga1 ):  # 현재가가 이평보다 낮은 경우 제외 
                 return_vals.append(False)
-
-            # 이전 하루 봉들이 200평 아래 있다가 갑자기 오른 경우 
-            for count in range(1, 78):
-                if( before_prices[count] > twohundred_avr ):
-                    return_vals.append(False)
+            else:
+                # 이전 이틀  봉들이 200평 아래 있다가 갑자기 오른 경우 
+                for count in range(1, 78 * 2):
+                    twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
+                    if( before_prices[count] > twohundred_avr ):
+                        return_vals.append(False)
+                        break
         
+            temp = '({} {})'\
+                .format( jongmokName,  maedoHoga1 )
+            print( util.cur_time_msec() , temp)
+            printLog += temp
 
       
         ##########################################################################################################
@@ -1070,41 +1076,35 @@ class KiwoomConditon(QObject):
         else:
             return False
         repeatCnt = self.getRepeatCnt("opt10080", rQName)
-        fivebong_sum, twentybong_sum, sixtybong_sum, twohundred_sum = 0, 0, 0, 0
+
+        total_current_price_list = []
 
         for i in range(min(repeatCnt, 800)):
             line = []
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 result = self.getCommData("opt10080", rQName, i, item_name)
-
                 if( item_name == "현재가"):
-                    if( i < 5 ):
-                        fivebong_sum += abs(int(result))
-                        pass
-                    if( i < 20 ):
-                        twentybong_sum += abs(int(result))
-                    if( i < 60 ):
-                        sixtybong_sum += abs(int(result))
-                    if( i < 200 ):
-                        twohundred_sum += abs(int(result))
+                    total_current_price_list.append( abs(int(result)  ) )
 
                 line.append(result.strip())
-            # print(line)
-            # 오늘 이전 데이터는 받지 않는다 --> 장시작시는 전날 데이터도 필요 하므로 삭제 
-            # resultTime = time.strptime(currentTimeStr,  "%Y%m%d%H%M%S")
-            # currentTime = time.localtime()
-            # if( resultTime.tm_mday == currentTime.tm_mday ):
-            #     key_value = '5분 {0}봉전'.format(i)
-            #     jongmok_info_dict[key_value] = linegg
-            # else:
-            #     break
             key_value = '5분 {0}봉전'.format(i)
             jongmok_info_dict[key_value] = line
         
-        jongmok_info_dict['200봉평균'] = str(int(twohundred_sum/ 200))
-        jongmok_info_dict['60봉평균'] = str(int(sixtybong_sum / 60))
-        jongmok_info_dict['20봉평균'] = str(int(twentybong_sum / 20))
-        jongmok_info_dict['5봉평균'] = str(int(fivebong_sum / 5))
+        for i in range(0, 200):
+            fivebong_sum, twentybong_sum, sixtybong_sum, twohundred_sum = 0, 0, 0, 0
+
+            twohundred_sum = sum(total_current_price_list[i:200+i])
+            jongmok_info_dict['200봉{}평균'.format(i)] = int(twohundred_sum/ 200)
+
+            # sixtybong_sum = sum(total_current_price_list[i:60+i])
+            # jongmok_info_dict['60봉{}평균'.format(i)] = int(sixtybong_sum/ 60)
+
+            # twentybong_sum = sum(total_current_price_list[i:20+i])
+            # jongmok_info_dict['20봉{}평균'.format(i)] = int(twentybong_sum/ 20)
+
+            # fivebong_sum = sum(total_current_price_list[i:5+i])
+            # jongmok_info_dict['5봉{}평균'.format(i)] = int(fivebong_sum/ 5) 
+        
 
         jongmok_code = jongmok_info_dict['종목코드']
         if( jongmok_code in self.jangoInfo) :
