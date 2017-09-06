@@ -31,7 +31,7 @@ SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용
 CHUMAE_TIME_LILMIT_HOURS  = 7  # 다음 추가 매수시 보내야될 시간 조건   장 운영 시간으로만 계산하므로 약 6.5 시간이 하루임 
 TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
-MAESU_LIMIT = 4 # 추가 매수 제한 
+MAESU_LIMIT = 5 # 추가 매수 제한 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
 STOP_PLUS_PER_MAESU_COUNT = [ 8,                    8,                      8,                      8,                      8                  ]
@@ -613,9 +613,6 @@ class KiwoomConditon(QObject):
         # 최대 보유 할 수 있는 종목 보유수를 넘었는지 확인 
         if( len(self.jangoInfo.keys()) < STOCK_POSSESION_COUNT ):
             pass
-        elif( jongmokCode in self.jangoInfo ):
-        # 중복매수는 예외 
-            pass
         else:
             printLog += "(종목최대보유중)"
             return_vals.append(False)
@@ -630,7 +627,7 @@ class KiwoomConditon(QObject):
 
 
         ##########################################################################################################
-        # 호가 잔량이 살만큼 있는 경우  
+        # 매도 호가 잔량2까지 확인해  살만큼 있는 경우  
         totalAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
         if( totalAmount >= TOTAL_BUY_AMOUNT):
             printLog += '(호가수량충족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
@@ -641,7 +638,7 @@ class KiwoomConditon(QObject):
 
     
         ##########################################################################################################
-        # 5분봉 1봉전 거래량에 비해 0봉전 거래량 비율 체크  
+        # 가격 및 거래량 정보 생성 
         amount_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
         current_price_index =  kw_util.dict_jusik['TR:분봉'].index('현재가')
 
@@ -656,28 +653,33 @@ class KiwoomConditon(QObject):
             before_amounts.append(amount)
             before_prices.append(price)
         
-        # 추가 매수시 최근 매수가 보다 하락하지  않은 경우 추가 매수 금지 (비슷한 가격에서 추가 매수 하는거 금지  )
-        last_maeip_price = 99999999
-        if( jongmokCode in self.jangoInfo):
-            last_maeip_price = int(self.jangoInfo[jongmokCode]['최근매수가'][-1])
-        
         printLog += '(5분봉: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
             int(before_amounts[0] / before_amounts[1] * 100), 
             before_prices[0], before_amounts[0], 
             before_prices[1], before_amounts[1]
             )
 
+        ##########################################################################################################
+        # 최근 매수가 정보 생성
+        last_maeip_price = 99999999
+        if( jongmokCode in self.jangoInfo):
+            last_maeip_price = int(self.jangoInfo[jongmokCode]['최근매수가'][-1])
+        
+
+        ##########################################################################################################
+        # 얼마 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함
+        # 최근 매입가보다 낮은 경우만 매수 
         if( 
-            before_amounts[0] * maedoHoga1 > 100000000 and  # 얼마 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함
-            maedoHoga1 <  last_maeip_price   # 최근 매입가보다 낮은 경우만 매수 
-        ):
+            before_amounts[0] * maedoHoga1 > 100000000 and            
+            maedoHoga1 <  last_maeip_price           
+            ):
             pass
         else:
             return_vals.append(False)
 
 
         ##########################################################################################################
-        # 개별 주식 이동평균선 조건 판단 첫 매수시는 200봉 평균 보다 낮은 경우 매수 추가 매수시는 200봉 평균보다 높은 경우 삼
+        # 개별 주식 이동평균선 조건 판단 첫 매수시는 그냥 사고 추가 매수시는 200봉 평균보다 높은 경우 삼
         # 매수후 지속적으로 하락 시 (200봉 평균보다 낮은 경우 계속 발생) 사지 않도록 함  
         rsi_14 = int( float(jongmok_info_dict['RSI14']) )
 
@@ -691,15 +693,20 @@ class KiwoomConditon(QObject):
         else:
             twohundred_avr = jongmok_info_dict['200봉0평균'] 
 
-            if(  twohundred_avr > maedoHoga1 ):  # 현재가가 이평보다 낮은 경우 제외 
-                return_vals.append(False)
+            if( last_maeip_price * 0.8 >  maedoHoga1 ):
+                pass
+            elif ( last_maeip_price * 0.9 > maedoHoga1 ):
+                if(  twohundred_avr > maedoHoga1 ):  # 현재가가 이평보다 낮은 경우 제외 
+                    return_vals.append(False)
+                else:
+                    # 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
+                    for count in range(1, 78):
+                        twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
+                        if( before_prices[count] > twohundred_avr ):
+                            return_vals.append(False)
+                            break
             else:
-                # 이전 이틀  봉들이 200평 아래 있다가 갑자기 오른 경우 
-                for count in range(1, 78 * 2):
-                    twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
-                    if( before_prices[count] > twohundred_avr ):
-                        return_vals.append(False)
-                        break
+                return_vals.append(False)
         
             temp = '({} {})'\
                 .format( jongmokName,  maedoHoga1 )
@@ -878,18 +885,18 @@ class KiwoomConditon(QObject):
                         first_chegyeol_time_str = chegyeol_time_list[0]
 
                     if( first_chegyeol_time_str != ''):
-                        base_time = datetime.datetime.strptime("20170630102400", "%Y%m%d%H%M%S") 
+                        base_time = datetime.datetime.strptime("20170830102400", "%Y%m%d%H%M%S") 
 
-                        target_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
+                        first_maesu_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
                         total_price = MAESU_TOTAL_PRICE[maesu_count] 
-                        if( base_time  < target_time ):
-                            qty = int(total_price / maedoHoga1 ) + 1 #  약간 오버하게 삼 
+                        if( base_time  < first_maesu_time ):
+                            qty = int(total_price / maedoHoga1/2 ) + 1 #  약간 오버하게 삼 
                             pass
                         else:
-                            qty = int(total_price / maedoHoga1 / 2 ) + 1
+                            qty = int(total_price / maedoHoga1 ) + 1
                 else:
                     total_price = MAESU_TOTAL_PRICE[maesu_count] 
-                    qty = int(total_price / maedoHoga1 ) + 1
+                    qty = int(total_price / maedoHoga1 /2 ) + 1
 
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
