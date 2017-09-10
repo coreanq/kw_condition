@@ -691,11 +691,12 @@ class KiwoomConditon(QObject):
                 return_vals.append(False)
             pass
         else:
+            maeip_price = jongmok_info_dict['매입가']
             twohundred_avr = jongmok_info_dict['200봉0평균'] 
 
-            if( last_maeip_price * 0.8 >  maedoHoga1 ):
+            if( maeip_price * 0.8 >  maedoHoga1 ):
                 pass
-            elif ( last_maeip_price * 0.9 > maedoHoga1 ):
+            elif ( maeip_price * 0.9 > maedoHoga1 ):
                 if(  twohundred_avr > maedoHoga1 ):  # 현재가가 이평보다 낮은 경우 제외 
                     return_vals.append(False)
                 else:
