@@ -691,7 +691,7 @@ class KiwoomConditon(QObject):
                 return_vals.append(False)
             pass
         else:
-            maeip_price = jongmok_info_dict['매입가']
+            maeip_price = self.jangoInfo[jongmokCode]['매입가']
             twohundred_avr = jongmok_info_dict['200봉0평균'] 
 
             if( maeip_price * 0.8 >  maedoHoga1 ):
