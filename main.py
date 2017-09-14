@@ -614,8 +614,9 @@ class KiwoomConditon(QObject):
         if( len(self.jangoInfo.keys()) < STOCK_POSSESION_COUNT ):
             pass
         else:
-            printLog += "(종목최대보유중)"
-            return_vals.append(False)
+            if( jongmokCode not in self.jangoInfo):
+                printLog += "(종목최대보유중)"
+                return_vals.append(False)
 
         ##########################################################################################################
         # 거래 가능시간인지 체크 
@@ -653,11 +654,11 @@ class KiwoomConditon(QObject):
             before_amounts.append(amount)
             before_prices.append(price)
         
-        printLog += '(5분봉: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
-            int(before_amounts[0] / before_amounts[1] * 100), 
-            before_prices[0], before_amounts[0], 
-            before_prices[1], before_amounts[1]
-            )
+        # printLog += '(5분봉: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
+        #     int(before_amounts[0] / before_amounts[1] * 100), 
+        #     before_prices[0], before_amounts[0], 
+        #     before_prices[1], before_amounts[1]
+        #     )
 
         ##########################################################################################################
         # 최근 매수가 정보 생성
@@ -675,46 +676,9 @@ class KiwoomConditon(QObject):
             ):
             pass
         else:
+            printLog += ('(5분봉거래금액미충족:{})'.format( before_amounts[0] * maedoHoga1 ) )
             return_vals.append(False)
 
-
-        ##########################################################################################################
-        # 개별 주식 이동평균선 조건 판단 첫 매수시는 그냥 사고 추가 매수시는 200봉 평균보다 높은 경우 삼
-        # 매수후 지속적으로 하락 시 (200봉 평균보다 낮은 경우 계속 발생) 사지 않도록 함  
-        rsi_14 = int( float(jongmok_info_dict['RSI14']) )
-
-        # 첫  매수 종목인 경우 이평 보다 낮은 경우  추가 매수는 이평보다 높은 경우 
-        if( jongmokCode not in self.jangoInfo ):
-            if( before_amounts[0]> before_amounts[1] * 2 ): # 첫 매수는 거래량 조건 보기 
-                pass
-            else:
-                return_vals.append(False)
-            pass
-        else:
-            maeip_price = self.jangoInfo[jongmokCode]['매입가']
-            twohundred_avr = jongmok_info_dict['200봉0평균'] 
-
-            if( maeip_price * 0.8 >  maedoHoga1 ):
-                pass
-            elif ( maeip_price * 0.9 > maedoHoga1 ):
-                if(  twohundred_avr > maedoHoga1 ):  # 현재가가 이평보다 낮은 경우 제외 
-                    return_vals.append(False)
-                else:
-                    # 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
-                    for count in range(1, 78):
-                        twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
-                        if( before_prices[count] > twohundred_avr ):
-                            return_vals.append(False)
-                            break
-            else:
-                return_vals.append(False)
-        
-            temp = '({} {})'\
-                .format( jongmokName,  maedoHoga1 )
-            print( util.cur_time_msec() , temp)
-            printLog += temp
-
-      
         ##########################################################################################################
         # 추가 매수 시간 제한  
         if( jongmokCode in self.jangoInfo):
@@ -744,6 +708,50 @@ class KiwoomConditon(QObject):
         else:
             printLog += '(추가매수한계)'
             return_vals.append(False)
+
+        ##########################################################################################################
+        # 개별 주식 이동평균선 조건 판단 첫 매수시는 그냥 사고 추가 매수시는 200봉 평균보다 높은 경우 삼
+        # 매수후 지속적으로 하락 시 (200봉 평균보다 낮은 경우 계속 발생) 사지 않도록 함  
+        rsi_14 = int( float(jongmok_info_dict['RSI14']) )
+
+        # 첫  매수 종목인 경우 이평 보다 낮은 경우  추가 매수는 이평보다 높은 경우 
+        if( jongmokCode not in self.jangoInfo ):
+            if( before_amounts[0]> before_amounts[1] * 2 ): # 첫 매수는 거래량 조건 보기 
+                pass
+            else:
+                return_vals.append(False)
+            pass
+        else:
+            maeip_price = self.jangoInfo[jongmokCode]['매입가']
+            twohundred_avr = jongmok_info_dict['200봉0평균'] 
+
+            if( maeip_price * 0.8 >  maedoHoga1 ):
+                util.save_log(printLog, '\t\t', folder = "log")
+                pass
+            elif ( maeip_price * 0.9 > maedoHoga1 ):
+
+                if(  twohundred_avr > maedoHoga1 ):  # 현재가가 이평보다 낮은 경우 제외 
+                    printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
+                    return_vals.append(False)
+                else:
+                    printLog += ('(200봉:{} < 현재가: {})'.format( twohundred_avr, maedoHoga1) )
+                    # 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
+                    for count in range(1, 78):
+                        twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
+                        if( before_prices[count] > twohundred_avr ):
+                            return_vals.append(False)
+                            break
+                util.save_log(printLog, '\t\t', folder = "log")
+            else:
+                return_vals.append(False)
+        
+            temp = '({} {})'\
+                .format( jongmokName,  maedoHoga1 )
+            print( util.cur_time_msec() , temp)
+            printLog += temp
+
+      
+     
 
         ##########################################################################################################
         # 업종 이동 평균선 조건 상승일때 매수  
