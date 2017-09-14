@@ -627,17 +627,7 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
 
 
-        ##########################################################################################################
-        # 매도 호가 잔량2까지 확인해  살만큼 있는 경우  
-        totalAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
-        if( totalAmount >= TOTAL_BUY_AMOUNT):
-            printLog += '(호가수량충족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
-            pass 
-        else:
-            printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
-            return_vals.append(False)
-
-    
+        
         ##########################################################################################################
         # 가격 및 거래량 정보 생성 
         amount_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
@@ -713,30 +703,50 @@ class KiwoomConditon(QObject):
         # 개별 주식 이동평균선 조건 판단 첫 매수시는 그냥 사고 추가 매수시는 200봉 평균보다 높은 경우 삼
         # 매수후 지속적으로 하락 시 (200봉 평균보다 낮은 경우 계속 발생) 사지 않도록 함  
         rsi_14 = int( float(jongmok_info_dict['RSI14']) )
+        totalAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
 
-        # 첫  매수 종목인 경우 이평 보다 낮은 경우  추가 매수는 이평보다 높은 경우 
+        ##########################################################################################################
+        # 첫 매수시 
         if( jongmokCode not in self.jangoInfo ):
             if( before_amounts[0]> before_amounts[1] * 2 ): # 첫 매수는 거래량 조건 보기 
                 pass
             else:
                 return_vals.append(False)
+
+        ##########################################################################################################
+        # 매도 호가 잔량지 확인해  살만큼 있는 경우 추가 매수때는 급등인 경우 많아 볼면 안됨 
+            if( totalAmount >= TOTAL_BUY_AMOUNT):
+                printLog += '(호가수량충족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+                pass 
+            else:
+                printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+                return_vals.append(False)
             pass
+
+        ##########################################################################################################
+        # 추가 매수시 
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
-            twohundred_avr = jongmok_info_dict['200봉0평균'] 
-
+            # 조건 없이 사지는 것이므로 호가 잔량 확인함 
             if( maeip_price * 0.8 >  maedoHoga1 ):
-                util.save_log(printLog, '\t\t', folder = "log")
+                if( totalAmount >= TOTAL_BUY_AMOUNT):
+                    printLog += '(호가수량충족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+                    pass 
+                else:
+                    printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+                    return_vals.append(False)
                 pass
-            elif ( maeip_price * 0.9 > maedoHoga1 ):
+                util.save_log(printLog, '\t\t', folder = "log")
 
-                if(  twohundred_avr > maedoHoga1 ):  # 현재가가 이평보다 낮은 경우 제외 
+            elif ( maeip_price * 0.9 > maedoHoga1 ):
+                twohundred_avr = jongmok_info_dict['200봉0평균'] 
+                # 현재가가 이평보다 낮은 경우 제외
+                if(  twohundred_avr > maedoHoga1 ):   
                     printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
                     return_vals.append(False)
                 else:
-                    printLog += ('(200봉:{} < 현재가: {})'.format( twohundred_avr, maedoHoga1) )
-                    # 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
-                    for count in range(1, 78):
+                    # 1,2, 봉까지는 무시 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
+                    for count in range(3, 78):
                         twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
                         if( before_prices[count] > twohundred_avr ):
                             return_vals.append(False)
