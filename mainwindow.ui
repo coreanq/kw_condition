@@ -25,9 +25,9 @@
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="btnRestart">
+       <widget class="QPushButton" name="btnMakeExcel">
         <property name="text">
-         <string>재시작</string>
+         <string>체결 정보 엑셀 생성</string>
         </property>
        </widget>
       </item>

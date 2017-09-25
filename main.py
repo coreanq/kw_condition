@@ -1,5 +1,6 @@
 # -*-coding: utf-8 -
 import sys, os, re, datetime, copy, json
+import xlwings as xw
 import resource_rc
 
 import util, kw_util
@@ -44,6 +45,7 @@ STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST)   # 보유 종목수 제한
 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
 JANGO_INFO_FILE_PATH =  "log" + os.path.sep + "jango.json"
+CHEGYEOL_INFO_EXCEL_FILE_PATH = "log" + os.path.sep +  "chegyeol.xlsx"
 
 class CloseEventEater(QObject):
     def eventFilter(self, obj, event):
@@ -221,16 +223,16 @@ class KiwoomConditon(QObject):
         rootContext = self.qmlEngine.rootContext()
         rootContext.setContextProperty("model", self)
         pass
-    
+    @pyqtSlot()
+    def onBtnMakeExcelClicked(self):
+        print(util.whoami())
+        self.make_excel(CHEGYEOL_INFO_EXCEL_FILE_PATH, self.chegyeolInfo)
+        pass
     @pyqtSlot()
     def onBtnStartClicked(self):
         print(util.whoami())
         self.sigInitOk.emit()
         
-    @pyqtSlot()
-    def onBtnRestartClicked(self):
-        print(util.whoami())
-
     @pyqtSlot()
     def onBtnJangoClicked(self):
         self.printStockInfo()
@@ -639,10 +641,11 @@ class KiwoomConditon(QObject):
 
         for index in range(200):
             five_min_str = five_min_template.format(index)
-            price = abs(int(jongmok_info_dict[five_min_str][current_price_index]))
-            amount = abs(int(jongmok_info_dict[five_min_str][amount_index]))
-            before_amounts.append(amount)
-            before_prices.append(price)
+            if(five_min_str in jongmok_info_dict ):
+                price = abs(int(jongmok_info_dict[five_min_str][current_price_index]))
+                amount = abs(int(jongmok_info_dict[five_min_str][amount_index]))
+                before_amounts.append(amount)
+                before_prices.append(price)
         
         # printLog += '(5분봉: 거래량 {0}% 0: price({1}/{2}), 1: ({3}/{4})'.format(
         #     int(before_amounts[0] / before_amounts[1] * 100), 
@@ -693,7 +696,6 @@ class KiwoomConditon(QObject):
         if( jongmokCode in self.jangoInfo):
             maesu_count = self.jangoInfo[jongmokCode]['매수횟수']
         if( maesu_count + 1 <= MAESU_LIMIT ):
-            printLog += '(이전매수횟수 {0})'.format(maesu_count)
             pass
         else:
             printLog += '(추가매수한계)'
@@ -711,12 +713,12 @@ class KiwoomConditon(QObject):
             if( before_amounts[0]> before_amounts[1] * 2 ): # 첫 매수는 거래량 조건 보기 
                 pass
             else:
+                printLog += '(첫매수거래량조건미충족)'
                 return_vals.append(False)
 
         ##########################################################################################################
         # 매도 호가 잔량지 확인해  살만큼 있는 경우 추가 매수때는 급등인 경우 많아 볼면 안됨 
             if( totalAmount >= TOTAL_BUY_AMOUNT):
-                printLog += '(호가수량충족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
                 pass 
             else:
                 printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
@@ -730,7 +732,6 @@ class KiwoomConditon(QObject):
             # 조건 없이 사지는 것이므로 호가 잔량 확인함 
             if( maeip_price * 0.8 >  maedoHoga1 ):
                 if( totalAmount >= TOTAL_BUY_AMOUNT):
-                    printLog += '(호가수량충족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
                     pass 
                 else:
                     printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
@@ -749,10 +750,12 @@ class KiwoomConditon(QObject):
                     for count in range(3, 78):
                         twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
                         if( before_prices[count] > twohundred_avr ):
+                            printLog += '(최근5분200이평미충족)'
                             return_vals.append(False)
                             break
                 util.save_log(printLog, '\t\t', folder = "log")
             else:
+                printLog += '(수익률미충족)'
                 return_vals.append(False)
         
             temp = '({} {})'\
@@ -1950,6 +1953,47 @@ class KiwoomConditon(QObject):
            tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
            tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
 
+    def make_excel(self, file_path, data_dict):
+        result = False
+        result = os.path.isfile(file_path)
+        if( result ) :
+            # excel open 
+            wb = xw.Book(file_path)
+            sheet_names = [sheet.name for sheet in wb.sheets]
+            insert_sheet_names = []
+            # print(sheet_names)
+            for key, value in data_dict.items():
+                # sheet name 이 존재 안하면 sheet add
+                sheet_name = key[0:4]
+                if( sheet_name not in sheet_names ):
+                    if( sheet_name not in insert_sheet_names ):
+                        insert_sheet_names.append(sheet_name)
+
+            for insert_sheet in insert_sheet_names:
+                wb.sheets.add(name = insert_sheet)
+            # sheet name 은 YYMM 형식 
+            sheet_names = [sheet.name for sheet in wb.sheets]
+            all_items = []
+
+            for sheet_name in sheet_names:
+                # key 값이 match 되는것을 찾음 
+                for sorted_key in sorted(data_dict):
+                    input_data_sheet_name = sorted_key[0:4]
+                    if( input_data_sheet_name == sheet_name ):
+                        all_items.append( [sorted_key, '', '', '', '', '', '', '','', '', '-' * 128] )
+                        for line in data_dict[sorted_key]:
+                            items = [ item.strip() for item in line.split('|') ]
+                            items.insert(0, '')
+                            all_items.append(items)
+
+                wb.sheets[sheet_name].activate()
+                xw.Range('A1').value = all_items
+                all_items.clear()
+
+            # save
+            wb.save()
+            wb.app.quit()
+
     # method 
     # 로그인
     # 0 - 성공, 음수값은 실패
@@ -2219,6 +2263,32 @@ if __name__ == "__main__":
     def test_terminate():
         objKiwoom.sigTerminating.emit()
         pass
+    
+    def test_make_excel():
+        file_path = r'd:\download\통합 문서2.xlsx'
+        test_data = {  
+            "170822": [
+                "      8.56|      8750| 매수횟수: 1 | (익절이다) | 210540 | -매도 |      22200 |       5 | 141905 | 디와이파워 ",
+                "         0|         0| 매수횟수: 1 | (단순매수) | 038870 | +매수 |      10350 |      10 | 142205 | 에코바이오 "
+            ],
+            "170824": [
+                "      8.81|      9180| 매수횟수: 1 | (익절이다) | 033100 | -매도 |       6300 |      18 | 090136 | 제룡전기 ",
+                "         0|         0| 매수횟수: 1 | (단순매수) | 069540 | +매수 |       6200 |      17 | 090349 | 라이트론 ",
+                "      8.55|      9010| 매수횟수: 1 | (익절미달) | 069540 | -매도 |       6730 |      17 | 090557 | 라이트론 ",
+                "      8.76|      8925| 매수횟수: 1 | (익절미달) | 226350 | -매도 |       3165 |      35 | 090842 | 아이엠텍 ",
+                "         0|         0| 매수횟수: 1 | (단순매수) | 180400 | +매수 |      14250 |       8 | 091259 | 엠지메드 ",
+                "         0|         0| 매수횟수: 1 | (단순매수) | 072470 | +매수 |       8247 |      13 | 091845 | 우리산업홀딩스 ",
+                "         0|         0| 매수횟수: 4 | (단순매수) | 031860 | +매수 |       5050 |      80 | 094752 | 엔에스엔 "
+            ],
+            "170914": [
+                "     13.53|     14000| 매수횟수: 1 | (익절이다) | 038870 | -매도 |      11750 |      10 | 090102 | 에코바이오 ",
+                "         0|         0| 매수횟수: 1 | (단순매수) | 023800 | +매수 |       6400 |       8 | 090105 | 인지컨트롤스 ",
+                "         0|         0| 매수횟수: 1 | (단순매수) | 042600 | +매수 |       8420 |       6 | 090113 | 새로닉스 ",
+                "      8.99|      4720| 매수횟수: 1 | (익절미달) | 161570 | -매도 |       7150 |       8 | 093611 | 미동앤씨네마 ",
+                "         0|         0| 매수횟수: 1 | (단순매수) | 005420 | +매수 |      19050 |       3 | 093933 | 코스모화학 "
+            ]
+        }
+        objKiwoom.make_excel(file_path, test_data)
 
     # putenv 는 current process 에 영향을 못끼치므로 environ 에서 직접 세팅 
     # qml debugging 를 위해 QML_IMPORT_TRACE 환경변수 1로 세팅 후 DebugView 에서 디버깅 메시지 확인 가능  
@@ -2234,8 +2304,8 @@ if __name__ == "__main__":
     event_filter = CloseEventEater()
     form.installEventFilter( event_filter )
 
+    ui.btnMakeExcel.clicked.connect(objKiwoom.onBtnMakeExcelClicked )
     ui.btnStart.clicked.connect(objKiwoom.onBtnStartClicked)
-    ui.btnRestart.clicked.connect(objKiwoom.onBtnRestartClicked)
 
     ui.btnYupjong.clicked.connect(objKiwoom.onBtnYupjongClicked)
     ui.btnJango.clicked.connect(objKiwoom.onBtnJangoClicked)
