@@ -32,7 +32,7 @@ SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용
 CHUMAE_TIME_LILMIT_HOURS  = 7  # 다음 추가 매수시 보내야될 시간 조건   장 운영 시간으로만 계산하므로 약 6.5 시간이 하루임 
 TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
-MAESU_LIMIT = 5 # 추가 매수 제한 
+MAESU_LIMIT = 3 # 추가 매수 제한 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
 STOP_PLUS_PER_MAESU_COUNT = [ 8,                    8,                      8,                      8,                      8                  ]
@@ -730,30 +730,30 @@ class KiwoomConditon(QObject):
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
             # 조건 없이 사지는 것이므로 호가 잔량 확인함 
-            if( maeip_price * 0.8 >  maedoHoga1 ):
+            if( maeip_price * 0.7 >  maedoHoga1 ):
                 if( totalAmount >= TOTAL_BUY_AMOUNT):
                     pass 
                 else:
-                    printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+                    printLog += '(-30호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+                    util.save_log(printLog, '\t\t', folder = "log")
                     return_vals.append(False)
                 pass
-                util.save_log(printLog, '\t\t', folder = "log")
 
-            elif ( maeip_price * 0.9 > maedoHoga1 ):
+            elif ( maeip_price * 0.85 > maedoHoga1 ):
                 twohundred_avr = jongmok_info_dict['200봉0평균'] 
                 # 현재가가 이평보다 낮은 경우 제외
                 if(  twohundred_avr > maedoHoga1 ):   
-                    printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
+                    # printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
                     return_vals.append(False)
                 else:
                     # 1,2, 봉까지는 무시 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
-                    for count in range(3, 78):
+                    for count in range(3, 156):
                         twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
                         if( before_prices[count] > twohundred_avr ):
                             printLog += '(최근5분200이평미충족)'
+                            util.save_log(printLog, '\t\t', folder = "log")
                             return_vals.append(False)
                             break
-                util.save_log(printLog, '\t\t', folder = "log")
             else:
                 printLog += '(수익률미충족)'
                 return_vals.append(False)
@@ -764,7 +764,7 @@ class KiwoomConditon(QObject):
             printLog += temp
 
       
-     
+
 
         ##########################################################################################################
         # 업종 이동 평균선 조건 상승일때 매수  
