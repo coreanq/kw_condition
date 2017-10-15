@@ -1634,9 +1634,11 @@ class KiwoomConditon(QObject):
                 current_jango['매입가'] = maeip_danga
                 current_jango['종목번호'] = jongmok_code
                 current_jango['종목명'] = jongmok_name.strip()
+                chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(current_price)
 
                 if( jongmok_code not in self.jangoInfo):
                     current_jango['주문/체결시간'] = [util.cur_date_time('%Y%m%d%H%M%S')] 
+                    current_jango['체결가/체결시간'] = [chegyeol_info] 
                     current_jango['최근매수가'] = [current_price]
                     current_jango['매수횟수'] = 1 
 
@@ -1646,6 +1648,12 @@ class KiwoomConditon(QObject):
                     chegyeol_time_list = self.jangoInfo[jongmok_code]['주문/체결시간']  
                     chegyeol_time_list.append( util.cur_date_time('%Y%m%d%H%M%S'))
                     current_jango['주문/체결시간'] = chegyeol_time_list
+
+                    last_chegyeol_info = self.jangoInfo[jongmok_code]['체결가/체결시간'][-1]
+                    if( int(last_chegyeol_info.split(':')[1]) != current_price ):
+                        chegyeol_info_list = self.jangoInfo[jongmok_code]['체결가/체결시간']  
+                        chegyeol_info_list.append( chegyeol_info )
+                        current_jango['체결가/체결시간'] = chegyeol_info_list
 
                     price_list = self.jangoInfo[jongmok_code]['최근매수가']
                     last_price = price_list[-1] 
@@ -1725,6 +1733,12 @@ class KiwoomConditon(QObject):
                     current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', [])
                 else:
                     current_jango['주문/체결시간'] = []      
+
+            if( '체결가/체결시간' not in current_jango ):
+                if( jongmok_code in self.jangoInfoFromFile):
+                    current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
+                else:
+                    current_jango['체결가/체결시간'] = []      
 
             if( '최근매수가' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
