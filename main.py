@@ -1783,39 +1783,43 @@ class KiwoomConditon(QObject):
         if( michegyeol_suryung != 0 ):
             return
         nFid = kw_util.name_fid['매도매수구분']
-        # 1, 2 컬럼의 수익과 수익율 필드 채움 
-        if( str(nFid) in fids):
-            result = self.getChejanData(nFid).strip()
-            # 첫 매수시는 잔고 정보가 없을 수 있으므로 
-            current_jango = self.jangoInfo.get(jongmok_code, {})
-            if( int(result) == 1): #매도
-                # 체결가를 통해 수익율 필드 업데이트 
-                current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
-                self.calculateSuik(jongmok_code, current_price)
-
-                # 매도시 체결정보는 수익율 필드가 존재 
-                profit = current_jango.get('수익', '0')
-                profit_percent = current_jango.get('수익율', '0' )
-                chumae_count = int(current_jango.get('매수횟수', '0'))
-                maedo_type = current_jango.get('매도중', '0')
-                if( maedo_type == ''):
-                    maedo_type = '수동매도'
-                info.append('{0:>10}'.format(profit_percent))
-                info.append('{0:>10}'.format(profit))
-                info.append(' 매수횟수: {0:>1} '.format(chumae_count))
-                info.append(' {0} '.format(maedo_type))
-                pass
-            else: #매수 
-                # 매수시 체결정보는 수익율 / 수익 필드가  
-                info.append('{0:>10}'.format('0'))
-                info.append('{0:>10}'.format('0'))
-                # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
-                chumae_count = int(current_jango.get('매수횟수', '0'))
-                info.append(' 매수횟수: {0:>1} '.format(chumae_count + 1))
-                info.append(' {0} '.format('(단순매수)'))
+        result = self.getChejanData(nFid).strip()
+        maedo_maesu_gubun = '매도' if result == '1' else '매수'
+        # 첫 매수시는 잔고 정보가 없을 수 있으므로 
+        current_jango = self.jangoInfo.get(jongmok_code, {})
 
 
+        #################################################################################################
+        # 사용자 정의 컬럼 수익과 수익율 필드 채움 
+        if( maedo_maesu_gubun == '매도'): 
+            # 체결가를 통해 수익율 필드 업데이트 
+            current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
+            self.calculateSuik(jongmok_code, current_price)
 
+            # 매도시 체결정보는 수익율 필드가 존재 
+            profit = current_jango.get('수익', '0')
+            profit_percent = current_jango.get('수익율', '0' )
+            chumae_count = int(current_jango.get('매수횟수', '0'))
+            maedo_type = current_jango.get('매도중', '')
+            if( maedo_type == ''):
+                maedo_type = '수동매도'
+            info.append('{0:>10}'.format(profit_percent))
+            info.append('{0:>10}'.format(profit))
+            info.append(' 매수횟수: {0:>1} '.format(chumae_count))
+            info.append(' {0} '.format(maedo_type))
+            pass
+        elif( maedo_maesu_gubun == '매수') :  
+            # 매수시 체결정보는 수익율 / 수익 필드가  
+            info.append('{0:>10}'.format('0'))
+            info.append('{0:>10}'.format('0'))
+            # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
+            chumae_count = int(current_jango.get('매수횟수', '0'))
+            info.append(' 매수횟수: {0:>1} '.format(chumae_count + 1))
+            info.append(' {0} '.format('(단순매수)'))
+
+
+        #################################################################################################
+        # kiwoom api 체결 정보 필드 
         for col_name in kw_util.dict_jusik["체결정보"]:
             nFid = None
             result = ""
@@ -1842,9 +1846,16 @@ class KiwoomConditon(QObject):
         if( current_date not in self.chegyeolInfo) :
             self.chegyeolInfo[current_date] = [] 
 
+        #################################################################################################
+        # 매도시 매수 이력 정보 필드 
+        if( maedo_maesu_gubun == '매도'): 
+            info.append(' ' + '\\t'.join(current_jango['체결가/체결시간']))
+            pass
+
         self.chegyeolInfo[current_date].append('|'.join(info))
         util.save_log(printData, "*체결정보", folder= "log")
         pass
+
 
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
