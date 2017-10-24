@@ -12,9 +12,28 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QAxContainer import QAxWidget
 from mainwindow_ui import Ui_MainWindow
 
-TEST_MODE = False    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
-# AUTO_TRADING_OPERATION_TIME = [ [ [9, 10], [10, 00] ], [ [14, 20], [15, 10] ] ]  # ex) 9시 10분 부터 10시까지 14시 20분부터 15시 10분 사이에만 동작 
+###################################################################################################
+# 사용자 정의 파라미터 
+###################################################################################################
+
 AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 19] ] ] #해당 시스템 동작 시간 설정 장시작시 급등하고 급락하여 매수 / 매도 시 손해 나는 것을 막기 위해 1분 유예 둠 (반드시 할것)
+CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
+TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+
+MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
+MAESU_LIMIT = 4 # 추가 매수 제한 
+MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
+# 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    8,                      8,                      8,                      8                  ]
+STOP_LOSS_PER_MAESU_COUNT = [ 40,                   40,                     40,                     40,                     40,                ]
+
+EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
+STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
+
+###################################################################################################
+###################################################################################################
+
+TEST_MODE = False    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 이전으로 입력해야함 
 # auto_trading_operation_time 이전값을 잡아야 함 
@@ -23,25 +42,11 @@ DAY_TRADING_END_TIME = [15, 10]
 
 TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시작하는 시간
 
-CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
-TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-
-
-MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용 
 CHUMAE_TIME_LILMIT_HOURS  = 7  # 다음 추가 매수시 보내야될 시간 조건   장 운영 시간으로만 계산하므로 약 6.5 시간이 하루임 
 TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
-MAESU_LIMIT = 4 # 추가 매수 제한 
-MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
-# 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                    8,                      8,                      8,                      8                  ]
-STOP_LOSS_PER_MAESU_COUNT = [ 40,                   40,                     40,                     40,                     40,                ]
-
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-
-EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-STOCK_POSSESION_COUNT = 21 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
 JANGO_INFO_FILE_PATH =  "log" + os.path.sep + "jango.json"
