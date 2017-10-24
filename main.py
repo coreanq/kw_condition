@@ -32,7 +32,7 @@ SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용
 CHUMAE_TIME_LILMIT_HOURS  = 7  # 다음 추가 매수시 보내야될 시간 조건   장 운영 시간으로만 계산하므로 약 6.5 시간이 하루임 
 TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
-MAESU_LIMIT = 3 # 추가 매수 제한 
+MAESU_LIMIT = 4 # 추가 매수 제한 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 최대 6
 STOP_PLUS_PER_MAESU_COUNT = [ 8,                    8,                      8,                      8,                      8                  ]
@@ -41,7 +41,7 @@ STOP_LOSS_PER_MAESU_COUNT = [ 40,                   40,                     40, 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
+STOCK_POSSESION_COUNT = 21 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
 JANGO_INFO_FILE_PATH =  "log" + os.path.sep + "jango.json"
@@ -102,7 +102,7 @@ class KiwoomConditon(QObject):
         self.michegyeolInfo = {}
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
         self.jangoInfoFromFile = {} # TR 잔고 정보 요청 조회로는 얻을 수 없는 데이터를 파일로 저장하고 첫 실행시 로드함  
-        self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '주문/체결시간', '체결가' , '체결수량', '미체결수량'] ] }
+        self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '체결가/체결시간', '체결가' , '체결수량', '미체결수량'] ] }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
         self.conditionRevemoList = [] # 조건 이탈이 발생한 모든 리스트 저장 
 
@@ -657,7 +657,8 @@ class KiwoomConditon(QObject):
         # 최근 매수가 정보 생성
         last_maeip_price = 99999999
         if( jongmokCode in self.jangoInfo):
-            last_maeip_price = int(self.jangoInfo[jongmokCode]['최근매수가'][-1])
+            chegyeol_info = self.jangoInfo[jongmokCode]['체결가/체결시간'][-1]
+            last_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격
         
 
         ##########################################################################################################
@@ -675,7 +676,8 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 추가 매수 시간 제한  
         if( jongmokCode in self.jangoInfo):
-            chegyeol_time_str = self.jangoInfo[jongmokCode]['주문/체결시간'][-1] #20170411151000
+            chegyeol_info = self.jangoInfo[jongmokCode]['체결가/체결시간'][-1]
+            chegyeol_time_str = chegyeol_info.split(':')[0] # 날짜:가격 
             target_time_index = kw_util.dict_jusik['TR:분봉'].index('체결시간')
             fivemin_time_str = '5분 {0}봉전'.format(CHUMAE_TIME_LILMIT_HOURS * 12)
             target_time_str = jongmok_info_dict[fivemin_time_str][target_time_index] 
@@ -901,10 +903,10 @@ class KiwoomConditon(QObject):
             else:
                 # 매수 수량을 조절하기 위함 
                 if( jongmokCode in self.jangoInfo):
-                    chegyeol_time_list = self.jangoInfo[jongmokCode].get('주문/체결시간', [])
+                    chegyeol_info_list = self.jangoInfo[jongmokCode].get('체결가/체결시간', [])
                     first_chegyeol_time_str = ""
-                    if( len(chegyeol_time_list ) ):
-                        first_chegyeol_time_str = chegyeol_time_list[0]
+                    if( len(chegyeol_info_list ) ):
+                        first_chegyeol_time_str = chegyeol_info_list[0].split(':')[0] # 날짜:가격
 
                     if( first_chegyeol_time_str != ''):
                         base_time = datetime.datetime.strptime("20170830102400", "%Y%m%d%H%M%S") 
@@ -1513,7 +1515,7 @@ class KiwoomConditon(QObject):
         # if( '5분봉타임컷기준' in current_jango ):
         #     base_time_str =  current_jango['5분봉타임컷기준'][2]
         #     base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
-        #     last_chegyeol_time_str = current_jango['주문/체결시간'][-1]
+        #     last_chegyeol_time_str = current_jango['체결가/체결시간'][-1].split(':')[0] # 날짜:가격
         #     maeip_time = datetime.datetime.strptime(last_chegyeol_time_str, '%Y%m%d%H%M%S')
 
         #     if( maeip_time < base_time ):
@@ -1637,30 +1639,17 @@ class KiwoomConditon(QObject):
                 chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(current_price)
 
                 if( jongmok_code not in self.jangoInfo):
-                    current_jango['주문/체결시간'] = [util.cur_date_time('%Y%m%d%H%M%S')] 
                     current_jango['체결가/체결시간'] = [chegyeol_info] 
-                    current_jango['최근매수가'] = [current_price]
                     current_jango['매수횟수'] = 1 
-
                     self.jangoInfo[jongmok_code] = current_jango 
 
                 else:
-                    chegyeol_time_list = self.jangoInfo[jongmok_code]['주문/체결시간']  
-                    chegyeol_time_list.append( util.cur_date_time('%Y%m%d%H%M%S'))
-                    current_jango['주문/체결시간'] = chegyeol_time_list
-
                     last_chegyeol_info = self.jangoInfo[jongmok_code]['체결가/체결시간'][-1]
-                    if( int(last_chegyeol_info.split(':')[1]) != current_price ):
+                    last_price = int(last_chegyeol_info.split(':')[1])
+                    if( last_price != current_price ):
                         chegyeol_info_list = self.jangoInfo[jongmok_code]['체결가/체결시간']  
                         chegyeol_info_list.append( chegyeol_info )
                         current_jango['체결가/체결시간'] = chegyeol_info_list
-
-                    price_list = self.jangoInfo[jongmok_code]['최근매수가']
-                    last_price = price_list[-1] 
-                    if( last_price != current_price):
-                        #매수가 나눠져서 진행 중이므로 자료 매수횟수 업데이트 안함 
-                        price_list.append( current_price )
-                    current_jango['최근매수가'] = price_list
 
                     chumae_count = self.jangoInfo[jongmok_code]['매수횟수']
                     if( last_price != current_price):
@@ -1728,23 +1717,11 @@ class KiwoomConditon(QObject):
             current_jango['손절가'] =     round( maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
             current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
 
-            if( '주문/체결시간' not in current_jango ):
-                if( jongmok_code in self.jangoInfoFromFile):
-                    current_jango['주문/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('주문/체결시간', [])
-                else:
-                    current_jango['주문/체결시간'] = []      
-
             if( '체결가/체결시간' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
                 else:
                     current_jango['체결가/체결시간'] = []      
-
-            if( '최근매수가' not in current_jango ):
-                if( jongmok_code in self.jangoInfoFromFile):
-                    current_jango['최근매수가'] = self.jangoInfoFromFile[jongmok_code].get('최근매수가', [])
-                else:
-                    current_jango['최근매수가'] =  []      
         else:
 
             if( jongmok_code in self.jangoInfoFromFile ):
@@ -1802,7 +1779,7 @@ class KiwoomConditon(QObject):
             chumae_count = int(current_jango.get('매수횟수', '0'))
             maedo_type = current_jango.get('매도중', '')
             if( maedo_type == ''):
-                maedo_type = '수동매도'
+                maedo_type = '(수동매도)'
             info.append('{0:>10}'.format(profit_percent))
             info.append('{0:>10}'.format(profit))
             info.append(' 매수횟수: {0:>1} '.format(chumae_count))
@@ -1849,7 +1826,7 @@ class KiwoomConditon(QObject):
         #################################################################################################
         # 매도시 매수 이력 정보 필드 
         if( maedo_maesu_gubun == '매도'): 
-            info.append(' ' + '\\t'.join(current_jango['체결가/체결시간']))
+            info.append(' | '.join(current_jango['체결가/체결시간']))
             pass
 
         self.chegyeolInfo[current_date].append('|'.join(info))
@@ -1981,43 +1958,51 @@ class KiwoomConditon(QObject):
     def make_excel(self, file_path, data_dict):
         result = False
         result = os.path.isfile(file_path)
-        if( result ) :
-            # excel open 
-            wb = xw.Book(file_path)
-            sheet_names = [sheet.name for sheet in wb.sheets]
-            insert_sheet_names = []
-            # print(sheet_names)
-            for key, value in data_dict.items():
-                # sheet name 이 존재 안하면 sheet add
-                sheet_name = key[0:4]
-                if( sheet_name not in sheet_names ):
-                    if( sheet_name not in insert_sheet_names ):
-                        insert_sheet_names.append(sheet_name)
 
-            for insert_sheet in insert_sheet_names:
-                wb.sheets.add(name = insert_sheet)
-            # sheet name 은 YYMM 형식 
-            sheet_names = [sheet.name for sheet in wb.sheets]
-            all_items = []
+        if( result == False):
+            with open( CHEGYEOL_INFO_EXCEL_FILE_PATH, 'w', encoding = 'utf8' ) as f:
+                f.write('')
 
-            for sheet_name in sheet_names:
-                # key 값이 match 되는것을 찾음 
-                for sorted_key in sorted(data_dict):
-                    input_data_sheet_name = sorted_key[0:4]
-                    if( input_data_sheet_name == sheet_name ):
-                        all_items.append( [sorted_key, '', '', '', '', '', '', '','', '', '-' * 128] )
-                        for line in data_dict[sorted_key]:
-                            items = [ item.strip() for item in line.split('|') ]
-                            items.insert(0, '')
-                            all_items.append(items)
+        # excel open 
+        wb = xw.Book(file_path)
+        sheet_names = [sheet.name for sheet in wb.sheets]
+        insert_sheet_names = []
+        # print(sheet_names)
+        for key, value in data_dict.items():
+            # sheet name 이 존재 안하면 sheet add
+            sheet_name = key[0:4]
+            if( sheet_name not in sheet_names ):
+                if( sheet_name not in insert_sheet_names ):
+                    insert_sheet_names.append(sheet_name)
 
-                wb.sheets[sheet_name].activate()
-                xw.Range('A1').value = all_items
-                all_items.clear()
+        for insert_sheet in insert_sheet_names:
+            wb.sheets.add(name = insert_sheet)
+        # sheet name 은 YYMM 형식 
+        sheet_names = [sheet.name for sheet in wb.sheets]
 
-            # save
-            wb.save()
-            wb.app.quit()
+        for sheet_name in sheet_names:
+            # key 값이 match 되는것을 찾음 
+            row_count = 1
+            excel_row_string = 'A{}'
+            for sorted_key in sorted(data_dict):
+                input_data_sheet_name = sorted_key[0:4]
+                if( input_data_sheet_name == sheet_name ):
+                    wb.sheets[sheet_name].activate()
+                    xw.Range(excel_row_string.format(row_count)).value = [ sorted_key, '-' * 156 ]
+                    row_count += 1
+
+                    for line in data_dict[sorted_key]:
+                        items = [ item.strip() for item in line.split('|') ]
+                        # 빈칸 두개 추가 
+                        items.insert(0, '')
+                        items.insert(0, '')
+                        wb.sheets[sheet_name].activate()
+                        xw.Range(excel_row_string.format(row_count)).value = items 
+                        row_count += 1
+
+        # save
+        wb.save()
+        wb.app.quit()
 
     # method 
     # 로그인
