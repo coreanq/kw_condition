@@ -1,4 +1,7 @@
 def stock_calc( maesu_count, stop_perc ):
+    print("#############################################")
+    print("stock_cal maesu_count {} stop_pert {}".format( maesu_count, stop_perc))
+    print("#############################################")
     base_money = 10000
     init_stock_value = 100
     result_price_list = []
@@ -22,13 +25,17 @@ def stock_calc( maesu_count, stop_perc ):
     
     print("current_price: ", sep='')
     print(result_price_list) 
-    print("amount: ", sep= '' )
+    print("-" * 100)
+    print("stock amount: ", sep= '' )
     print(result_maesu_list) 
+    print("-" * 100)
     # print(total_value_list)
     print("danga: ", sep='')
     print(sum_list)
+    print("-" * 100)
     print("perc: ", sep='')
     print( [round((x/y* 100) -100, 2 )for x, y in zip(result_price_list , sum_list)]  )
+    print("-" * 100)
 
 if __name__ == '__main__':
-    stock_calc( 3, 0.7 ) # 3번만 추가 매수 하고 싶고 0.7 떨어질때마다 매수 하는 경우 
+    stock_calc( 4, 0.85 ) # 3번만 추가 매수 하고 싶고 0.7 떨어질때마다 매수 하는 경우 
