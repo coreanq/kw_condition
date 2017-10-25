@@ -21,14 +21,15 @@ CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 �
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 4 # 추가 매수 제한 
-MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8,  MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8 ]
+MAESU_LIMIT = 3 # 추가 매수 제한 
+STOP_LOSS_UNIT = 0.78 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
+MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [ 8,                    8,                      8,                      8,                      8,                    8,                      8,                      8                  ]
-STOP_LOSS_PER_MAESU_COUNT = [ 40,                   40,                     40,                     40,                     40,                   40,                     40,                     40                 ]
+STOP_PLUS_PER_MAESU_COUNT = [ 8,                    8,                      8,                      8,                      8                    ]
+STOP_LOSS_PER_MAESU_COUNT = [ 40,                   40,                     40,                     40,                     40                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
+STOCK_POSSESION_COUNT = 21 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
 ###################################################################################################
 ###################################################################################################
@@ -724,7 +725,7 @@ class KiwoomConditon(QObject):
                 return_vals.append(False)
 
         ##########################################################################################################
-        # 매도 호가 잔량지 확인해  살만큼 있는 경우 추가 매수때는 급등인 경우 많아 볼면 안됨 
+        # 매도 호가 잔량 확인해  살만큼 있는 경우 추가 매수때는 급등인 경우 많아 보면 안됨
             if( totalAmount >= TOTAL_BUY_AMOUNT):
                 pass 
             else:
@@ -737,16 +738,15 @@ class KiwoomConditon(QObject):
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
             # 조건 없이 사지는 것이므로 호가 잔량 확인함 
-            if( maeip_price * 0.7 >  maedoHoga1 ):
-                if( totalAmount >= TOTAL_BUY_AMOUNT):
-                    pass 
-                else:
-                    printLog += '(-30호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
-                    util.save_log(printLog, '\t\t', folder = "log")
-                    return_vals.append(False)
-                pass
-
-            elif ( maeip_price * 0.85 > maedoHoga1 ):
+            if( last_maeip_price * STOP_LOSS_UNIT <  maedoHoga1 ):
+                # if( totalAmount >= TOTAL_BUY_AMOUNT):
+                #     pass 
+                # else:
+                #     printLog += '(-30호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+                #     util.save_log(printLog, '\t\t', folder = "log")
+                #     return_vals.append(False)
+                # pass
+            # elif ( maeip_price * 0.85 > maedoHoga1 ):
                 twohundred_avr = jongmok_info_dict['200봉0평균'] 
                 # 현재가가 이평보다 낮은 경우 제외
                 if(  twohundred_avr > maedoHoga1 ):   
@@ -762,7 +762,7 @@ class KiwoomConditon(QObject):
                             return_vals.append(False)
                             break
             else:
-                printLog += '(수익률미충족)'
+                printLog += '(가격미충족)'
                 return_vals.append(False)
         
             temp = '({} {})'\
@@ -1705,8 +1705,8 @@ class KiwoomConditon(QObject):
 
         if( priority == 'server' ):
             current_jango = self.jangoInfo[jongmok_code]
-            maeip_price = current_jango['매입가']
 
+            # 매수 횟수 계산 
             if( '매수횟수' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['매수횟수'] = self.jangoInfoFromFile[jongmok_code].get('매수횟수', 1)
@@ -1715,18 +1715,25 @@ class KiwoomConditon(QObject):
                     pass
 
             maesu_count = current_jango['매수횟수']
-            # 손절가 다시 계산 
-            stop_loss_value = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
-            stop_plus_value = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
-
-            current_jango['손절가'] =     round( maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
-            current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
 
             if( '체결가/체결시간' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
                 else:
                     current_jango['체결가/체결시간'] = []      
+
+            # 손절가 계산 
+            stop_loss_value = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
+            stop_plus_value = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
+
+            maeip_price = current_jango['매입가']
+            first_maeip_price = 0
+
+            chegyeol_info = self.jangoInfo[jongmok_code]['체결가/체결시간'][0]
+            first_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격
+
+            current_jango['손절가'] =     round( first_maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
+            current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
         else:
 
             if( jongmok_code in self.jangoInfoFromFile ):
