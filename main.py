@@ -22,7 +22,7 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 3 # 추가 매수 제한 
-STOP_LOSS_UNIT = 0.78 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
+STOP_LOSS_UNIT = 0.84 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 STOP_PLUS_PER_MAESU_COUNT = [ 8,                    8,                      8,                      8,                      8                    ]
@@ -737,7 +737,6 @@ class KiwoomConditon(QObject):
         # 추가 매수시 
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
-            # 조건 없이 사지는 것이므로 호가 잔량 확인함 
             if( last_maeip_price * STOP_LOSS_UNIT <  maedoHoga1 ):
                 # if( totalAmount >= TOTAL_BUY_AMOUNT):
                 #     pass 
@@ -754,7 +753,7 @@ class KiwoomConditon(QObject):
                     return_vals.append(False)
                 else:
                     # 1,2, 봉까지는 무시 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
-                    for count in range(3, 156):
+                    for count in range(3, 78):
                         twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
                         if( before_prices[count] > twohundred_avr ):
                             printLog += '(최근5분200이평미충족)'
