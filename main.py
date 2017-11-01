@@ -1716,21 +1716,19 @@ class KiwoomConditon(QObject):
             maesu_count = current_jango['매수횟수']
             first_maeip_price = 0
 
+            # 현재 잔고에 데이터가 없으면 파일에서 읽어 옴 처음 프로그램 실행 시켯을시 사용  
             if( '체결가/체결시간' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
-                    chegyeol_info = current_jango['체결가/체결시간'][0]
-                    first_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격
-                else:
-                    current_jango['체결가/체결시간'] = []      
-                    chegyeol_info = ''
-                    first_maeip_price = 0 
 
             # 손절가 계산 
             stop_loss_value = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
             stop_plus_value = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
 
             maeip_price = current_jango['매입가']
+
+            chegyeol_info = self.jangoInfo[jongmok_code]['체결가/체결시간'][0]
+            first_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격
 
             current_jango['손절가'] =     round( first_maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
             current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )

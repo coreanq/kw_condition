@@ -12,6 +12,7 @@
             "env": {},
             "envFile": "${workspaceRoot}/.env",
             "debugOptions": [
+                "RedirectOutput",
                 "WaitOnAbnormalExit",
                 "WaitOnNormalExit"
             ]
