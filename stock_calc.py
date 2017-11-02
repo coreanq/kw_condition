@@ -38,4 +38,4 @@ def stock_calc( maesu_count, stop_perc ):
     print("-" * 100)
 
 if __name__ == '__main__':
-    stock_calc( 4, 0.85 ) # 3번만 추가 매수 하고 싶고 0.7 떨어질때마다 매수 하는 경우 
+    stock_calc( 4, 0.82 ) # 3번만 추가 매수 하고 싶고 0.7 떨어질때마다 매수 하는 경우 
