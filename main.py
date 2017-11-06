@@ -26,7 +26,7 @@ STOP_LOSS_UNIT = 0.82 # 최근 매수가 대비 어느정도 하락하면 추가
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 STOP_PLUS_PER_MAESU_COUNT = [  8,                    8,                      8,                      8,                      8                   ]
-STOP_LOSS_PER_MAESU_COUNT = [ 50,                   50,                     50,                     50,                     50                   ]
+STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     90,                     90                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 21 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
@@ -707,7 +707,8 @@ class KiwoomConditon(QObject):
         #  추가 매수 횟수 제한   
         maesu_count = 0 
         if( jongmokCode in self.jangoInfo):
-            maesu_count = self.jangoInfo[jongmokCode]['매수횟수']
+            maesu_count = len(self.jangoInfo[jongmokCode]['체결가/체결시간'] )
+
         if( maesu_count + 1 <= MAESU_LIMIT ):
             pass
         else:
@@ -1670,11 +1671,11 @@ class KiwoomConditon(QObject):
                 current_jango['매입가'] = maeip_danga
                 current_jango['종목번호'] = jongmok_code
                 current_jango['종목명'] = jongmok_name.strip()
+                current_jango['업종'] = self.GetMasterStockInfo(jongmok_code)
                 chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(current_price)
 
                 if( jongmok_code not in self.jangoInfo):
                     current_jango['체결가/체결시간'] = [chegyeol_info] 
-                    current_jango['매수횟수'] = 1 
                     self.jangoInfo[jongmok_code] = current_jango 
 
                 else:
@@ -1684,12 +1685,6 @@ class KiwoomConditon(QObject):
                         chegyeol_info_list = self.jangoInfo[jongmok_code]['체결가/체결시간']  
                         chegyeol_info_list.append( chegyeol_info )
                         current_jango['체결가/체결시간'] = chegyeol_info_list
-
-                    chumae_count = self.jangoInfo[jongmok_code]['매수횟수']
-                    if( last_price != current_price):
-                        current_jango['매수횟수'] = chumae_count + 1
-                    else:
-                        current_jango['매수횟수'] = chumae_count
 
                     self.jangoInfo[jongmok_code].update(current_jango)
 
@@ -1735,21 +1730,13 @@ class KiwoomConditon(QObject):
         if( priority == 'server' ):
             current_jango = self.jangoInfo[jongmok_code]
 
-            # 매수 횟수 계산 
-            if( '매수횟수' not in current_jango ):
-                if( jongmok_code in self.jangoInfoFromFile):
-                    current_jango['매수횟수'] = self.jangoInfoFromFile[jongmok_code].get('매수횟수', 1)
-                else:
-                    current_jango['매수횟수']  = 1
-                    pass
-
-            maesu_count = current_jango['매수횟수']
-            first_maeip_price = 0
-
             # 현재 잔고에 데이터가 없으면 파일에서 읽어 옴 처음 프로그램 실행 시켯을시 사용  
             if( '체결가/체결시간' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
+
+            maesu_count = len(current_jango['체결가/체결시간'])
+            first_maeip_price = 0
 
             # 손절가 계산 
             stop_loss_value = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
@@ -1816,7 +1803,7 @@ class KiwoomConditon(QObject):
             # 매도시 체결정보는 수익율 필드가 존재 
             profit = current_jango.get('수익', '0')
             profit_percent = current_jango.get('수익율', '0' )
-            chumae_count = int(current_jango.get('매수횟수', '0'))
+            chumae_count = len(current_jango['체결가/체결시간'])
             maedo_type = current_jango.get('매도중', '')
             if( maedo_type == ''):
                 maedo_type = '(수동매도)'
@@ -1830,7 +1817,7 @@ class KiwoomConditon(QObject):
             info.append('{0:>10}'.format('0'))
             info.append('{0:>10}'.format('0'))
             # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
-            chumae_count = int(current_jango.get('매수횟수', '0'))
+            chumae_count = len(current_jango['체결가/체결시간'])
             info.append(' 매수횟수: {0:>1} '.format(chumae_count + 1))
             info.append(' {0} '.format('(단순매수)'))
 
