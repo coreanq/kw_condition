@@ -31,6 +31,7 @@ STOP_LOSS_PER_MAESU_COUNT = [ 50,                   50,                     50, 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 21 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
+EXCEPT_YUPJONG_LIST = []
 ###################################################################################################
 ###################################################################################################
 
@@ -266,7 +267,11 @@ class KiwoomConditon(QObject):
 
         for item in items: 
             boyou = "보유" if item in self.jangoInfo else ""
-            log_string = "{} {} ({})".format(item,  self.getMasterCodeName(item), boyou) 
+            log_string = "{} {} ({}-{})".format(
+                item,  
+                self.getMasterCodeName(item), 
+                self.getMasterStockInfo(item),
+                boyou) 
 
             if( boyou == "보유" ):
                 buffer.append(log_string)
@@ -710,6 +715,30 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
 
         ##########################################################################################################
+        #  업종 중복 / 예외업종  매수 제한  
+        yupjong_type = self.getMasterStockInfo(jongmokCode)
+
+        for jongmok_info in self.jangoInfo.values() :
+            if( yupjong_type == jongmok_info['업종'] ):
+                print('업종중복 {}( {} )'.format( 
+                    self.getMasterCodeName(jongmokCode), 
+                    self.getMasterStockInfo(jongmokCode)
+                    )
+                )
+                printLog += '(업종중복)'
+                return_vals.append(False)
+            
+            if( yupjong_type in EXCEPT_YUPJONG_LIST ):
+                printLog += '(업종매수금지)'
+                print('업종매수금지 {}( {} )'.format( 
+                    self.getMasterCodeName(jongmokCode), 
+                    self.getMasterStockInfo(jongmokCode)
+                    )
+                )
+                return_vals.append(False)
+                break
+
+        ##########################################################################################################
         # 개별 주식 이동평균선 조건 판단 첫 매수시는 그냥 사고 추가 매수시는 200봉 평균보다 높은 경우 삼
         # 매수후 지속적으로 하락 시 (200봉 평균보다 낮은 경우 계속 발생) 사지 않도록 함  
         rsi_14 = int( float(jongmok_info_dict['RSI14']) )
@@ -1036,6 +1065,7 @@ class KiwoomConditon(QObject):
                     info_dict[item_name] = int(result)
         
             jongmokCode = info_dict['종목번호']
+            info_dict['업종'] = self.getMasterStockInfo(jongmokCode)
             
             if( jongmokCode not in self.jangoInfo.keys() ):
                 self.jangoInfo[jongmokCode] = info_dict
@@ -2238,6 +2268,20 @@ class KiwoomConditon(QObject):
     def getMasterCodeName(self, strCode):
         return self.ocx.dynamicCall("GetMasterCodeName(QString)", strCode)
 
+    # 종목코드의 한다.
+    # strCode – 종목코드
+    # 입력한 종목에 대한 대분류, 중분류, 업종구분값을 구분자로 연결한 문자열을 얻을수 있습니다.(여기서 구분자는 '|'와 ';'입니다.) 
+    # KOA_Functions("GetMasterStockInfo", 종목코드) 
+    # 시장구분0|코스닥|벤처기업;시장구분1|소형주;업종구분|제조|기계/장비
+    # 시장구분0|거래소;시장구분1|중형주;업종구분|서비스업;
+    @pyqtSlot(str, result=str)
+    def getMasterStockInfo(self, strCode):
+        stock_info = self.ocx.dynamicCall("KOA_Functions(QString, QString)", "GetMasterStockInfo", strCode)
+        kospi_kosdaq = stock_info.split(';')[0].split('|')[1]
+        yupjong = stock_info.split(';')[2].split('|')[-1]
+        if( yupjong == '' ):
+            print("")
+        return kospi_kosdaq + ':' + yupjong
 
 if __name__ == "__main__":
     def test_buy():

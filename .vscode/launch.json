@@ -8,7 +8,6 @@
             "pythonPath": "${config:python.pythonPath}",
             "program": "${file}",
             "cwd": "",
-            "console": "integratedTerminal",
             "env": {},
             "envFile": "${workspaceRoot}/.env",
             "debugOptions": [
