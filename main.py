@@ -22,11 +22,11 @@ TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 4 # 추가 매수 제한 
-STOP_LOSS_UNIT = 0.82 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
+STOP_LOSS_UNIT = 0.78 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  8,                    8,                      8,                      8,                      8                   ]
-STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     90,                     90                   ]
+STOP_PLUS_PER_MAESU_COUNT = [  8,                    4,                      2,                      1,                      1                   ]
+STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     60,                     60                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 21 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
@@ -709,7 +709,7 @@ class KiwoomConditon(QObject):
         if( jongmokCode in self.jangoInfo):
             maesu_count = len(self.jangoInfo[jongmokCode]['체결가/체결시간'] )
 
-        if( maesu_count + 1 <= MAESU_LIMIT ):
+        if( maesu_count < MAESU_LIMIT ):
             pass
         else:
             printLog += '(추가매수한계)'
@@ -720,24 +720,25 @@ class KiwoomConditon(QObject):
         yupjong_type = self.getMasterStockInfo(jongmokCode)
 
         for jongmok_info in self.jangoInfo.values() :
-            if( yupjong_type == jongmok_info['업종'] ):
-                print('업종중복 {}( {} )'.format( 
-                    self.getMasterCodeName(jongmokCode), 
-                    self.getMasterStockInfo(jongmokCode)
+            if( jongmokCode not in self.jangoInfo ):
+                if( yupjong_type == jongmok_info['업종'] ):
+                    print('업종중복 {}( {} )'.format( 
+                        self.getMasterCodeName(jongmokCode), 
+                        self.getMasterStockInfo(jongmokCode)
+                        )
                     )
-                )
-                printLog += '(업종중복)'
-                return_vals.append(False)
-            
-            if( yupjong_type in EXCEPT_YUPJONG_LIST ):
-                printLog += '(업종매수금지)'
-                print('업종매수금지 {}( {} )'.format( 
-                    self.getMasterCodeName(jongmokCode), 
-                    self.getMasterStockInfo(jongmokCode)
+                    printLog += '(업종중복)'
+                    return_vals.append(False)
+                
+                if( yupjong_type in EXCEPT_YUPJONG_LIST ):
+                    printLog += '(업종매수금지)'
+                    print('업종매수금지 {}( {} )'.format( 
+                        self.getMasterCodeName(jongmokCode), 
+                        self.getMasterStockInfo(jongmokCode)
+                        )
                     )
-                )
-                return_vals.append(False)
-                break
+                    return_vals.append(False)
+                    break
 
         ##########################################################################################################
         # 개별 주식 이동평균선 조건 판단 첫 매수시는 그냥 사고 추가 매수시는 200봉 평균보다 높은 경우 삼
@@ -768,14 +769,6 @@ class KiwoomConditon(QObject):
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
             if( last_maeip_price * STOP_LOSS_UNIT <  maedoHoga1 ):
-                # if( totalAmount >= TOTAL_BUY_AMOUNT):
-                #     pass 
-                # else:
-                #     printLog += '(-30호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
-                #     util.save_log(printLog, '\t\t', folder = "log")
-                #     return_vals.append(False)
-                # pass
-            # elif ( maeip_price * 0.85 > maedoHoga1 ):
                 twohundred_avr = jongmok_info_dict['200봉0평균'] 
                 # 현재가가 이평보다 낮은 경우 제외
                 if(  twohundred_avr > maedoHoga1 ):   
@@ -796,10 +789,8 @@ class KiwoomConditon(QObject):
         
             temp = '({} {})'\
                 .format( jongmokName,  maedoHoga1 )
-            print( util.cur_time_msec() , temp)
+            # print( util.cur_time_msec() , temp)
             printLog += temp
-
-      
 
 
         ##########################################################################################################
@@ -837,12 +828,12 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
-        # updown_percentage = float(jongmok_info_dict['등락율'] )
-        # if( updown_percentage <= 30 - STOP_PLUS_VALUE * 5 ):
-        #     pass
-        # else:
-        #     printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
-        #     return_vals.append(False)
+        updown_percentage = float(jongmok_info_dict['등락율'] )
+        if( updown_percentage <= 15 ):
+            pass
+        else:
+            printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
+            return_vals.append(False)
 
 
         ##########################################################################################################
@@ -887,7 +878,6 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 현재가가 시가보다 낮은 경우제외 (급등후 마이너스 달리는 종목) 
-        # 장초반 살때 음봉에서 사는것을 막기 위함 
         # current_price = maedoHoga1
         # if( start_price < current_price ):
         #     pass
@@ -911,7 +901,7 @@ class KiwoomConditon(QObject):
 
 
         ##########################################################################################################
-        # 저가가 전일종가 밑으로 내려간적 있는 지 확인 
+        # 저가 확인 
         # low_price = int(jongmok_info_dict['저가'])
         # if( low_price >= base_price ):
         #     pass
@@ -1671,7 +1661,7 @@ class KiwoomConditon(QObject):
                 current_jango['매입가'] = maeip_danga
                 current_jango['종목번호'] = jongmok_code
                 current_jango['종목명'] = jongmok_name.strip()
-                current_jango['업종'] = self.GetMasterStockInfo(jongmok_code)
+                current_jango['업종'] = self.getMasterStockInfo(jongmok_code)
                 chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(current_price)
 
                 if( jongmok_code not in self.jangoInfo):
@@ -1803,13 +1793,13 @@ class KiwoomConditon(QObject):
             # 매도시 체결정보는 수익율 필드가 존재 
             profit = current_jango.get('수익', '0')
             profit_percent = current_jango.get('수익율', '0' )
-            chumae_count = len(current_jango['체결가/체결시간'])
+            maesu_count = len(current_jango['체결가/체결시간'])
             maedo_type = current_jango.get('매도중', '')
             if( maedo_type == ''):
                 maedo_type = '(수동매도)'
             info.append('{0:>10}'.format(profit_percent))
             info.append('{0:>10}'.format(profit))
-            info.append(' 매수횟수: {0:>1} '.format(chumae_count))
+            info.append(' 매수횟수: {0:>1} '.format(maesu_count))
             info.append(' {0} '.format(maedo_type))
             pass
         elif( maedo_maesu_gubun == '매수') :  
@@ -1817,8 +1807,8 @@ class KiwoomConditon(QObject):
             info.append('{0:>10}'.format('0'))
             info.append('{0:>10}'.format('0'))
             # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
-            chumae_count = len(current_jango['체결가/체결시간'])
-            info.append(' 매수횟수: {0:>1} '.format(chumae_count + 1))
+            maesu_count = len(current_jango['체결가/체결시간'])
+            info.append(' 매수횟수: {0:>1} '.format(maesu_count + 1))
             info.append(' {0} '.format('(단순매수)'))
 
 
@@ -2264,8 +2254,11 @@ class KiwoomConditon(QObject):
     @pyqtSlot(str, result=str)
     def getMasterStockInfo(self, strCode):
         stock_info = self.ocx.dynamicCall("KOA_Functions(QString, QString)", "GetMasterStockInfo", strCode)
+        # api return 버그로 추가 해줌 
+        if( stock_info[-1] == ';'):
+            stock_info = stock_info[0:-1]
         kospi_kosdaq = stock_info.split(';')[0].split('|')[1]
-        yupjong = stock_info.split(';')[2].split('|')[-1]
+        yupjong = stock_info.split(';')[-1].split('|')[-1]
         if( yupjong == '' ):
             print("")
         return kospi_kosdaq + ':' + yupjong
