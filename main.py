@@ -768,7 +768,8 @@ class KiwoomConditon(QObject):
         # 추가 매수시 
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
-            if( last_maeip_price * STOP_LOSS_UNIT <  maedoHoga1 ):
+            print(jongmokName + " 최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+            if( last_maeip_price * STOP_LOSS_UNIT >  maedoHoga1 ):
                 twohundred_avr = jongmok_info_dict['200봉0평균'] 
                 # 현재가가 이평보다 낮은 경우 제외
                 if(  twohundred_avr > maedoHoga1 ):   
@@ -1724,6 +1725,8 @@ class KiwoomConditon(QObject):
             if( '체결가/체결시간' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
+                else: 
+                    current_jango['체결가/체결시간'] = ['29999999999999:0']
 
             maesu_count = len(current_jango['체결가/체결시간'])
             first_maeip_price = 0
@@ -1807,7 +1810,8 @@ class KiwoomConditon(QObject):
             info.append('{0:>10}'.format('0'))
             info.append('{0:>10}'.format('0'))
             # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
-            maesu_count = len(current_jango['체결가/체결시간'])
+            # 첫매수에 대한 처리도 함
+            maesu_count = len(current_jango.get('체결가/체결시간', [] ) )
             info.append(' 매수횟수: {0:>1} '.format(maesu_count + 1))
             info.append(' {0} '.format('(단순매수)'))
 
