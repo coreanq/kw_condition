@@ -16,8 +16,8 @@ from mainwindow_ui import Ui_MainWindow
 # 사용자 정의 파라미터 
 ###################################################################################################
 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 1], [15, 19] ] ] #해당 시스템 동작 시간 설정 장시작시 급등하고 급락하여 매수 / 매도 시 손해 나는 것을 막기 위해 1분 유예 둠 (반드시 할것)
-CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 총이름
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 0], [15, 19] ] ] 
+CONDITION_NAME = '급락' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
@@ -26,7 +26,7 @@ STOP_LOSS_UNIT = 0.78 # 최근 매수가 대비 어느정도 하락하면 추가
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 STOP_PLUS_PER_MAESU_COUNT = [  8,                    4,                      2,                      1,                      1                   ]
-STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     60,                     60                   ]
+STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     30,                     60                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 21 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
@@ -747,21 +747,25 @@ class KiwoomConditon(QObject):
         totalAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
 
         ##########################################################################################################
-        # 첫 매수시 
-        if( jongmokCode not in self.jangoInfo ):
-            if( before_amounts[0]> before_amounts[1] * 2 ): # 첫 매수는 거래량 조건 보기 
-                pass
-            else:
-                printLog += '(첫매수거래량조건미충족)'
-                return_vals.append(False)
+        # 매도 호가 잔량 확인해  살만큼 있는 경우 매수  
+        if( totalAmount >= TOTAL_BUY_AMOUNT):
+            pass 
+        else:
+            printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+            return_vals.append(False)
+        pass
 
         ##########################################################################################################
-        # 매도 호가 잔량 확인해  살만큼 있는 경우 추가 매수때는 급등인 경우 많아 보면 안됨
-            if( totalAmount >= TOTAL_BUY_AMOUNT):
-                pass 
-            else:
-                printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
-                return_vals.append(False)
+        # 직전 봉과 거래량 조건 보기 
+        if( before_amounts[0]> before_amounts[1] * 2 ): 
+            pass
+        else:
+            printLog += '(거래량조건미충족)'
+            return_vals.append(False)
+
+        ##########################################################################################################
+        # 첫 매수시 
+        if( jongmokCode not in self.jangoInfo ):
             pass
 
         ##########################################################################################################
@@ -776,14 +780,16 @@ class KiwoomConditon(QObject):
                     # printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
                     return_vals.append(False)
                 else:
-                    # 1,2, 봉까지는 무시 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
-                    for count in range(3, 78):
-                        twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
-                        if( before_prices[count] > twohundred_avr ):
-                            printLog += '(최근5분200이평미충족)'
-                            util.save_log(printLog, '\t\t', folder = "log")
-                            return_vals.append(False)
-                            break
+                    pass
+                #     # 1,2, 봉까지는 무시 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
+                #     for count in range(3, 78):
+                #         twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
+                #         if( before_prices[count] > twohundred_avr ):
+                #             printLog += '(최근5분200이평미충족)'
+                #             util.save_log(printLog, '\t\t', folder = "log")
+                #             return_vals.append(False)
+                #             break
+                pass
             else:
                 printLog += '(가격미충족)'
                 return_vals.append(False)
