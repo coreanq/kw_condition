@@ -16,20 +16,24 @@ from mainwindow_ui import Ui_MainWindow
 # 사용자 정의 파라미터 
 ###################################################################################################
 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 0], [15, 19] ] ] 
-CONDITION_NAME = '급락' #키움증권 HTS 에서 설정한 조건 검색 식 이름
-TOTAL_BUY_AMOUNT = 10000000 #  매도 호가1, 2 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+AUTO_TRADING_OPERATION_TIME = [ [ [9, 0], [16, 19] ] ] 
+CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 이름
+
+# 매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+# 총 4번 매수에 3번이 보통 발생하므로 500/500/1000  --> 2000
+TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 4 # 추가 매수 제한 
-STOP_LOSS_UNIT = 0.78 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
+STOP_LOSS_UNIT = 0.75 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
+# 주의 손절의 경우 첫 매수가 대비 얼마나 떨어지느냐를 나타냄 
 STOP_PLUS_PER_MAESU_COUNT = [  8,                    4,                      2,                      1,                      1                   ]
-STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     30,                     60                   ]
+STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     60,                     60                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-STOCK_POSSESION_COUNT = 21 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
+STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
 EXCEPT_YUPJONG_LIST = []
 ###################################################################################################
@@ -42,9 +46,9 @@ TEST_MODE = False    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 10] 
 
-TRADING_INFO_GETTING_TIME = [15, 35] # 트레이딩 정보를 저장하기 시작하는 시간
+TRADING_INFO_GETTING_TIME = [16, 35] # 트레이딩 정보를 저장하기 시작하는 시간
 
-SLIPPAGE = 0.5 # 보통가로 거래하므로 매매 수수료만 적용 
+SLIPPAGE = 1.0 # 수익시 보통가 손절시 시장가  3호가까지 계산해서 매수 하므로 1% 적용 
 CHUMAE_TIME_LILMIT_HOURS  = 7  # 다음 추가 매수시 보내야될 시간 조건   장 운영 시간으로만 계산하므로 약 6.5 시간이 하루임 
 TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
@@ -1533,8 +1537,11 @@ class KiwoomConditon(QObject):
         maesuHogaAmount1 =  int(current_jango['매수호가수량1'])
         maesuHoga2 =  abs(int(current_jango['매수호가2']))
         maesuHogaAmount2 =  int(current_jango['매수호가수량2'])
+        maesuHoga3 =  abs(int(current_jango['매수호가3']))
+        maesuHogaAmount3 =  int(current_jango['매수호가수량3'])
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
-        totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2
+        totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2 + maesuHoga3 * maesuHogaAmount3
+
         # print( util.whoami() + jongmokName + " " + str(sum))
 
         isSell = False
