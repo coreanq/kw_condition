@@ -16,7 +16,7 @@ from mainwindow_ui import Ui_MainWindow
 # 사용자 정의 파라미터 
 ###################################################################################################
 
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 0], [16, 19] ] ] 
+AUTO_TRADING_OPERATION_TIME = [ [ [8, 58], [15, 19] ] ] 
 CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
 # 매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
@@ -33,7 +33,7 @@ STOP_PLUS_PER_MAESU_COUNT = [  8,                    4,                      2, 
 STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     60,                     60                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-STOCK_POSSESION_COUNT = 20 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
+STOCK_POSSESION_COUNT = 40 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
 EXCEPT_YUPJONG_LIST = []
 ###################################################################################################
@@ -840,7 +840,7 @@ class KiwoomConditon(QObject):
         # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage <= 15 ):
+        if( updown_percentage <= 10 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -2272,12 +2272,14 @@ class KiwoomConditon(QObject):
     def getMasterStockInfo(self, strCode):
         stock_info = self.ocx.dynamicCall("KOA_Functions(QString, QString)", "GetMasterStockInfo", strCode)
         # api return 버그로 추가 해줌 
-        if( stock_info[-1] == ';'):
-            stock_info = stock_info[0:-1]
-        kospi_kosdaq = stock_info.split(';')[0].split('|')[1]
-        yupjong = stock_info.split(';')[-1].split('|')[-1]
-        if( yupjong == '' ):
-            print("")
+        kospi_kosdaq = ''
+        yupjong = ''
+
+        if( stock_info != ''):
+            if( stock_info[-1] == ';'):
+                stock_info = stock_info[0:-1]
+            kospi_kosdaq = stock_info.split(';')[0].split('|')[1]
+            yupjong = stock_info.split(';')[-1].split('|')[-1]
         return kospi_kosdaq + ':' + yupjong
 
 if __name__ == "__main__":
