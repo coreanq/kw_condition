@@ -16,7 +16,7 @@ from mainwindow_ui import Ui_MainWindow
 # 사용자 정의 파라미터 
 ###################################################################################################
 
-AUTO_TRADING_OPERATION_TIME = [ [ [8, 58], [15, 19] ] ] 
+AUTO_TRADING_OPERATION_TIME = [ [ [8, 57], [15, 19] ] ] 
 CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
 # 매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
@@ -678,10 +678,8 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 얼마 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함
-        # 최근 매입가보다 낮은 경우만 매수 
         if( 
-            before_amounts[0] * maedoHoga1 > 100000000 and            
-            maedoHoga1 <  last_maeip_price           
+            before_amounts[0] * maedoHoga1 > 100000000 
             ):
             pass
         else:
@@ -776,25 +774,19 @@ class KiwoomConditon(QObject):
         # 추가 매수시 
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
-            print(jongmokName + " 최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
             if( last_maeip_price * STOP_LOSS_UNIT >  maedoHoga1 ):
                 twohundred_avr = jongmok_info_dict['200봉0평균'] 
                 # 현재가가 이평보다 낮은 경우 제외
                 if(  twohundred_avr > maedoHoga1 ):   
+                    print("{:<30}".format(jongmokName)  + "추매조건미충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                     # printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
                     return_vals.append(False)
                 else:
+                    is_log_print_enable = True
+                    print("{:<30}".format(jongmokName)  + "추매조건충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                     pass
-                #     # 1,2, 봉까지는 무시 이전 봉들이 200평 아래 있다가 갑자기 오른 경우 
-                #     for count in range(3, 78):
-                #         twohundred_avr = jongmok_info_dict['200봉{}평균'.format(count)] 
-                #         if( before_prices[count] > twohundred_avr ):
-                #             printLog += '(최근5분200이평미충족)'
-                #             util.save_log(printLog, '\t\t', folder = "log")
-                #             return_vals.append(False)
-                #             break
-                pass
             else:
+                print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 printLog += '(가격미충족)'
                 return_vals.append(False)
         
@@ -827,20 +819,13 @@ class KiwoomConditon(QObject):
         #         return_vals.append(False)
         #     pass
 
-        ##########################################################################################################
-        # 가격조건 확인 
-        # if( maedoHoga1 >= STOCK_PRICE_MIN_MAX['min'] and maedoHoga1 <= ['max']):
-        #     pass
-        # else:
-        #     printLog += '(종목가격미충족: 매도호가1 {0})'.format(maedoHoga1)
-        #     return_vals.append(False)
         
 
         ##########################################################################################################
         # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage <= 10 ):
+        if( updown_percentage <= 5 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -1768,8 +1753,8 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def makeJangoInfoFile(self):
         print(util.whoami())
-        remove_keys = [ '매도호가1','매도호가2', '매도호가수량1', '매도호가수량2', '매도호가총잔량',
-                        '매수호가1', '매수호가2', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가수량4', '매수호가총잔량',
+        remove_keys = [ '매도호가1', '매도호가2', '매도호가3', '매도호가수량1', '매도호가수량2', '매도호가수량3','매도호가총잔량',
+                        '매수호가1', '매수호가2', '매수호가3', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가총잔량',
                         '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
                         '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가', '5분봉타임컷기준' ]
         temp = copy.deepcopy(self.jangoInfo)
