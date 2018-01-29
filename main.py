@@ -23,7 +23,7 @@ CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 �
 # 총 4번 매수에 3번이 보통 발생하므로 500/500/1000  --> 2000
 TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
-MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
+MAESU_BASE_UNIT = 1000000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 4 # 추가 매수 제한 
 STOP_LOSS_UNIT = 0.75 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
@@ -825,7 +825,7 @@ class KiwoomConditon(QObject):
         # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage <= 5 ):
+        if( updown_percentage <= 10 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -929,18 +929,18 @@ class KiwoomConditon(QObject):
                         first_chegyeol_time_str = chegyeol_info_list[0].split(':')[0] # 날짜:가격
 
                     if( first_chegyeol_time_str != ''):
-                        base_time = datetime.datetime.strptime("20170830102400", "%Y%m%d%H%M%S") 
+                        base_time = datetime.datetime.strptime("20180127010101", "%Y%m%d%H%M%S") 
 
                         first_maesu_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
                         total_price = MAESU_TOTAL_PRICE[maesu_count] 
                         if( base_time  < first_maesu_time ):
-                            qty = int(total_price / maedoHoga1/2 ) + 1 #  약간 오버하게 삼 
+                            qty = int(total_price / maedoHoga1 ) + 1 #  약간 오버하게 삼 
                             pass
                         else:
-                            qty = int(total_price / maedoHoga1 ) + 1
+                            qty = int(total_price / maedoHoga1 / 20 ) + 1
                 else:
                     total_price = MAESU_TOTAL_PRICE[maesu_count] 
-                    qty = int(total_price / maedoHoga1 /2 ) + 1
+                    qty = int(total_price / maedoHoga1 ) + 1
 
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
