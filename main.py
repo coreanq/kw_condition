@@ -30,7 +30,7 @@ MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAES
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의 손절의 경우 첫 매수가 대비 얼마나 떨어지느냐를 나타냄 
 STOP_PLUS_PER_MAESU_COUNT = [  8,                    4,                      2,                      1,                      1                   ]
-STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     60,                     60                   ]
+STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     40,                     40                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 40 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
@@ -683,7 +683,7 @@ class KiwoomConditon(QObject):
             ):
             pass
         else:
-            printLog += ('(5분봉거래금액미충족:{})'.format( before_amounts[0] * maedoHoga1 ) )
+            printLog += ('(직전5분봉거래금액1억미충족:{})'.format( before_amounts[0] * maedoHoga1 ) )
             return_vals.append(False)
 
         ##########################################################################################################
@@ -762,7 +762,7 @@ class KiwoomConditon(QObject):
         if( before_amounts[0]> before_amounts[1] * 2 ): 
             pass
         else:
-            printLog += '(거래량조건미충족)'
+            printLog += '(거래량2배조건미충족)'
             return_vals.append(False)
 
         ##########################################################################################################
@@ -825,7 +825,7 @@ class KiwoomConditon(QObject):
         # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
         # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage <= 10 ):
+        if( updown_percentage <= 5 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
