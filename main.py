@@ -1641,8 +1641,9 @@ class KiwoomConditon(QObject):
             if( jongmok_code in self.michegyeolInfo):
                 if( self.michegyeolInfo[jongmok_code]['미체결수량'] ):
                     return 
-            # 미체결 수량이 없으므로 정보 삭제 
-            del ( self.michegyeolInfo[jongmok_code] )
+                else:
+                    # 미체결 수량이 없으므로 정보 삭제 
+                    del ( self.michegyeolInfo[jongmok_code] )
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행 
                 if( jongmok_code not in self.todayTradedCodeList):
