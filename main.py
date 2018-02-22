@@ -23,7 +23,7 @@ CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 �
 # 총 4번 매수에 3번이 보통 발생하므로 500/500/1000  --> 2000
 TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
-MAESU_BASE_UNIT = 1000000 # 추가 매수 기본 단위 
+MAESU_BASE_UNIT = 500000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 4 # 추가 매수 제한 
 STOP_LOSS_UNIT = 0.75 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
@@ -937,7 +937,7 @@ class KiwoomConditon(QObject):
                             qty = int(total_price / maedoHoga1 ) + 1 #  약간 오버하게 삼 
                             pass
                         else:
-                            qty = int(total_price / maedoHoga1 / 20 ) + 1
+                            qty = int(total_price / maedoHoga1 / 10 ) + 1
                 else:
                     total_price = MAESU_TOTAL_PRICE[maesu_count] 
                     qty = int(total_price / maedoHoga1 ) + 1
@@ -1555,7 +1555,7 @@ class KiwoomConditon(QObject):
             current_time = datetime.datetime.now()
             if( datetime.time(*DAY_TRADING_END_TIME) <  current_time.time() and dst_time > current_time ):
                 # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
-                stop_loss = 0  
+                stop_loss = -1  
                 pass
 
         # 손절 / 익절 계산 
@@ -1563,6 +1563,11 @@ class KiwoomConditon(QObject):
         isSijanga = False
         maedo_type = ''
         if( stop_loss == 0 ):
+            maedo_type = "(잔고오류)"
+            printData += maedo_type 
+            isSijanga = False
+            isSell = False
+        elif( stop_loss == -1 ):
             maedo_type = "(당일정리)"
             printData += maedo_type 
             isSijanga = True
