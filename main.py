@@ -30,7 +30,7 @@ MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAES
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의 손절의 경우 첫 매수가 대비 얼마나 떨어지느냐를 나타냄 
 STOP_PLUS_PER_MAESU_COUNT = [  8,                    4,                      2,                      1,                      1                   ]
-STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     40,                     40                   ]
+STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     90,                     90                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 40 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
