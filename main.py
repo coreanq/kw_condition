@@ -25,7 +25,8 @@ TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUN
 
 MAESU_BASE_UNIT = 500000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 4 # 추가 매수 제한 
-STOP_LOSS_UNIT = 0.75 # 최근 매수가 대비 어느정도 하락하면 추가 매수 하도록 함 
+CHUMAE_PERCENT_FROM_LAST_MAEIP = 0.75 # 최근 매수가 대비 ? 되면  조건 판단하여 추가 매수 하도록 함 
+BUY_PERCENT_FROM_LAST_MAEIP = 0.55 # 최근 매수가 대비 ? 되면 무조건 추가 매수 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의 손절의 경우 첫 매수가 대비 얼마나 떨어지느냐를 나타냄 
@@ -56,8 +57,7 @@ TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜
 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
 JANGO_INFO_FILE_PATH =  "log" + os.path.sep + "jango.json"
-CHEGYEOL_INFO_EXCEL_FILE_PATH = "log" + os.path.sep +  "chegyeol.xlsx"
-
+CHEGYEOL_INFO_EXCEL_FILE_PATH = "log" + os.path.sep +  "chegyeol.xlsx" 
 class CloseEventEater(QObject):
     def eventFilter(self, obj, event):
         if( event.type() == QEvent.Close):
@@ -765,35 +765,17 @@ class KiwoomConditon(QObject):
             printLog += '(거래량2배조건미충족)'
             return_vals.append(False)
 
-        ##########################################################################################################
-        # 첫 매수시 
-        if( jongmokCode not in self.jangoInfo ):
-            pass
+        
 
         ##########################################################################################################
-        # 추가 매수시 
+        # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
+        # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
+        updown_percentage = float(jongmok_info_dict['등락율'] )
+        if( updown_percentage <= 5 ):
+            pass
         else:
-            maeip_price = self.jangoInfo[jongmokCode]['매입가']
-            if( last_maeip_price * STOP_LOSS_UNIT >  maedoHoga1 ):
-                twohundred_avr = jongmok_info_dict['200봉0평균'] 
-                # 현재가가 이평보다 낮은 경우 제외
-                if(  twohundred_avr > maedoHoga1 ):   
-                    print("{:<30}".format(jongmokName)  + "추매조건미충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                    # printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
-                    return_vals.append(False)
-                else:
-                    is_log_print_enable = True
-                    print("{:<30}".format(jongmokName)  + "추매조건충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                    pass
-            else:
-                print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                printLog += '(가격미충족)'
-                return_vals.append(False)
-        
-            temp = '({} {})'\
-                .format( jongmokName,  maedoHoga1 )
-            # print( util.cur_time_msec() , temp)
-            printLog += temp
+            printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
+            return_vals.append(False)
 
 
         ##########################################################################################################
@@ -818,19 +800,6 @@ class KiwoomConditon(QObject):
         #         printLog +='({0}이평조건미충족: 20봉평균: {1}, 5봉평균: {2})'.format(yupjong_name, twentybong_avr, fivebong_avr)
         #         return_vals.append(False)
         #     pass
-
-        
-
-        ##########################################################################################################
-        # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
-        # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
-        updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage <= 5 ):
-            pass
-        else:
-            printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
-            return_vals.append(False)
-
 
         ##########################################################################################################
         # 이미 보유한 종목 구매 금지 
@@ -858,7 +827,7 @@ class KiwoomConditon(QObject):
 
 
         ##########################################################################################################
-        # 시작가 조건 확인 너무 높은 시작가는 급락을 야기함  
+        # 시작가 조건 확인 너무 높은 시작가 방지   
         # jeonil_daebi = int(jongmok_info_dict['전일대비'])
         # current_price = int(jongmok_info_dict['현재가'])
 
@@ -914,7 +883,49 @@ class KiwoomConditon(QObject):
         #     printLog += '(금일거래종목)'
         #     return_vals.append(False)
 
-        # 매수 
+
+
+
+
+
+        ##########################################################################################################
+        # 추가 매수 판단 루틴으로 맨 마지막에 둬야 함 
+        ##########################################################################################################
+        # 첫 매수시 
+        if( jongmokCode not in self.jangoInfo ):
+            pass
+        # 추가 매수시 
+        else:
+            maeip_price = self.jangoInfo[jongmokCode]['매입가']
+            # 최근 매입가 대비 어느 비율 떨어지면 추가 매수  
+            if( last_maeip_price * CHUMAE_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
+                twohundred_avr = jongmok_info_dict['200봉0평균'] 
+                # 현재가가 이평보다 낮은 경우 제외
+                if(  twohundred_avr > maedoHoga1 ):   
+                    print("{:<30}".format(jongmokName)  + "추매조건미충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+                    # printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
+                    return_vals.append(False)
+                else:
+                    is_log_print_enable = True
+                    print("{:<30}".format(jongmokName)  + "추매조건충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+                    pass
+            elif( last_maeip_price * BUY_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
+                return_vals.clear()
+                pass
+            else:
+                print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+                printLog += '(가격미충족)'
+                return_vals.append(False)
+        
+            temp = '({} {})'\
+                .format( jongmokName,  maedoHoga1 )
+            # print( util.cur_time_msec() , temp)
+            printLog += temp
+
+
+        ##########################################################################################################
+        # 매수  
+        ##########################################################################################################
         if( return_vals.count(False) == 0 ):
             util.save_log(jongmokName, '매수주문', folder= "log")
             qty = 0
@@ -1730,7 +1741,7 @@ class KiwoomConditon(QObject):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
                 else: 
-                    current_jango['체결가/체결시간'] = ['29999999999999:0']
+                    current_jango['체결가/체결시간'] = ['29991212090000:0']
 
             maesu_count = len(current_jango['체결가/체결시간'])
             first_maeip_price = 0
