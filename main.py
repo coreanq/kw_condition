@@ -23,8 +23,8 @@ CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 �
 # 총 4번 매수에 3번이 보통 발생하므로 500/500/1000  --> 2000
 TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
-MAESU_BASE_UNIT = 500000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 4 # 추가 매수 제한 
+MAESU_BASE_UNIT = 1500000 # 추가 매수 기본 단위 
+MAESU_LIMIT = 3 # 추가 매수 제한 
 CHUMAE_PERCENT_FROM_LAST_MAEIP = 0.75 # 최근 매수가 대비 ? 되면  조건 판단하여 추가 매수 하도록 함 
 BUY_PERCENT_FROM_LAST_MAEIP = 0.55 # 최근 매수가 대비 ? 되면 무조건 추가 매수 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
