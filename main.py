@@ -23,7 +23,7 @@ CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 �
 # 총 4번 매수에 3번이 보통 발생하므로 500/500/1000  --> 2000
 TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
-MAESU_BASE_UNIT = 500000 # 추가 매수 기본 단위 
+MAESU_BASE_UNIT = 1500000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 4 # 추가 매수 제한 
 CHUMAE_PERCENT_FROM_LAST_MAEIP = 0.75 # 최근 매수가 대비 ? 되면  조건 판단하여 추가 매수 하도록 함 
 BUY_PERCENT_FROM_LAST_MAEIP = 0.55 # 최근 매수가 대비 ? 되면 무조건 추가 매수 
@@ -465,7 +465,8 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def requestingJangoSystemStateEntered(self):
         # print(util.whoami() )
-        self.requestOpw00018(self.account_list[0])
+        # 첫조회므로 연속 조회로 요청 안함 
+        self.requestOpw00018(self.account_list[0], "0")
         pass 
     
     @pyqtSlot()
@@ -941,17 +942,24 @@ class KiwoomConditon(QObject):
 
                     if( first_chegyeol_time_str != ''):
                         base_time = datetime.datetime.strptime("20180127010101", "%Y%m%d%H%M%S") 
+                        base2_time = datetime.datetime.strptime("20180319010101", "%Y%m%d%H%M%S") 
 
                         first_maesu_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
                         total_price = MAESU_TOTAL_PRICE[maesu_count] 
-                        if( base_time  < first_maesu_time ):
-                            qty = int(total_price / maedoHoga1 ) + 1 #  약간 오버하게 삼 
+                        if( base2_time > first_maesu_time and base_time  < first_maesu_time ):
+                            # 500000
+                            qty = int(total_price / maedoHoga1 )  / 3 + 1 #  약간 오버하게 삼 
+                            pass
+                        elif( base2_time < first_maesu_time ):
+                            # 1500000
+                            qty = int(total_price / maedoHoga1 )  + 1 #  약간 오버하게 삼 
                             pass
                         else:
-                            qty = int(total_price / maedoHoga1 / 10 ) + 1
+                            qty = int(total_price / maedoHoga1 / 30 ) + 1
                 else:
+                    # 신규 매수 
                     total_price = MAESU_TOTAL_PRICE[maesu_count] 
-                    qty = int(total_price / maedoHoga1 ) + 1
+                    qty = int(total_price / maedoHoga1 )  + 1
 
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
@@ -1028,13 +1036,18 @@ class KiwoomConditon(QObject):
         print(json.dumps(self.yupjongInfo, ensure_ascii= False, indent =2, sort_keys = True))
 
     # 주식 잔고정보 요청 
-    def requestOpw00018(self, account_num):
+    def requestOpw00018(self, account_num, sPrevNext):
         self.setInputValue('계좌번호', account_num)
         self.setInputValue('비밀번호', '') #  사용안함(공백)
         self.setInputValue('비빌번호입력매체구분', '00')
         self.setInputValue('조회구분', '1')
 
-        ret = self.commRqData(account_num, "opw00018", 0, kw_util.sendAccountInfoScreenNo) 
+        # 연속 데이터 조회해야 하는 경우 
+        if( sPrevNext == "2" ):
+            ret = self.commRqData(account_num, "opw00018", 2, kw_util.sendAccountInfoScreenNo) 
+        else:
+            ret = self.commRqData(account_num, "opw00018", 0, kw_util.sendAccountInfoScreenNo) 
+
         errorString = None
         if( ret != 0 ):
             errorString =   account_num + " commRqData() " + kw_util.parseErrorCode(str(ret))
@@ -1350,7 +1363,13 @@ class KiwoomConditon(QObject):
         # rQName 은 계좌번호임 
         if ( trCode == 'opw00018' ):
             if( self.makeOpw00018Info(rQName) ):
-                self.sigRequestJangoComplete.emit()
+                # 연속 데이터 존재 하는 경우 재 조회 
+                if( prevNext  == "2" ) :
+                    self.requestOpw00018(self.account_list[0], prevNext)
+                    pass
+                else:
+                    self.sigRequestJangoComplete.emit()
+
             else:
                 self.sigError.emit()
             pass
