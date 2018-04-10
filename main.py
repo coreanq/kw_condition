@@ -579,9 +579,9 @@ class KiwoomConditon(QObject):
         if( '매도호가1' not in jongmok_info_dict or '등락율' not in jongmok_info_dict ):
             self.shuffleConditionOccurList()
             if( '매도호가1' not in jongmok_info_dict ):
-                print('매도호가1 not in {0}'.format(code))
+                print('매도호가1 not in {0}'.format( self.getMasterCodeName(code) ) )
             else:
-                print('등락율 not in {0}'.format(code))
+                print('등락율 not in {0}'.format( self.getMasterCodeName(code)))
             self.sigError.emit()
             return
 
@@ -914,8 +914,8 @@ class KiwoomConditon(QObject):
                 return_vals.clear()
                 pass
             else:
-                print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                printLog += '(가격미충족)'
+                # print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+                # printLog += '(가격미충족)'
                 return_vals.append(False)
         
             temp = '({} {})'\
@@ -1607,7 +1607,7 @@ class KiwoomConditon(QObject):
             printData += maedo_type 
             isSijanga = True
             isSell = True
-        elif( stop_loss >= maesuHoga1 ) :
+        elif( stop_loss >= maesuHoga1 and maesuHoga1 > 0 ) :
             maedo_type = "(손절이다)"
             printData += maedo_type 
             isSijanga = True
