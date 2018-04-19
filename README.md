@@ -50,7 +50,7 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 > STOCK_POSSESION_COUNT  # 총 전체 주식 보유 갯수( 이 값보다 이상으로는 매수 안됨)
 
 ## StateMachine 정의 
-![alt tag](https://user-images.githubusercontent.com/15916783/31872844-28055208-b7fa-11e7-9ea9-e71b66b00650.png)
+![alt tag](https://user-images.githubusercontent.com/15916783/38980122-f34d16b6-43f6-11e8-8b69-ea43ba559f5a.png)
 
 ## License
 Licensed under MIT:
