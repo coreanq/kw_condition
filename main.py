@@ -1607,6 +1607,7 @@ class KiwoomConditon(QObject):
             printData += maedo_type 
             isSijanga = True
             isSell = True
+        # 20180410150510 팜스웰바이오 실시간 매도 호가가 0으로 나오는 경우 있음 
         elif( stop_loss >= maesuHoga1 and maesuHoga1 > 0 ) :
             maedo_type = "(손절이다)"
             printData += maedo_type 
