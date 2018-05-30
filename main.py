@@ -964,7 +964,7 @@ class KiwoomConditon(QObject):
 
             result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
-                                qty, 0 , kw_util.dict_order["시장가"], "")
+                                qty, maedoHoga2 , kw_util.dict_order["지정가"], "")
 
             print("B " + str(result) , sep="")
             printLog = '**** [매수수량: {0}, 매수가: {1}, 매수횟수: {2}] ****'.format(
