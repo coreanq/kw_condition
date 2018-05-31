@@ -30,7 +30,7 @@ BUY_PERCENT_FROM_LAST_MAEIP = 0.55 # 최근 매수가 대비 ? 되면 무조건 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의 손절의 경우 첫 매수가 대비 얼마나 떨어지느냐를 나타냄 
-STOP_PLUS_PER_MAESU_COUNT = [  8,                    1,                      1,                      1,                      1                   ]
+STOP_PLUS_PER_MAESU_COUNT = [  8,                    4,                      2,                      1,                      1                   ]
 STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     90,                     90                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
