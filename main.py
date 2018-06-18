@@ -910,13 +910,16 @@ class KiwoomConditon(QObject):
                     is_log_print_enable = True
                     print("{:<30}".format(jongmokName)  + "추매조건충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                     pass
-            elif( last_maeip_price * BUY_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
-                return_vals.clear()
-                pass
             else:
                 # print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 # printLog += '(가격미충족)'
                 return_vals.append(False)
+            # 무조건 추매 
+            if( last_maeip_price * BUY_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
+                is_log_print_enable = True
+                print("{:<30}".format(jongmokName)  + "무조건추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+                return_vals.clear()
+                pass
         
             temp = '({} {})'\
                 .format( jongmokName,  maedoHoga1 )
