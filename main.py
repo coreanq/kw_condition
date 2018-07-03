@@ -26,7 +26,7 @@ TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUN
 MAESU_BASE_UNIT = 1500000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 3 # 추가 매수 제한 
 CHUMAE_PERCENT_FROM_LAST_MAEIP = 0.75 # 최근 매수가 대비 ? 되면  조건 판단하여 추가 매수 하도록 함 
-BUY_PERCENT_FROM_LAST_MAEIP = 0.55 # 최근 매수가 대비 ? 되면 무조건 추가 매수 
+BUY_PERCENT_FROM_LAST_MAEIP = 0.60 # 최근 매수가 대비 ? 되면 무조건 추가 매수 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의 손절의 경우 첫 매수가 대비 얼마나 떨어지느냐를 나타냄 
@@ -34,7 +34,7 @@ STOP_PLUS_PER_MAESU_COUNT = [  8,                    4,                      2, 
 STOP_LOSS_PER_MAESU_COUNT = [ 90,                   90,                     90,                     90,                     90                   ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-STOCK_POSSESION_COUNT = 40 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
+STOCK_POSSESION_COUNT = 50 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
 EXCEPT_YUPJONG_LIST = []
 ###################################################################################################
@@ -899,21 +899,21 @@ class KiwoomConditon(QObject):
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
             # 최근 매입가 대비 어느 비율 떨어지면 추가 매수  
-            if( last_maeip_price * CHUMAE_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
-                twohundred_avr = jongmok_info_dict['200봉0평균'] 
-                # 현재가가 이평보다 낮은 경우 제외
-                if(  twohundred_avr > maedoHoga1 ):   
-                    print("{:<30}".format(jongmokName)  + "추매조건미충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                    # printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
-                    return_vals.append(False)
-                else:
-                    is_log_print_enable = True
-                    print("{:<30}".format(jongmokName)  + "추매조건충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                    pass
-            else:
-                # print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                # printLog += '(가격미충족)'
-                return_vals.append(False)
+            # if( last_maeip_price * CHUMAE_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
+            #     twohundred_avr = jongmok_info_dict['200봉0평균'] 
+            #     # 현재가가 이평보다 낮은 경우 제외
+            #     if(  twohundred_avr > maedoHoga1 ):   
+            #         print("{:<30}".format(jongmokName)  + "추매조건미충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+            #         # printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
+            #         return_vals.append(False)
+            #     else:
+            #         is_log_print_enable = True
+            #         print("{:<30}".format(jongmokName)  + "추매조건충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+            #         pass
+            # else:
+            #     # print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+            #     # printLog += '(가격미충족)'
+            #     return_vals.append(False)
             # 무조건 추매 
             if( last_maeip_price * BUY_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
                 is_log_print_enable = True
@@ -930,7 +930,8 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 매수  
         ##########################################################################################################
-        if( return_vals.count(False) == 0 ):
+        # 매도 호가가 0인경우 상한가임 
+        if( return_vals.count(False) == 0 and maedoHoga1 != 0  ):
             util.save_log(jongmokName, '매수주문', folder= "log")
             qty = 0
             if( TEST_MODE == True ):
