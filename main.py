@@ -23,10 +23,10 @@ CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 �
 # 총 4번 매수에 3번이 보통 발생하므로 500/500/1000  --> 2000
 TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
-MAESU_BASE_UNIT = 1500000 # 추가 매수 기본 단위 
+MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 3 # 추가 매수 제한 
-CHUMAE_PERCENT_FROM_LAST_MAEIP = 0.75 # 최근 매수가 대비 ? 되면  조건 판단하여 추가 매수 하도록 함 
 BUY_PERCENT_FROM_LAST_MAEIP = 0.60 # 최근 매수가 대비 ? 되면 무조건 추가 매수 
+
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의 손절의 경우 첫 매수가 대비 얼마나 떨어지느냐를 나타냄 
@@ -898,22 +898,6 @@ class KiwoomConditon(QObject):
         # 추가 매수시 
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
-            # 최근 매입가 대비 어느 비율 떨어지면 추가 매수  
-            # if( last_maeip_price * CHUMAE_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
-            #     twohundred_avr = jongmok_info_dict['200봉0평균'] 
-            #     # 현재가가 이평보다 낮은 경우 제외
-            #     if(  twohundred_avr > maedoHoga1 ):   
-            #         print("{:<30}".format(jongmokName)  + "추매조건미충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-            #         # printLog += ('(200봉:{} > 현재가: {})'.format( twohundred_avr, maedoHoga1) )
-            #         return_vals.append(False)
-            #     else:
-            #         is_log_print_enable = True
-            #         print("{:<30}".format(jongmokName)  + "추매조건충족(200봉)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-            #         pass
-            # else:
-            #     # print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-            #     # printLog += '(가격미충족)'
-            #     return_vals.append(False)
             # 무조건 추매 
             if( last_maeip_price * BUY_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
                 is_log_print_enable = True
