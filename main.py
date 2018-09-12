@@ -24,14 +24,14 @@ CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 �
 TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 2 # 추가 매수 제한 
-BUY_PERCENT_FROM_LAST_MAEIP = 0.60 # 최근 매수가 대비 ? 되면 무조건 추가 매수 
+MAESU_LIMIT = 4 # 추가 매수 제한 
+CHUMAE_GIJUN_PERCENT = 1
 
-MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 4,    MAESU_BASE_UNIT * 8  ]
+MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의 손절의 경우 첫 매수가 대비 얼마나 떨어지느냐를 나타냄 
-STOP_PLUS_PER_MAESU_COUNT = [  8,                    4,                      2,                      1,                      1                   ]
-STOP_LOSS_PER_MAESU_COUNT = [  8,                    4,                      2,                     90,                     90                   ]
+STOP_PLUS_PER_MAESU_COUNT = [  8,                    8,                      8,                      8,                      8                ]
+STOP_LOSS_PER_MAESU_COUNT = [  -8,                  -4,                     -2,                      -1,                      0                ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 50 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
@@ -898,20 +898,12 @@ class KiwoomConditon(QObject):
         # 추가 매수시 
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
-            # else:
-            #     # print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-            #     # printLog += '(가격미충족)'
-            #     return_vals.append(False)
-            # 무조건 추매 
-            if( last_maeip_price * BUY_PERCENT_FROM_LAST_MAEIP >  maedoHoga1 ):
+            # 최근 매입가 대비 일정 퍼센티지 오르면 무조건 추매 
+            if( last_maeip_price * (1 + (CHUMAE_GIJUN_PERCENT/100) <  maedoHoga1 )):
                 is_log_print_enable = True
                 print("{:<30}".format(jongmokName)  + "무조건추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 return_vals.clear()
                 pass            
-            else: 
-                print("{:<30}".format(jongmokName) + "추매조건미충족(이전매입가격)" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                printLog += '(가격미충족)'
-                return_vals.append(False)
         
             temp = '({} {})'\
                 .format( jongmokName,  maedoHoga1 )
@@ -1771,7 +1763,7 @@ class KiwoomConditon(QObject):
             chegyeol_info = self.jangoInfo[jongmok_code]['체결가/체결시간'][0]
             first_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격
 
-            current_jango['손절가'] =     round( first_maeip_price *  (1 - (stop_loss_value - SLIPPAGE) / 100) , 2 )
+            current_jango['손절가'] =     round( first_maeip_price *  (1 + (stop_loss_value + SLIPPAGE) / 100) , 2 )
             current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
         else:
 
