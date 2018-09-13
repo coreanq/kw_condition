@@ -893,10 +893,13 @@ class KiwoomConditon(QObject):
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
             # 최근 매입가 대비 일정 퍼센티지 오르면 무조건 추매 
-            if( last_maeip_price * (1 + (CHUMAE_GIJUN_PERCENT/100) <  maedoHoga1 )):
+            if( last_maeip_price * (1.00 + (CHUMAE_GIJUN_PERCENT/100)) <  maedoHoga1 ):
                 is_log_print_enable = True
                 print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 pass            
+            else:
+                printLog += '(추매조건미충족)'
+                return_vals.append(False)
         
             temp = '({} {})'\
                 .format( jongmokName,  maedoHoga1 )
