@@ -25,19 +25,16 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 
 > main.py 내의  변수 설정 내용 
 
->  AUTO_TRADING_OPERATION_TIME = [ [ [9, 5], [15, 10] ]] # 해당 시스템 동작 시간 설정 -->  9시 5분 부터 15시 10분까지만 동작
+> AUTO_TRADING_OPERATION_TIME = [ [ [8, 57], [15, 19] ] ]  # 8시 57분에 동작해서 15시 19분에 자동 매수/매도 정지
 > CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
-> TOTAL_BUY_AMOUNT = 50000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+> TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
+> MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 
-> MAESU_BASE_UNIT  = 추가 매수 기본 단위 
+> MAESU_LIMIT = 4 # 추가 매수 제한 
 
-> MAESU_LIMIT = 3  # 추가 매수 제한
-
-> CHUMAE_PERCENT_FROM_LAST_MAEIP = 0.75 # 최근 매수가 대비 ? 되면  조건 판단하여 추가 매수 하도록 함 
-> BUY_PERCENT_FROM_LAST_MAEIP = 0.55 # 최근 매수가 대비 ? 되면 무조건 추가 매수 
-> MAESU_TOTAL_PRICE  # 각 추가 매수시 매수 금액 설정 
+> CHUMAE_GIJUN_PERCENT = 1  # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
 
 > STOP_PLUS_PER_MAESU_COUNT # 각 추가 매수 단계마다 익절 퍼센티지 설정 
 
@@ -45,7 +42,7 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 
 > EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
-> EXCEPT_YUPJONG_LIST = [] # 장기 보유 업종 
+> EXCEPT_YUPJONG_LIST = [] # 자동 매수/매도에서 제외할 종목 리스트 
 
 > STOCK_POSSESION_COUNT  # 총 전체 주식 보유 갯수( 이 값보다 이상으로는 매수 안됨)
 

@@ -16,27 +16,25 @@ from mainwindow_ui import Ui_MainWindow
 # 사용자 정의 파라미터 
 ###################################################################################################
 
-AUTO_TRADING_OPERATION_TIME = [ [ [8, 57], [15, 19] ] ] 
+AUTO_TRADING_OPERATION_TIME = [ [ [8, 57], [15, 19] ] ]  # 8시 57분에 동작해서 15시 19분에 자동 매수/매도 정지
 CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
-# 매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-# 총 4번 매수에 3번이 보통 발생하므로 500/500/1000  --> 2000
 TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 4 # 추가 매수 제한 
-CHUMAE_GIJUN_PERCENT = 1
+MAESU_LIMIT = 4 # 추가 매수 횟수 제한 
+CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-# 주의 손절의 경우 첫 매수가 대비 얼마나 떨어지느냐를 나타냄 
+# 주의: 손절의 경우 첫 매입가 기준
 STOP_PLUS_PER_MAESU_COUNT = [  8,                    8,                      8,                      8,                      8                ]
 STOP_LOSS_PER_MAESU_COUNT = [  -8,                  -4,                     -2,                      -1,                      0                ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 50 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
-EXCEPT_YUPJONG_LIST = []
+EXCEPT_YUPJONG_LIST = [] # 자동 매수/매도에서 제외할 종목 리스트 
 ###################################################################################################
 ###################################################################################################
 
@@ -58,6 +56,9 @@ TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
 JANGO_INFO_FILE_PATH =  "log" + os.path.sep + "jango.json"
 CHEGYEOL_INFO_EXCEL_FILE_PATH = "log" + os.path.sep +  "chegyeol.xlsx" 
+
+###################################################################################################
+###################################################################################################
 class CloseEventEater(QObject):
     def eventFilter(self, obj, event):
         if( event.type() == QEvent.Close):
