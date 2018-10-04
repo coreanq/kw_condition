@@ -22,14 +22,15 @@ CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 �
 TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 4 # 추가 매수 횟수 제한 
+MAESU_LIMIT = 3 # 추가 매수 횟수 제한 
 CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
+STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 stoploss 로 삼음 
 
-MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1  ]
+MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의: 손절의 경우 첫 매입가 기준
 STOP_PLUS_PER_MAESU_COUNT = [  8,                    8,                      8,                      8,                      8                ]
-STOP_LOSS_PER_MAESU_COUNT = [  -8,                  -4,                     -2,                      -1,                      0                ]
+STOP_LOSS_PER_MAESU_COUNT = [ -8,                   -8,                     -8,                     -8,                      0                ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 STOCK_POSSESION_COUNT = 50 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
@@ -416,8 +417,8 @@ class KiwoomConditon(QObject):
                         jongmok_code = parse_str_list[jongmok_code_index]
                         jumun_gubun  = parse_str_list[jumun_gubun_index]
 
-                        if( jumun_gubun == "-매도"):
-                            self.todayTradedCodeList.append(jongmok_code)
+                        # if( jumun_gubun == "-매도"):
+                        self.todayTradedCodeList.append(jongmok_code)
                     break
 
         if( os.path.isfile(JANGO_INFO_FILE_PATH) == True ):
@@ -515,31 +516,6 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def requestEtcInfoProcessBuyStateEntered(self):
-        # print(util.whoami())
-        # if( '5분 0봉전' not in self.yupjongInfo['코스피']):
-        #     self.requestOpt20005('001')
-        #     return
-        # elif ( '5분 0봉전' not in self.yupjongInfo['코스닥']):
-        #     self.requestOpt20005('101')
-        #     return
-
-        # 5분마다 업종 정보를 다시 요청하도록 함 
-        # time_span = datetime.timedelta(minutes = 5)
-
-        # chegyeol_index = kw_util.dict_jusik['TR:업종분봉'].index('체결시간')
-        # chegyeol_time_str = self.yupjongInfo['코스피']['5분 0봉전'][chegyeol_index]   #20170502140359 
-        # target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
-        
-        # if( datetime.datetime.now() > target_time ):
-        #     self.requestOpt20005('001')
-        #     return
-
-        # chegyeol_time_str = self.yupjongInfo['코스닥']['5분 0봉전'][chegyeol_index]   #20170502140359 
-        # target_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") + time_span
-
-        # if( datetime.datetime.now() > target_time ):
-        #     self.requestOpt20005('101')
-        #     return
 
         # 조건 발생 리스트 검색 
         for jongmok_code in self.conditionRevemoList:
@@ -555,6 +531,8 @@ class KiwoomConditon(QObject):
             jongmok_name = jongmok_info['종목명'] 
             if( '상한가' not in jongmok_info):
                 self.requestOpt10001(jongmok_code)
+            if( '{}일전 저가'.format(STOP_LOSS_CALCULATE_DAY) not in jongmok_info):
+                self.requestOpt10081(jongmok_code)
             else:
                 self.sigRequestInfo.emit()
             # print(util.whoami() , jongmok_name, jongmok_code ) 
@@ -808,11 +786,11 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 기존에 이미 매도 발생한 종목이라면  
-        # if( self.todayTradedCodeList.count(jongmokCode) == 0 ):
-        #     pass
-        # else:
-        #     printLog += '(금일거래종목)'
-        #     return_vals.append(False)
+        if( self.todayTradedCodeList.count(jongmokCode) == 0 ):
+            pass
+        else:
+            printLog += '(금일거래종목)'
+            return_vals.append(False)
 
 
         ##########################################################################################################
@@ -882,7 +860,7 @@ class KiwoomConditon(QObject):
             # 종목 등락율을 확인해 너무 급등한 종목은 사지 않도록 함 
             # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
             updown_percentage = float(jongmok_info_dict['등락율'] )
-            if( updown_percentage <= 3 ):
+            if( updown_percentage <= 5 ):
                 pass
             else:
                 printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -896,7 +874,7 @@ class KiwoomConditon(QObject):
             # 최근 매입가 대비 일정 퍼센티지 오르면 무조건 추매 
             if( last_maeip_price * (1.00 + (CHUMAE_GIJUN_PERCENT/100)) <  maedoHoga1 ):
                 is_log_print_enable = True
-                print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+                #print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 pass            
             else:
                 printLog += '(추매조건미충족)'
@@ -991,7 +969,7 @@ class KiwoomConditon(QObject):
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
         import subprocess
-        subprocess.call(["shutdown", "-s", "-t", "500"])
+        # subprocess.call(["shutdown", "-s", "-t", "500"])
         sys.exit()
         pass
 
@@ -1088,29 +1066,29 @@ class KiwoomConditon(QObject):
             return False
         return True
         
-    # 주식 일봉 차트 조회 
+    # 주식 일봉 데이터 생성  
     def makeOpt10081Info(self, rQName):
-        # repeatCnt = self.getRepeatCnt("opt10081", rQName)
-        # jongmok_code = rQName
-        # price_list = [] 
+        # 조건 발생한 종목 상위 리스트의 정보를 얻기 위함 
+        jongmok_info_dict = self.getConditionOccurList()
+        if( jongmok_info_dict ):
+            pass
+        else:
+            return False
 
-        # for i in range(repeatCnt):
-        #     line = {} 
-        #     for item_name in kw_util.dict_jusik['TR:일봉']:
-        #         if( item_name == "종목명" ):
-        #             line[item_name] = self.getMasterCodeName(rQName)
-        #             continue
-        #         result = self.getCommData("opt10081", rQName, i, item_name)
-        #         line[item_name] = result.strip()
+        repeatCnt = self.getRepeatCnt("opt10081", rQName)
+        jongmok_code = rQName
+        low_price_list = [] 
 
-        #     # 일자가 맨 마지막 리스트 
-        #     saved_date_str = line['일자']
-        #     time_span = datetime.timedelta(days = STOP_LOSS_VALUE_DAY_RANGE) # 몇일 중  저가 계산
-        #     saved_date = datetime.datetime.strptime(saved_date_str, '%Y%m%d').date()
-        #     current_date = self.currentTime.date()
-        #     price_list.append(int(line['저가']))
-        #     if( saved_date <  current_date - time_span):
-        #         break
+        for i in range(STOP_LOSS_CALCULATE_DAY):
+            for item_name in kw_util.dict_jusik['TR:일봉']:
+                if( item_name == "저가"):
+                    result = self.getCommData("opt10081", rQName, i, item_name)
+                    low_price_list.append( abs(int(result)  ) )
+
+        jongmok_info_dict['{}봉전 저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
+        jongmok_code = jongmok_info_dict['종목코드']
+        if( jongmok_code in self.jangoInfo) :
+            self.jangoInfo[jongmok_code]['{}봉전 저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
         return True
 
     # 주식 분봉 tr 요청 
@@ -1151,21 +1129,13 @@ class KiwoomConditon(QObject):
             key_value = '5분 {0}봉전'.format(i)
             jongmok_info_dict[key_value] = line
         
-        for i in range(0, 200):
-            fivebong_sum, twentybong_sum, sixtybong_sum, twohundred_sum = 0, 0, 0, 0
+        # 평균가 계산 
+        # for i in range(0, 200):
+        #     fivebong_sum, twentybong_sum, sixtybong_sum, twohundred_sum = 0, 0, 0, 0
 
-            twohundred_sum = sum(total_current_price_list[i:200+i])
-            jongmok_info_dict['200봉{}평균'.format(i)] = int(twohundred_sum/ 200)
+        #     twohundred_sum = sum(total_current_price_list[i:200+i])
+        #     jongmok_info_dict['200봉{}평균'.format(i)] = int(twohundred_sum/ 200)
 
-            # sixtybong_sum = sum(total_current_price_list[i:60+i])
-            # jongmok_info_dict['60봉{}평균'.format(i)] = int(sixtybong_sum/ 60)
-
-            # twentybong_sum = sum(total_current_price_list[i:20+i])
-            # jongmok_info_dict['20봉{}평균'.format(i)] = int(twentybong_sum/ 20)
-
-            # fivebong_sum = sum(total_current_price_list[i:5+i])
-            # jongmok_info_dict['5봉{}평균'.format(i)] = int(fivebong_sum/ 5) 
-        
 
         jongmok_code = jongmok_info_dict['종목코드']
         if( jongmok_code in self.jangoInfo) :
@@ -1266,7 +1236,7 @@ class KiwoomConditon(QObject):
             return False
         return True
         
-    # 주식 기본 차트 조회 ( multi data 아님 )
+    # 주식 기본 데이터 ( multi data 아님 )
     def makeOpt10001Info(self, rQName):
         jongmok_code = rQName
         jongmok_info_dict = self.getConditionOccurList()
@@ -1665,10 +1635,13 @@ class KiwoomConditon(QObject):
                 else:
                     # 미체결 수량이 없으므로 정보 삭제 
                     del ( self.michegyeolInfo[jongmok_code] )
+
+            # 당일 중복 매수 금지용 
+            if( jongmok_code not in self.todayTradedCodeList):
+                self.todayTradedCodeList.append(jongmok_code)
+
             if( boyou_suryang == 0 ):
-                # 보유 수량이 0 인 경우 매도 수행 
-                if( jongmok_code not in self.todayTradedCodeList):
-                    self.todayTradedCodeList.append(jongmok_code)
+                # 보유 수량이 0 인 경우 매도 수행한 것임  
                 self.jangoInfo.pop(jongmok_code)
                 self.removeConditionOccurList(jongmok_code)
             else:
@@ -1752,16 +1725,18 @@ class KiwoomConditon(QObject):
             first_maeip_price = 0
 
             # 손절가 계산 
-            stop_loss_value = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
-            stop_plus_value = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
+            stop_loss_percent = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
+            stop_plus_percent = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
 
             maeip_price = current_jango['매입가']
 
-            chegyeol_info = self.jangoInfo[jongmok_code]['체결가/체결시간'][0]
-            first_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격
+            gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
+            # 5일전 저가 손절 책정 
+            low_price_stoploss =  current_jango.get('{}봉전 저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
+            print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
 
-            current_jango['손절가'] =     round( maeip_price *  (1 + (stop_loss_value + SLIPPAGE) / 100) , 2 )
-            current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_value + SLIPPAGE) / 100) , 2 )
+            current_jango['손절가'] =    max([gibon_stoploss, low_price_stoploss])
+            current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_percent + SLIPPAGE) / 100) , 2 )
         else:
 
             if( jongmok_code in self.jangoInfoFromFile ):
