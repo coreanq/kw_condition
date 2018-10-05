@@ -143,7 +143,6 @@ class KiwoomConditon(QObject):
         waitingTradeSystemState = QState(systemState)
         standbySystemState = QState(systemState)
         requestingJangoSystemState = QState(systemState)
-        calculateStoplossSystemState = QState(systemState)
         terminatingSystemState = QState(systemState)
         
         #transition defition
@@ -158,8 +157,7 @@ class KiwoomConditon(QObject):
         
         systemState.setInitialState(initSystemState)
         initSystemState.addTransition(self.sigGetConditionCplt, requestingJangoSystemState)
-        requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, calculateStoplossSystemState)
-        calculateStoplossSystemState.addTransition(self.sigCalculateStoplossComplete, waitingTradeSystemState)
+        requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, waitingTradeSystemState)
 
         waitingTradeSystemState.addTransition(self.sigWaitingTrade, waitingTradeSystemState )
         waitingTradeSystemState.addTransition(self.sigSelectCondition, standbySystemState)
@@ -178,7 +176,6 @@ class KiwoomConditon(QObject):
         initSystemState.entered.connect(self.initSystemStateEntered)
         waitingTradeSystemState.entered.connect(self.waitingTradeSystemStateEntered)
         requestingJangoSystemState.entered.connect(self.requestingJangoSystemStateEntered)
-        calculateStoplossSystemState.entered.connect(self.calculateStoplossPlusStateEntered)
         standbySystemState.entered.connect(self.standbySystemStateEntered)
         terminatingSystemState.entered.connect(self.terminatingSystemStateEntered)
     
@@ -467,18 +464,9 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def requestingJangoSystemStateEntered(self):
         # print(util.whoami() )
-        # 첫조회므로 연속 조회로 요청 안함 
+        # 계좌 정보 조회 
         self.requestOpw00018(self.account_list[0], "0")
         pass 
-    
-    @pyqtSlot()
-    def calculateStoplossPlusStateEntered(self):
-        # print(util.whoami() )
-        # 이곳으로 온 경우 이미 잔고 TR 은 요청한 상태임 
-        for jongmok_code in self.jangoInfo:
-            self.makeEtcJangoInfo(jongmok_code)
-        self.makeJangoInfoFile()
-        self.sigCalculateStoplossComplete.emit()
 
     @pyqtSlot()
     def standbySystemStateEntered(self):
@@ -529,9 +517,12 @@ class KiwoomConditon(QObject):
         if( jongmok_info ):
             jongmok_code = jongmok_info['종목코드']
             jongmok_name = jongmok_info['종목명'] 
+            
             if( '상한가' not in jongmok_info):
+                #기본 정보 여부 확인 
                 self.requestOpt10001(jongmok_code)
             elif( '{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY) not in jongmok_info):
+                #일봉 정보 여부 확인 
                 self.requestOpt10081(jongmok_code)
             else:
                 self.sigRequestInfo.emit()
@@ -1092,6 +1083,7 @@ class KiwoomConditon(QObject):
         jongmok_code = jongmok_info_dict['종목코드']
         if( jongmok_code in self.jangoInfo) :
             self.jangoInfo[jongmok_code]['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
+        
         return True
 
     # 주식 분봉 tr 요청 
@@ -1319,7 +1311,7 @@ class KiwoomConditon(QObject):
         # .format(scrNo, rQName, trCode, prevNext))
 
         if ( trCode == 'opw00018' ):
-        # rQName 은 계좌번호임 
+        # 게좌 정보 요청 rQName 은 계좌번호임 
             if( self.makeOpw00018Info(rQName) ):
                 # 연속 데이터 존재 하는 경우 재 조회 
                 if( prevNext  == "2" ) :
@@ -1334,6 +1326,8 @@ class KiwoomConditon(QObject):
         #주식 일봉 정보 요청 rqName 은 개별 종목 코드임  
         elif( trCode =='opt10081'):
             if( self.makeOpt10081Info(rQName) ):
+                self.makeEtcJangoInfo(rQName)
+                self.makeJangoInfoFile()
                 self.sigGetEtcInfo.emit()
                 pass
             else:
