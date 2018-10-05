@@ -24,7 +24,7 @@ TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUN
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 3 # 추가 매수 횟수 제한 
 CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
-STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 stoploss 로 삼음 
+STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 

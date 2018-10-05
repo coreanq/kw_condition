@@ -34,7 +34,9 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 
 > MAESU_LIMIT = 4 # 추가 매수 제한 
 
-> CHUMAE_GIJUN_PERCENT = 1  # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
+> CHUMAE_GIJUN_PERCENT = 1  # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함
+
+> STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
 
 > STOP_PLUS_PER_MAESU_COUNT # 각 추가 매수 단계마다 익절 퍼센티지 설정 
 
@@ -47,7 +49,7 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 > STOCK_POSSESION_COUNT  # 총 전체 주식 보유 갯수( 이 값보다 이상으로는 매수 안됨)
 
 ## StateMachine 정의 
-![alt tag](https://user-images.githubusercontent.com/15916783/38980122-f34d16b6-43f6-11e8-8b69-ea43ba559f5a.png)
+![alt tag](https://user-images.githubusercontent.com/15916783/46513264-bd35cc00-c892-11e8-92ae-fefffc5be809.jpg)
 
 ## License
 Licensed under MIT:
