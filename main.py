@@ -1076,7 +1076,8 @@ class KiwoomConditon(QObject):
             for item_name in kw_util.dict_jusik['TR:일봉']:
                 if( item_name == "저가"):
                     result = self.getCommData("opt10081", rQName, i, item_name)
-                    if( result != '' ):
+                    if( i != 0 and result != '' ):
+                        # 첫번째 저가는 당일 저가 이므로 제외 
                         low_price_list.append( abs(int(result)  ) )
 
         jongmok_info_dict['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
