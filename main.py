@@ -22,21 +22,22 @@ CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 �
 TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 3 # 추가 매수 횟수 제한 
+MAESU_LIMIT = 4 # 추가 매수 횟수 제한 
 CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
 STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
 
-MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1  ]
+MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 2  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의: 손절의 경우 첫 매입가 기준
-STOP_PLUS_PER_MAESU_COUNT = [  8,                    8,                      8,                      8,                      8                ]
-STOP_LOSS_PER_MAESU_COUNT = [ -24,                  -24,                    -24,                     -24,                      0                ]
+STOP_PLUS_PER_MAESU_COUNT = [  24,                   24,                     24,                      24,                       24                ]
+STOP_LOSS_PER_MAESU_COUNT = [ -24,                  -24,                    -24,                     -24,                      -24                ]
 
 EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
+
 STOCK_POSSESION_COUNT = 50 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
 EXCEPT_YUPJONG_LIST = [] # 자동 매수/매도에서 제외할 종목 리스트 
-###################################################################################################
+##############################################################n#####################################
 ###################################################################################################
 
 TEST_MODE = False    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
@@ -916,16 +917,16 @@ class KiwoomConditon(QObject):
                     qty = int(total_price / maedoHoga1 )  + 1
 
 
-            result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
-                                objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
-                                qty, maedoHoga2 , kw_util.dict_order["지정가"], "")
+            # result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
+            #                     objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
+            #                     qty, maedoHoga2 , kw_util.dict_order["지정가"], "")
 
-            print("B " + str(result) , sep="")
-            printLog = '**** [매수수량: {0}, 매수가: {1}, 매수횟수: {2}] ****'.format(
-                qty,
-                maedoHoga1, 
-                maesu_count
-                ) + printLog
+            # print("B " + str(result) , sep="")
+            # printLog = '**** [매수수량: {0}, 매수가: {1}, 매수횟수: {2}] ****'.format(
+            #     qty,
+            #     maedoHoga1, 
+            #     maesu_count
+            #     ) + printLog
             is_log_print_enable = True
             pass
         else:
@@ -949,7 +950,6 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def finalStateEntered(self):
         print(util.whoami())
-        self.makeJangoInfoFile()
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
@@ -960,8 +960,7 @@ class KiwoomConditon(QObject):
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
         import subprocess
-        # subprocess.call(["shutdown", "-s", "-t", "500"])
-        sys.exit()
+        subprocess.call(["shutdown", "-s", "-t", "500"])
         pass
 
 
