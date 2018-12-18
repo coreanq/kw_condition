@@ -25,6 +25,7 @@ MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위
 MAESU_LIMIT = 4 # 추가 매수 횟수 제한 
 CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
 STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
+PROHIBIT_CHEGYEOL_DAYS = 3   # 최근 ? 일간 체결된 종목을 거래 금지 종목으로 정함 
 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 2  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
@@ -110,7 +111,7 @@ class KiwoomConditon(QObject):
         self.timerSystem = QTimer()
         self.lineCmdText = ''
 
-        self.todayTradedCodeList = [] # 금일 거래 되었던 종목 
+        self.prohibitCodeList = [] # 최근 ? 일동안 거래 되었던 종목 거래 금지 list 
 
         self.yupjongInfo = {'코스피': {}, '코스닥': {} } # { 'yupjong_code': { '현재가': 222, ...} }
         self.michegyeolInfo = {}
@@ -402,9 +403,10 @@ class KiwoomConditon(QObject):
             with open(CHEGYEOL_INFO_FILE_PATH, 'r', encoding='utf8') as f:
                 file_contents = f.read()
                 self.chegyeolInfo = json.loads(file_contents)
-            # 금일 체결 정보는 매수 금지 리스트로 추가함 
+            #  최근 ? 일 전 체결 종목은 매수 금지 리스트로 추가함 
+            time_span = datetime.timedelta(days = PROHIBIT_CHEGYEOL_DAYS)
             for trade_date, data_chunk in self.chegyeolInfo.items():
-                if( datetime.datetime.strptime(trade_date, "%y%m%d").date() == self.currentTime.date() ): 
+                if( datetime.datetime.strptime(trade_date, "%y%m%d") + time_span > self.currentTime ): 
                     for trade_info in data_chunk: 
                         parse_str_list = [item.strip() for item in trade_info.split('|') ] 
                         if( len(parse_str_list)  < 5):
@@ -416,7 +418,10 @@ class KiwoomConditon(QObject):
                         jumun_gubun  = parse_str_list[jumun_gubun_index]
 
                         # if( jumun_gubun == "-매도"):
-                        self.todayTradedCodeList.append(jongmok_code)
+                        self.prohibitCodeList.append(jongmok_code)
+                        print(self.prohibitCodeList)
+                        pass 
+
                     break
 
         if( os.path.isfile(JANGO_INFO_FILE_PATH) == True ):
@@ -778,10 +783,10 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 기존에 이미 매도 발생한 종목이라면  
-        if( self.todayTradedCodeList.count(jongmokCode) == 0 ):
+        if( self.prohibitCodeList.count(jongmokCode) == 0 ):
             pass
         else:
-            printLog += '(금일거래종목)'
+            printLog += '(거래금지종목)'
             return_vals.append(False)
 
 
@@ -1628,8 +1633,8 @@ class KiwoomConditon(QObject):
                     del ( self.michegyeolInfo[jongmok_code] )
 
             # 당일 중복 매수 금지용 
-            if( jongmok_code not in self.todayTradedCodeList):
-                self.todayTradedCodeList.append(jongmok_code)
+            if( jongmok_code not in self.prohibitCodeList):
+                self.prohibitCodeList.append(jongmok_code)
 
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행한 것임  
