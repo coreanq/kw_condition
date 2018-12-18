@@ -25,7 +25,7 @@ MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위
 MAESU_LIMIT = 4 # 추가 매수 횟수 제한 
 CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
 STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
-PROHIBIT_CHEGYEOL_DAYS = 3   # 최근 ? 일간 체결된 종목을 거래 금지 종목으로 정함 
+PROHIBIT_CHEGYEOL_DAYS = 3  # 최근 ? 일간 체결된 종목을 거래 금지 종목으로 정함 
 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 2  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
@@ -418,11 +418,10 @@ class KiwoomConditon(QObject):
                         jumun_gubun  = parse_str_list[jumun_gubun_index]
 
                         # if( jumun_gubun == "-매도"):
-                        self.prohibitCodeList.append(jongmok_code)
-                        print(self.prohibitCodeList)
+                        if( jongmok_code not in self.prohibitCodeList):
+                            self.prohibitCodeList.append(jongmok_code)
+                            print(self.prohibitCodeList)
                         pass 
-
-                    break
 
         if( os.path.isfile(JANGO_INFO_FILE_PATH) == True ):
             with open(JANGO_INFO_FILE_PATH, 'r', encoding='utf8') as f:
