@@ -51,7 +51,3 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 ## StateMachine 정의 
 ![alt tag](https://user-images.githubusercontent.com/15916783/46513264-bd35cc00-c892-11e8-92ae-fefffc5be809.jpg)
 
-## License
-Licensed under MIT:
-
-https://opensource.org/licenses/MIT
