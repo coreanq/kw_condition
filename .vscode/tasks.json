@@ -1,26 +1,45 @@
 {  
-    "version": "0.1.0",  
-    "command": "cmd" ,  
-    "args": ["/c"],
-    "isShellCommand": true, 
-    "showOutput": "always",  
-    "suppressTaskName": true,
+    "version": "2.0.0",  
     "echoCommand": true,
     "tasks" : [
         {
-            "taskName": "pyflakes",
-            "args": ["pyflakes", "${file}"],
-            "isBuildCommand": true
+            "label": "makercc",
+            "type": "shell",
+            "command": [
+                "pyrcc5"
+            ],
+            "args": [
+                "resource.qrc",
+                "-o",
+                "resource_rc.py"
+            ],
+            "presentation": {
+                "reveal": "never",
+                "echo" : true,
+                "panel": "dedicated",
+                "showReuseMessage": false
+            }
         },
         {
-            "taskName": "makercc",
-            // resource output file 을 .ui 파일에서 사용하려면 _rc 를 붙여줘야 함 
-            "args": ["pyrcc5.exe", "resource.qrc", "-o", "resource_rc.py"]
-        },
-        {
-            "taskName": "makeui",
-            "args": ["pyuic5", "-x",  "mainwindow.ui", "-o", "mainwindow_ui.py"],
-            "isBuildCommand": true
-        } 
+            "label": "makeui",
+            "type": "shell",
+            "command": [
+                "pyuic5"
+            ],
+
+            "args": [
+                "-x",
+                "mainwindow.ui",
+                "-o",
+                "mainwindow_ui.py"
+            ],
+        
+            "presentation": {
+                "reveal": "never",
+                "echo" : true,
+                "panel": "dedicated",
+                "showReuseMessage": false
+            }
+        }
     ]
 }
