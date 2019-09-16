@@ -1,8 +1,8 @@
 # -*-coding: utf-8 -
-import sys, os, re, datetime, copy, json
+import sys, os, re, datetime, copy, json 
+import logging
 import xlwings as xw
 import resource_rc
-
 import util, kw_util
 
 from PyQt5 import QtCore, QtWidgets
@@ -23,35 +23,38 @@ TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUN
 
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 4 # 추가 매수 횟수 제한 
-CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
-STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
-PROHIBIT_CHEGYEOL_DAYS = 3  # 최근 ? 일간 체결된 종목을 거래 금지 종목으로 정함 
 
-MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 2,    MAESU_BASE_UNIT * 2  ]
+CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
+CHUMAE_GIJUN_DAYS = 3 # 최근 ? 내에서는 추가 매수 금지
+
+STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
+PROHIBIT_CHUMAE_DAYS = 3  # 최근 ? 일간 c추가 매수 금지
+
+MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의: 손절의 경우 첫 매입가 기준
 STOP_PLUS_PER_MAESU_COUNT = [  24,                   24,                     24,                      24,                       24                ]
 STOP_LOSS_PER_MAESU_COUNT = [ -24,                  -24,                    -24,                     -24,                      -24                ]
 
-EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
+EXCEPTION_LIST = ['114800', '069500', '035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
 STOCK_POSSESION_COUNT = 50 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
-EXCEPT_YUPJONG_LIST = [] # 자동 매수/매도에서 제외할 종목 리스트 
-##############################################################n#####################################
+###################################################################################################
 ###################################################################################################
 
-TEST_MODE = False    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
+TEST_MODE = True    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 이전으로 입력해야함 
 # auto_trading_operation_time 이전값을 잡아야 함 
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 10] 
 
-TRADING_INFO_GETTING_TIME = [16, 35] # 트레이딩 정보를 저장하기 시작하는 시간
+TOTAL_5MIN_CANDLE_COUNT_ADAY = 77  # 5분봉 하루 총 갯수 타임컷이나 추가 매수 타임 제한 걸기 위해 사용 쉬는날 포함 시키기 위해 실제 시간보다 봉수로 제는게 확실함
+
+TRADING_INFO_GETTING_TIME = [15, 55] # 트레이딩 정보를 저장하기 시작하는 시간
 
 SLIPPAGE = 1.0 # 수익시 보통가 손절시 시장가  3호가까지 계산해서 매수 하므로 1% 적용 
-CHUMAE_TIME_LILMIT_HOURS  = 7  # 다음 추가 매수시 보내야될 시간 조건   장 운영 시간으로만 계산하므로 약 6.5 시간이 하루임 
 TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -403,25 +406,6 @@ class KiwoomConditon(QObject):
             with open(CHEGYEOL_INFO_FILE_PATH, 'r', encoding='utf8') as f:
                 file_contents = f.read()
                 self.chegyeolInfo = json.loads(file_contents)
-            #  최근 ? 일 전 체결 종목은 매수 금지 리스트로 추가함 
-            time_span = datetime.timedelta(days = PROHIBIT_CHEGYEOL_DAYS)
-            for trade_date, data_chunk in self.chegyeolInfo.items():
-                if( datetime.datetime.strptime(trade_date, "%y%m%d") + time_span > self.currentTime ): 
-                    for trade_info in data_chunk: 
-                        parse_str_list = [item.strip() for item in trade_info.split('|') ] 
-                        if( len(parse_str_list)  < 5):
-                            continue
-                        jongmok_code_index = kw_util.dict_jusik['체결정보'].index('종목코드')
-                        jumun_gubun_index = kw_util.dict_jusik['체결정보'].index('주문구분')
-
-                        jongmok_code = parse_str_list[jongmok_code_index]
-                        jumun_gubun  = parse_str_list[jumun_gubun_index]
-
-                        # if( jumun_gubun == "-매도"):
-                        if( jongmok_code not in self.prohibitCodeList):
-                            self.prohibitCodeList.append(jongmok_code)
-                            print(self.prohibitCodeList)
-                        pass 
 
         if( os.path.isfile(JANGO_INFO_FILE_PATH) == True ):
             with open(JANGO_INFO_FILE_PATH, 'r', encoding='utf8') as f:
@@ -553,10 +537,11 @@ class KiwoomConditon(QObject):
         # 혹은 집입했닥 이탈하면 데이터 삭제 하므로 실시간 정보가 없을수도 있다. 
         if( '매도호가1' not in jongmok_info_dict or '등락율' not in jongmok_info_dict ):
             self.shuffleConditionOccurList()
-            if( '매도호가1' not in jongmok_info_dict ):
-                print('매도호가1 not in {0}'.format( self.getMasterCodeName(code) ) )
-            else:
-                print('등락율 not in {0}'.format( self.getMasterCodeName(code)))
+            if( code not in EXCEPTION_LIST):
+                if( '매도호가1' not in jongmok_info_dict ):
+                    print('매도호가1 not in {0}'.format( self.getMasterCodeName(code) ) )
+                else:
+                    print('등락율 not in {0}'.format( self.getMasterCodeName(code)))
             self.sigError.emit()
             return
 
@@ -664,25 +649,6 @@ class KiwoomConditon(QObject):
             printLog += '(추가매수한계)'
             return_vals.append(False)
 
-        # ##########################################################################################################
-        # # 추가 매수 시간 제한  
-        # if( jongmokCode in self.jangoInfo):
-        #     chegyeol_info = self.jangoInfo[jongmokCode]['체결가/체결시간'][-1]
-        #     chegyeol_time_str = chegyeol_info.split(':')[0] # 날짜:가격 
-        #     target_time_index = kw_util.dict_jusik['TR:분봉'].index('체결시간')
-        #     fivemin_time_str = '5분 {0}봉전'.format(CHUMAE_TIME_LILMIT_HOURS * 12)
-        #     target_time_str = jongmok_info_dict[fivemin_time_str][target_time_index] 
-
-        #     if( chegyeol_time_str != ''):
-        #         chegyeol_time = datetime.datetime.strptime(chegyeol_time_str, "%Y%m%d%H%M%S") 
-        #         target_time = datetime.datetime.strptime(target_time_str, "%Y%m%d%H%M%S") 
-        #         # print('체결:{0}, 타겟:{1}'.format( chegyeol_time_str, target_time_str))
-        #         if( chegyeol_time < target_time ):
-        #             pass
-        #         else:
-        #             printLog += '(추가매수금지)'
-        #             return_vals.append(False)
-
         ##########################################################################################################
         # 업종 이동 평균선 조건 상승일때 매수  
         # if( jongmokCode in  self.kospiCodeList):
@@ -781,7 +747,8 @@ class KiwoomConditon(QObject):
 
 
         ##########################################################################################################
-        # 기존에 이미 매도 발생한 종목이라면  
+        # 기존에 이미 매도 발생하거나, 
+        # 최근 ? 일내 매수 종목이어서 추가 매수를 막기 위함인 경우 
         if( self.prohibitCodeList.count(jongmokCode) == 0 ):
             pass
         else:
@@ -790,8 +757,7 @@ class KiwoomConditon(QObject):
 
 
         ##########################################################################################################
-        # 추가 매수 판단 루틴 
-        # 첫 매수시 
+        # 첫 매수시만 적용되는 조건 
         if( jongmokCode not in self.jangoInfo ):
             ##########################################################################################################
             # 얼마 이상 거래 되었을 시 --->  거래량이 너무 최소인 경우를 막기 위함
@@ -804,29 +770,19 @@ class KiwoomConditon(QObject):
                 return_vals.append(False)
 
             ##########################################################################################################
-            #  업종 중복 / 예외업종  매수 제한  
+            #  업종 중복  매수 제한  
             yupjong_type = self.getMasterStockInfo(jongmokCode)
 
             for jongmok_info in self.jangoInfo.values() :
-                if( jongmokCode not in self.jangoInfo ):
-                    if( yupjong_type == jongmok_info['업종'] ):
-                        print('업종중복 {}( {} )'.format( 
-                            self.getMasterCodeName(jongmokCode), 
-                            self.getMasterStockInfo(jongmokCode)
-                            )
+                if( yupjong_type == jongmok_info['업종'] ):
+                    print('업종중복 {}( {} )'.format( 
+                        self.getMasterCodeName(jongmokCode), 
+                        self.getMasterStockInfo(jongmokCode)
                         )
-                        printLog += '(업종중복)'
-                        return_vals.append(False)
-                    
-                    if( yupjong_type in EXCEPT_YUPJONG_LIST ):
-                        printLog += '(업종매수금지)'
-                        print('업종매수금지 {}( {} )'.format( 
-                            self.getMasterCodeName(jongmokCode), 
-                            self.getMasterStockInfo(jongmokCode)
-                            )
-                        )
-                        return_vals.append(False)
-                        break
+                    )
+                    printLog += '(업종중복)'
+                    return_vals.append(False)
+                    break
 
             ##########################################################################################################
             # rsi_14 = int( float(jongmok_info_dict['RSI14']) )
@@ -864,7 +820,7 @@ class KiwoomConditon(QObject):
             pass
 
         ##########################################################################################################
-        # 추가 매수시 
+        # 추가 매수시만 적용되는 조건 
         else:
             maeip_price = self.jangoInfo[jongmokCode]['매입가']
             # 최근 매입가 대비 일정 퍼센티지 오르면 무조건 추매 
@@ -875,6 +831,8 @@ class KiwoomConditon(QObject):
             else:
                 printLog += '(추매조건미충족)'
                 return_vals.append(False)
+
+            # 최근 ? 일간 추가 매수 금지 
         
             temp = '({} {})'\
                 .format( jongmokName,  maedoHoga1 )
@@ -890,7 +848,7 @@ class KiwoomConditon(QObject):
             util.save_log(jongmokName, '매수주문', folder= "log")
             qty = 0
             if( TEST_MODE == True ):
-                qty = MAESU_TOTAL_PRICE[maesu_count] / MAESU_BASE_UNIT 
+                qty = 1 
             else:
                 # 매수 수량을 조절하기 위함 
                 if( jongmokCode in self.jangoInfo):
@@ -915,6 +873,8 @@ class KiwoomConditon(QObject):
                             pass
                         else:
                             qty = int(total_price / maedoHoga1 / 30 ) + 1
+                    else:
+                        print("체결가/체결시간 없음")
                 else:
                     # 신규 매수 
                     total_price = MAESU_TOTAL_PRICE[maesu_count] 
@@ -922,9 +882,9 @@ class KiwoomConditon(QObject):
 
 
             result = ""
-            # result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
-            #                     objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
-            #                     qty, maedoHoga2 , kw_util.dict_order["지정가"], "")
+            result = self.sendOrder("buy_" + jongmokCode, kw_util.sendOrderScreenNo, 
+                                objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmokCode, 
+                                qty, maedoHoga2 , kw_util.dict_order["지정가"], "")
 
             print("B " + str(result) , sep="")
             printLog = '**** [매수수량: {0}, 매수가: {1}, 매수횟수: {2}] ****'.format(
@@ -964,8 +924,9 @@ class KiwoomConditon(QObject):
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
         util.save_log('', subject= '', folder='log')
-        import subprocess
-        subprocess.call(["shutdown", "-s", "-t", "500"])
+
+        # import subprocess
+        # subprocess.call(["shutdown", "-s", "-t", "500"])
         pass
 
 
@@ -1138,10 +1099,10 @@ class KiwoomConditon(QObject):
 
 
         jongmok_code = jongmok_info_dict['종목코드']
+        current_jango  = self.jangoInfo[jongmok_code]
         if( jongmok_code in self.jangoInfo) :
-            time_cut_5min = '5분 {0}봉전'.format(TIME_CUT_MAX_DAY * 78)
-            self.jangoInfo[jongmok_code]['5분봉타임컷기준'] = jongmok_info_dict[time_cut_5min]
-
+            time_cut_5min = '5분 {0}봉전'.format(TIME_CUT_MAX_DAY * TOTAL_5MIN_CANDLE_COUNT_ADAY)
+            current_jango['5분봉타임컷기준'] = jongmok_info_dict[time_cut_5min]
 
         # RSI 14 calculate
         rsi_up_sum = 0 
@@ -1632,10 +1593,6 @@ class KiwoomConditon(QObject):
                     # 미체결 수량이 없으므로 정보 삭제 
                     del ( self.michegyeolInfo[jongmok_code] )
 
-            # 당일 중복 매수 금지용 
-            if( jongmok_code not in self.prohibitCodeList):
-                self.prohibitCodeList.append(jongmok_code)
-
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행한 것임  
                 self.jangoInfo.pop(jongmok_code)
@@ -1715,10 +1672,9 @@ class KiwoomConditon(QObject):
                 if( jongmok_code in self.jangoInfoFromFile):
                     current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
                 else: 
-                    current_jango['체결가/체결시간'] = ['29991212090000:0']
+                    current_jango['체결가/체결시간'] = ['29991212091234:0']
 
             maesu_count = len(current_jango['체결가/체결시간'])
-            first_maeip_price = 0
 
             # 손절가 계산 
             stop_loss_percent = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
@@ -1733,6 +1689,15 @@ class KiwoomConditon(QObject):
 
             current_jango['손절가'] =    max([gibon_stoploss, low_price_stoploss])
             current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_percent + SLIPPAGE) / 100) , 2 )
+
+
+            base_time_str =  current_jango['체결가/체결시간'][-1].split(':')[0] # 0 index 체결시간 
+            base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
+            time_span = datetime.timedelta(days = CHUMAE_GIJUN_DAYS) 
+
+            if( base_time + time_span > self.currentTime):
+                if( jongmok_code not in self.prohibitCodeList):
+                    self.prohibitCodeList.append(jongmok_code)
         else:
 
             if( jongmok_code in self.jangoInfoFromFile ):
@@ -2357,5 +2322,12 @@ if __name__ == "__main__":
     ui.btnRun.clicked.connect(objKiwoom.onBtnRunClicked)
 
     form.show()
+
+    logging.basicConfig(filename='system_err.log', filemode='a',format='%(asctime)s - %(message)s', level=logging.INFO)
+
+    # try:
+    #     1/0 
+    # except Exception as e:
+    #     logging.exception("Error Occured")
 
     sys.exit(myApp.exec_())
