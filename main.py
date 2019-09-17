@@ -28,7 +28,6 @@ CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수
 CHUMAE_GIJUN_DAYS = 3 # 최근 ? 내에서는 추가 매수 금지
 
 STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
-PROHIBIT_CHUMAE_DAYS = 3  # 최근 ? 일간 c추가 매수 금지
 
 MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1,    MAESU_BASE_UNIT * 1  ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
@@ -36,7 +35,7 @@ MAESU_TOTAL_PRICE =         [ MAESU_BASE_UNIT * 1,  MAESU_BASE_UNIT * 1,    MAES
 STOP_PLUS_PER_MAESU_COUNT = [  24,                   24,                     24,                      24,                       24                ]
 STOP_LOSS_PER_MAESU_COUNT = [ -24,                  -24,                    -24,                     -24,                      -24                ]
 
-EXCEPTION_LIST = ['114800', '069500', '035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
+EXCEPTION_LIST = ['114800', '069500'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
 STOCK_POSSESION_COUNT = 50 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
 
@@ -1099,8 +1098,8 @@ class KiwoomConditon(QObject):
 
 
         jongmok_code = jongmok_info_dict['종목코드']
-        current_jango  = self.jangoInfo[jongmok_code]
         if( jongmok_code in self.jangoInfo) :
+            current_jango  = self.jangoInfo[jongmok_code]
             time_cut_5min = '5분 {0}봉전'.format(TIME_CUT_MAX_DAY * TOTAL_5MIN_CANDLE_COUNT_ADAY)
             current_jango['5분봉타임컷기준'] = jongmok_info_dict[time_cut_5min]
 
@@ -1670,17 +1669,18 @@ class KiwoomConditon(QObject):
             # 현재 잔고에 데이터가 없으면 파일에서 읽어 옴 처음 프로그램 실행 시켯을시 사용  
             if( '체결가/체결시간' not in current_jango ):
                 if( jongmok_code in self.jangoInfoFromFile):
-                    current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
-                else: 
-                    current_jango['체결가/체결시간'] = ['29991212091234:0']
+                    if( '체결가/체결시간' in self.jangoInfoFromFile[jongmok_code] ):
+                        current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
+                    else: 
+                        current_jango['체결가/체결시간'] = ['29991212091234:0']
 
-            maesu_count = len(current_jango['체결가/체결시간'])
+                maesu_count = len(current_jango['체결가/체결시간'])
 
-            # 손절가 계산 
-            stop_loss_percent = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
-            stop_plus_percent = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
+                # 손절가 계산 
+                stop_loss_percent = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
+                stop_plus_percent = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
 
-            maeip_price = current_jango['매입가']
+                maeip_price = current_jango['매입가']
 
             gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
             # ?일전 저가 손절 책정 
