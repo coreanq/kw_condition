@@ -751,7 +751,7 @@ class KiwoomConditon(QObject):
         if( self.prohibitCodeList.count(jongmokCode) == 0 ):
             pass
         else:
-            printLog += '(거래금지종목)'
+            # printLog += '(거래금지종목)'
             return_vals.append(False)
 
 
@@ -1291,7 +1291,6 @@ class KiwoomConditon(QObject):
         #주식 일봉 정보 요청 rqName 은 개별 종목 코드임  
         elif( trCode =='opt10081'):
             if( self.makeOpt10081Info(rQName) ):
-                self.makeEtcJangoInfo(rQName)
                 self.makeJangoInfoFile()
                 self.sigGetEtcInfo.emit()
                 pass
@@ -1624,8 +1623,6 @@ class KiwoomConditon(QObject):
 
                     self.jangoInfo[jongmok_code].update(current_jango)
 
-
-            self.makeEtcJangoInfo(jongmok_code)
             self.makeJangoInfoFile()
             pass
 
@@ -1655,55 +1652,51 @@ class KiwoomConditon(QObject):
             f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
         pass
 
+    # 서버에서 얻을 수 없는 추가 정보 저장
     # 첫 잔고 정보 요청시 호출됨 
     # 매수, 매도후 체결 정보로 잔고 정보 올때 호출됨 
-    def makeEtcJangoInfo(self, jongmok_code, priority = 'server'): 
-
-        if( jongmok_code not in self.jangoInfo ):
+    def makeEtcJangoInfo(self, jongmok_code): 
+        if( jongmok_code not in self.jangoInfo):
             return
-        current_jango = {}
 
-        if( priority == 'server' ):
-            current_jango = self.jangoInfo[jongmok_code]
+        current_jango = self.jangoInfo[jongmok_code]
 
-            # 현재 잔고에 데이터가 없으면 파일에서 읽어 옴 처음 프로그램 실행 시켯을시 사용  
-            if( '체결가/체결시간' not in current_jango ):
-                if( jongmok_code in self.jangoInfoFromFile):
-                    if( '체결가/체결시간' in self.jangoInfoFromFile[jongmok_code] ):
-                        current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
-                    else: 
-                        current_jango['체결가/체결시간'] = ['29991212091234:0']
-
-                maesu_count = len(current_jango['체결가/체결시간'])
-
-                # 손절가 계산 
-                stop_loss_percent = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
-                stop_plus_percent = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
-
-                maeip_price = current_jango['매입가']
-
-            gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
-            # ?일전 저가 손절 책정 
-            low_price_stoploss =  current_jango.get('{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
-            print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
-
-            current_jango['손절가'] =    max([gibon_stoploss, low_price_stoploss])
-            current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_percent + SLIPPAGE) / 100) , 2 )
-
-
-            base_time_str =  current_jango['체결가/체결시간'][-1].split(':')[0] # 0 index 체결시간 
-            base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
-            time_span = datetime.timedelta(days = CHUMAE_GIJUN_DAYS) 
-
-            if( base_time + time_span > self.currentTime):
-                if( jongmok_code not in self.prohibitCodeList):
-                    self.prohibitCodeList.append(jongmok_code)
-        else:
-
-            if( jongmok_code in self.jangoInfoFromFile ):
-                current_jango = self.jangoInfoFromFile[jongmok_code]
+        # 체결가/체결시간 데이터 파일로부터 읽어오고 파일로부터도 없으면 default 값 입력 
+        if( '체결가/체결시간' not in current_jango ):
+            if( jongmok_code in self.jangoInfoFromFile):
+                if( '체결가/체결시간' in self.jangoInfoFromFile[jongmok_code] ):
+                    current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
+                else: 
+                    current_jango['체결가/체결시간'] = ['29991212091234:0']
             else:
-                current_jango = self.jangoInfo[jongmok_code]
+                    current_jango['체결가/체결시간'] = ['29991212091234:0']
+
+        # 총 매수 갯수 게산 
+        maesu_count = len(current_jango['체결가/체결시간'])
+
+        # 손절/익절가 퍼센티지 계산 
+        stop_loss_percent = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
+        stop_plus_percent = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
+
+        maeip_price = current_jango['매입가']
+
+        # 기본 손절가 측정 
+        gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
+        # ?일전 저가 손절 책정 
+        low_price_stoploss =  current_jango.get('{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
+        print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
+
+        current_jango['손절가'] =    max([gibon_stoploss, low_price_stoploss])
+        current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_percent + SLIPPAGE) / 100) , 2 )
+
+        # ? 일 동안 추가 매수 금지 조치
+        base_time_str =  current_jango['체결가/체결시간'][-1].split(':')[0] # 0 index 체결시간 
+        base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
+        time_span = datetime.timedelta(days = CHUMAE_GIJUN_DAYS) 
+
+        if( base_time + time_span > self.currentTime):
+            if( jongmok_code not in self.prohibitCodeList):
+                self.prohibitCodeList.append(jongmok_code)
 
         self.jangoInfo[jongmok_code].update(current_jango)
         pass
@@ -1715,6 +1708,11 @@ class KiwoomConditon(QObject):
                         '매수호가1', '매수호가2', '매수호가3', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가총잔량',
                         '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
                         '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가', '5분봉타임컷기준' ]
+
+        # 기타 정보 업데이트
+        for jongmok_code in self.jangoInfo.keys():
+            self.makeEtcJangoInfo(jongmok_code)
+
         temp = copy.deepcopy(self.jangoInfo)
         # 불필요 필드 제거 
         for jongmok_code, contents in temp.items():
