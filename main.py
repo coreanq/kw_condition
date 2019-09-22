@@ -24,8 +24,10 @@ TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUN
 MAESU_BASE_UNIT = 100000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 4 # 추가 매수 횟수 제한 
 
+TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
+
 CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
-CHUMAE_GIJUN_DAYS = 3 # 최근 ? 내에서는 추가 매수 금지
+CHUMAE_GIJUN_DAYS = 2 # 최근 ? 내에서는 추가 매수 금지
 
 STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
 
@@ -37,7 +39,7 @@ STOP_LOSS_PER_MAESU_COUNT = [ -24,                  -24,                    -24,
 
 EXCEPTION_LIST = ['114800', '069500'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
-STOCK_POSSESION_COUNT = 50 + len(EXCEPTION_LIST)   # 보유 종목수 제한 
+STOCK_POSSESION_COUNT = 50 + len(EXCEPTION_LIST)   # 최대 보유 종목수 제한 
 
 ###################################################################################################
 ###################################################################################################
@@ -50,12 +52,8 @@ DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 10] 
 
 TOTAL_5MIN_CANDLE_COUNT_ADAY = 77  # 5분봉 하루 총 갯수 타임컷이나 추가 매수 타임 제한 걸기 위해 사용 쉬는날 포함 시키기 위해 실제 시간보다 봉수로 제는게 확실함
-
 TRADING_INFO_GETTING_TIME = [15, 55] # 트레이딩 정보를 저장하기 시작하는 시간
-
 SLIPPAGE = 1.0 # 수익시 보통가 손절시 시장가  3호가까지 계산해서 매수 하므로 1% 적용 
-TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
-
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
 CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
@@ -821,11 +819,9 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 추가 매수시만 적용되는 조건 
         else:
-            maeip_price = self.jangoInfo[jongmokCode]['매입가']
             # 최근 매입가 대비 일정 퍼센티지 오르면 무조건 추매 
             if( last_maeip_price * (1.00 + (CHUMAE_GIJUN_PERCENT/100)) <  maedoHoga1 ):
-                is_log_print_enable = True
-                #print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+                print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 pass            
             else:
                 printLog += '(추매조건미충족)'
@@ -1101,7 +1097,11 @@ class KiwoomConditon(QObject):
         if( jongmok_code in self.jangoInfo) :
             current_jango  = self.jangoInfo[jongmok_code]
             time_cut_5min = '5분 {0}봉전'.format(TIME_CUT_MAX_DAY * TOTAL_5MIN_CANDLE_COUNT_ADAY)
-            current_jango['5분봉타임컷기준'] = jongmok_info_dict[time_cut_5min]
+            # 신규로 상장된지 얼마 안된 종목의 경우 처리 
+            if( time_cut_5min in jongmok_info_dict ):
+                current_jango['5분봉타임컷기준'] = jongmok_info_dict[time_cut_5min]
+            else:
+                current_jango['5분봉타임컷기준'] = 0
 
         # RSI 14 calculate
         rsi_up_sum = 0 
@@ -1692,9 +1692,12 @@ class KiwoomConditon(QObject):
         # ? 일 동안 추가 매수 금지 조치
         base_time_str =  current_jango['체결가/체결시간'][-1].split(':')[0] # 0 index 체결시간 
         base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
-        time_span = datetime.timedelta(days = CHUMAE_GIJUN_DAYS) 
 
-        if( base_time + time_span > self.currentTime):
+        from_day = copy.deepcopy(base_time)
+        target_day = util.date_by_adding_business_days(from_day, CHUMAE_GIJUN_DAYS )
+
+
+        if(  target_day > self.currentTime):
             if( jongmok_code not in self.prohibitCodeList):
                 self.prohibitCodeList.append(jongmok_code)
 
@@ -2293,6 +2296,12 @@ if __name__ == "__main__":
             ]
         }
         objKiwoom.make_excel(file_path, test_data)
+    def test_business_day():
+        base_time = datetime.datetime.strptime('20190920090011', '%Y%m%d%H%M%S')
+
+        target_day = util.date_by_adding_business_days(base_time, CHUMAE_GIJUN_DAYS )
+        print(target_day)
+
 
     # putenv 는 current process 에 영향을 못끼치므로 environ 에서 직접 세팅 
     # qml debugging 를 위해 QML_IMPORT_TRACE 환경변수 1로 세팅 후 DebugView 에서 디버깅 메시지 확인 가능  
@@ -2320,6 +2329,7 @@ if __name__ == "__main__":
     ui.btnRun.clicked.connect(objKiwoom.onBtnRunClicked)
 
     form.show()
+    # test_business_day()
 
     logging.basicConfig(filename='system_err.log', filemode='a',format='%(asctime)s - %(message)s', level=logging.INFO)
 

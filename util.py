@@ -1,8 +1,9 @@
 # -*-coding: utf-8 -*-
 import inspect
-from datetime import datetime
+import datetime 
 import os
 import os.path
+
 
 def save_log(contents, subject="None", folder=""):
     current_dir = os.getcwd()
@@ -25,24 +26,36 @@ def whosdaddy():
     return '*' + cur_time_msec() + ' ' + inspect.stack()[2][3] + ' '
     
 def cur_date_time(time_string = '%y-%m-%d %H:%M:%S'):
-    cur_time = datetime.now().strftime(time_string)
+    cur_time = datetime.datetime.now().strftime(time_string)
     return cur_time
 
 def cur_time_msec(time_string ='%H:%M:%S.%f'):
-    cur_time = datetime.now().strftime(time_string) 
+    cur_time = datetime.datetime.now().strftime(time_string) 
     return cur_time
 
 def cur_date(time_string = '%y-%m-%d'):
-    cur_time = datetime.now().strftime(time_string)
+    cur_time = datetime.datetime.now().strftime(time_string)
     return cur_time
 
 def cur_month(time_string ='%y-%m'):
-    cur_time = datetime.now().strftime(time_string)
+    cur_time = datetime.datetime.now().strftime(time_string)
     return cur_time
 
 def cur_time(time_string ='%H:%M:%S' ):
-    cur_time = datetime.now().strftime(time_string)
+    cur_time = datetime.datetime.now().strftime(time_string)
     return cur_time
+
+# business day calculate
+def date_by_adding_business_days(from_date, add_days):
+    business_days_to_add = add_days
+    current_date = from_date
+    while business_days_to_add > 0:
+        current_date += datetime.timedelta(days=1)
+        weekday = current_date.weekday()
+        if weekday >= 5: # sunday = 6
+            continue
+        business_days_to_add -= 1
+    return current_date
 
 if __name__ == "__main__":
     print(cur_time())

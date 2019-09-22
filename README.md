@@ -11,9 +11,9 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 ## 개발 환경  
  - Windows 32bit 권장
  - [키움증권 Open API+](https://www1.kiwoom.com/nkw.templateFrameSet.do?m=m1408000000)
- - [Python Anaconda 4.2.0 (python 3.5) 32bit](https://www.continuum.io/downloads#windows)
- - [PyQt 5.9.2 32bit](https://www.riverbankcomputing.com/software/pyqt/download5)
- - [키움 오픈 API](https://download.kiwoom.com/web/openapi/kiwoom_openapi_plus_devguide_ver_1.1.pdf)
+ - [Python Anaconda 4.2.0 (python 3.7) 32bit](https://www.continuum.io/downloads#windows)
+ - [PyQt 5.9.2 32bit] in Python Anaconda
+ - [키움 오픈 API](https://download.kiwoom.com/web/openapi/kiwoom_openapi_plus_devguide_ver_1.5.pdf)
 
 ## 참고 소스 
  - from https://github.com/sculove/QWebview-plus
@@ -34,7 +34,11 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 
 > MAESU_LIMIT = 4 # 추가 매수 제한 
 
-> CHUMAE_GIJUN_PERCENT = 1  # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함
+> TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
+
+> CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
+
+> CHUMAE_GIJUN_DAYS = 2 # 최근 ? 내에서는 추가 매수 금지
 
 > STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
 
@@ -43,8 +47,6 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 > STOP_LOSS_PER_MAESU_COUNT # 각 추가 매수 단계마다 손절 퍼센티지 설정 
 
 > EXCEPTION_LIST = [] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-
-> EXCEPT_YUPJONG_LIST = [] # 자동 매수/매도에서 제외할 종목 리스트 
 
 > STOCK_POSSESION_COUNT  # 총 전체 주식 보유 갯수( 이 값보다 이상으로는 매수 안됨)
 
