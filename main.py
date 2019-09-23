@@ -1679,6 +1679,7 @@ class KiwoomConditon(QObject):
         stop_plus_percent = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
 
         maeip_price = current_jango['매입가']
+        yesterday_closed_price = current_jango['전일종가']
 
         # 기본 손절가 측정 
         gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
@@ -1687,7 +1688,7 @@ class KiwoomConditon(QObject):
         print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
 
         current_jango['손절가'] =    max([gibon_stoploss, low_price_stoploss])
-        current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_percent + SLIPPAGE) / 100) , 2 )
+        current_jango['이익실현가'] = round( yesterday_closed_price *  (1 + (stop_plus_percent + SLIPPAGE) / 100) , 2 )
 
         # ? 일 동안 추가 매수 금지 조치
         base_time_str =  current_jango['체결가/체결시간'][-1].split(':')[0] # 0 index 체결시간 
