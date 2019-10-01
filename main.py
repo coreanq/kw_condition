@@ -19,7 +19,7 @@ from mainwindow_ui import Ui_MainWindow
 AUTO_TRADING_OPERATION_TIME = [ [ [8, 57], [15, 19] ] ]  # 8시 57분에 동작해서 15시 19분에 자동 매수/매도 정지
 CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
-TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 100000 # 추가 매수 기본 단위 
 MAESU_LIMIT = 10 # 추가 매수 횟수 제한 
@@ -27,7 +27,7 @@ MAESU_LIMIT = 10 # 추가 매수 횟수 제한
 TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
 CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
-CHUMAE_GIJUN_DAYS = 2 # 최근 ? 내에서는 추가 매수 금지
+CHUMAE_GIJUN_DAYS = 5 # 최근 ? 내에서는 추가 매수 금지
 
 STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
 
@@ -37,8 +37,8 @@ ENVELOPE_PERCENT = 9
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의: 손절의 경우 첫 매입가 기준
-STOP_PLUS_PER_MAESU_COUNT = [  5,            5,             5,             5,             5,             5,             5,              5,             5,             5           ]
-STOP_LOSS_PER_MAESU_COUNT = [ -99,           -99,            -9,            -99,            -99,            -99,            -99,             -99,            -99,            -99           ]
+STOP_PLUS_PER_MAESU_COUNT = [  20,            20,             20,             20,             20,             20,             20,              20,             20,             20           ]
+STOP_LOSS_PER_MAESU_COUNT = [ -99,           -99,            -99,            -99,            -99,            -99,            -99,             -99,            -99,            -99           ]
 
 EXCEPTION_LIST = ['114800', '069500'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -48,6 +48,8 @@ STOCK_POSSESION_COUNT = 10 + len(EXCEPTION_LIST)   # 최대 보유 종목수 제
 ###################################################################################################
 
 TEST_MODE = True    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
+
+AFTER_CLOSE_CHECK_MODE = False # 장종료 후 테스트를 하기 위해 운영시간이 아님에도 buy process 가 돌아 가게 함
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 이전으로 입력해야함 
 # auto_trading_operation_time 이전값을 잡아야 함 
@@ -484,13 +486,17 @@ class KiwoomConditon(QObject):
     def standbyProcessBuyStateEntered(self):
         # print(util.whoami() )
         # 운영 시간이 아닌 경우 운영시간이 될때까지 지속적으로 확인 
-        if( self.isTradeAvailable() == False ):
-            print(util.whoami() )
-            QTimer.singleShot(10000, self.sigConditionOccur)
-            return
-        else:
-            # 무한으로 시그널 발생 방지를 위해 딜레이 줌
+        if( AFTER_CLOSE_CHECK_MODE == False ) :
+            if( self.isTradeAvailable() == False ):
+                print(util.whoami() )
+                QTimer.singleShot(10000, self.sigConditionOccur)
+                return
+            else:
+                # 무한으로 시그널 발생 방지를 위해 딜레이 줌
+                QTimer.singleShot(100, self.sigRequestEtcInfo)
+        else :
             QTimer.singleShot(100, self.sigRequestEtcInfo)
+
 
     @pyqtSlot()
     def requestEtcInfoProcessBuyStateEntered(self):
@@ -1046,11 +1052,13 @@ class KiwoomConditon(QObject):
         jongmok_info_dict['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
         jongmok_code = jongmok_info_dict['종목코드']
 
-        if( jongmok_code in self.jangoInfo) :
-            self.jangoInfo[jongmok_code]['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
-
         jongmok_info_dict['{}일평균가'.format(5)] = round(sum(total_current_price_list[0:5])/5, 2)
         jongmok_info_dict['{}일평균가'.format(20)] = round(sum(total_current_price_list[0:20])/20, 2)
+
+        if( jongmok_code in self.jangoInfo) :
+            self.jangoInfo[jongmok_code]['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
+            self.jangoInfo[jongmok_code]['{}일평균가'.format(20)] = round(sum(total_current_price_list[0:20])/20, 2)
+            self.jangoInfo[jongmok_code]['{}일평균가'.format(5)] = round(sum(total_current_price_list[0:5])/5, 2)
         
         return True
 
