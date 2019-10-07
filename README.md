@@ -9,10 +9,10 @@
 alt="키움증권 조건검색 사용 가이드" width="300" height="" border="10" /></a>
 
 ## 개발 환경  
- - Windows 32bit 권장
+ - Windows 64bit 권장
  - [키움증권 Open API+](https://www1.kiwoom.com/nkw.templateFrameSet.do?m=m1408000000)
- - [Python Anaconda 4.2.0 (python 3.7) 32bit](https://www.continuum.io/downloads#windows)
- - [PyQt 5.9.2 32bit] in Python Anaconda
+ - [Python Anaconda 4.2.0 (python 3.7) 32bit](https://www.continuum.io/downloads#windows) 32bit 버전 필수 
+ - [PyQt 5.9.2 32bit] in Python Anaconda 32bit 버전 필수 
  - [키움 오픈 API](https://download.kiwoom.com/web/openapi/kiwoom_openapi_plus_devguide_ver_1.5.pdf)
 
 ## 참고 소스 
@@ -27,6 +27,7 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 
 > AUTO_TRADING_OPERATION_TIME = [ [ [8, 57], [15, 19] ] ]  # 8시 57분에 동작해서 15시 19분에 자동 매수/매도 정지
 > CONDITION_NAME = '급등' #키움증권 HTS 에서 설정한 조건 검색 식 이름
+![alt tag](https://user-images.githubusercontent.com/15916783/66357010-279eb200-e9a8-11e9-9aff-ed083e07a783.png)
 
 > TOTAL_BUY_AMOUNT = 20000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
@@ -51,5 +52,5 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 > STOCK_POSSESION_COUNT  # 총 전체 주식 보유 갯수( 이 값보다 이상으로는 매수 안됨)
 
 ## StateMachine 정의 
-![alt tag](https://user-images.githubusercontent.com/15916783/46513264-bd35cc00-c892-11e8-92ae-fefffc5be809.jpg)
+![alt tag](https://user-images.githubusercontent.com/15916783/66357337-4ea9b380-e9a9-11e9-9dc1-a22b7ec35a4d.png)
 

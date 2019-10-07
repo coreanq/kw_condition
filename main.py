@@ -22,7 +22,7 @@ CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 �
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 100000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 10 # 추가 매수 횟수 제한 
+MAESU_LIMIT = 8 # 추가 매수 횟수 제한 
 
 TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
 
@@ -34,13 +34,13 @@ STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 �
 ENVELOPE_DAYS = 20
 ENVELOPE_PERCENT = 9 
 
-MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1]
+MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 2, MAESU_UNIT * 2, MAESU_UNIT * 4, MAESU_UNIT * 4 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의: 손절의 경우 첫 매입가 기준
-STOP_PLUS_PER_MAESU_COUNT = [  20,            20,             20,             20,             20,             20,             20,              20,             20,             20           ]
-STOP_LOSS_PER_MAESU_COUNT = [ -99,           -99,            -99,            -99,            -99,            -99,            -99,             -99,            -99,            -99           ]
+STOP_PLUS_PER_MAESU_COUNT = [  20,            20,             20,             20,             20,             20,             20,              20 ]
+STOP_LOSS_PER_MAESU_COUNT = [ -99,           -99,            -99,            -99,            -99,            -99,            -99,             -99 ]
 
-EXCEPTION_LIST = ['114800', '069500'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
+EXCEPTION_LIST = ['114800', '069500', '035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
 STOCK_POSSESION_COUNT = 10 + len(EXCEPTION_LIST)   # 최대 보유 종목수 제한 
 
@@ -212,6 +212,7 @@ class KiwoomConditon(QObject):
 
         determineBuyProcessBuyState.addTransition(self.sigNoBuy, waitingTRlimitProcessBuyState)
         determineBuyProcessBuyState.addTransition(self.sigBuy, waitingTRlimitProcessBuyState)
+        determineBuyProcessBuyState.addTransition(self.sigTrWaitComplete, standbyProcessBuyState)
 
         waitingTRlimitProcessBuyState.addTransition(self.sigTrWaitComplete, standbyProcessBuyState)
 
@@ -772,13 +773,12 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 매도 호가 잔량 확인해  살만큼 있는 경우 매수  
         # 매도 2호가까지 봄 
-        totalAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
-        if( totalAmount >= TOTAL_BUY_AMOUNT):
-            pass 
-        else:
-            printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
-            return_vals.append(False)
-        pass
+        totalMaedoHogaAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
+        # if( totalMaedoHogaAmount >= TOTAL_BUY_AMOUNT):
+        #     pass 
+        # else:
+        #     printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+        #     return_vals.append(False)
 
         ##########################################################################################################
         # 기존에 이미 매도 발생하거나, 
@@ -892,7 +892,9 @@ class KiwoomConditon(QObject):
             is_log_print_enable = True
             pass
         else:
-            self.sigNoBuy.emit()
+            self.sigTrWaitComplete.emit()
+            # self.sigNoBuy.emit()
+            pass
 
         self.shuffleConditionOccurList()
 
@@ -1705,11 +1707,20 @@ class KiwoomConditon(QObject):
         gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
 
         # ?일전 저가 손절 책정 
-        # low_price_stoploss =  current_jango.get('{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
-        # print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
+        low_price_stoploss =  current_jango.get('{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
+        print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
+
+        # ? 일봉 기준으로 익절가 측정 
+        _envelop_gijun = 999999999 
+
+        if( '{}일평균가'.format(ENVELOPE_DAYS) in self.jangoInfo ):
+            _envelop_gijun = self.jangoInfo['{}일평균가'.format(ENVELOPE_DAYS)] 
+
+        _envelop_stop_plus = round( _envelop_gijun *  (1 + (ENVELOPE_PERCENT + SLIPPAGE) / 100) , 2 )
+        _basic_stop_plus = round( maeip_price *  (1 + (stop_plus_percent + SLIPPAGE) / 100) , 2 )
 
         current_jango['손절가'] =  gibon_stoploss
-        current_jango['이익실현가'] = round( maeip_price *  (1 + (stop_plus_percent + SLIPPAGE) / 100) , 2 )
+        current_jango['이익실현가'] = min (_envelop_gijun, _basic_stop_plus)
 
         # ? 일 동안 추가 매수 금지 조치
         base_time_str =  current_jango['체결가/체결시간'][-1].split(':')[0] # 0 index 체결시간 
