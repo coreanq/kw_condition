@@ -22,25 +22,23 @@ CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 �
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 100000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 8 # 추가 매수 횟수 제한 
-
-TIME_CUT_MAX_DAY = 10  # 추가 매수 안한지 ?일 지나면 타임컷 수행하도록 함 
+MAESU_LIMIT = 4 # 추가 매수 횟수 제한 
 
 CHUMAE_GIJUN_PERCENT = 1 # 최근 매수가 기준 몇 % 오를시 추가 매수 할지 정함 
-CHUMAE_GIJUN_DAYS = 5 # 최근 ? 내에서는 추가 매수 금지
+CHUMAE_GIJUN_DAYS = 2 # 최근 ? 내에서는 추가 매수 금지
 
 STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
 
 ENVELOPE_DAYS = 20
 ENVELOPE_PERCENT = 9 
 
-MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 2, MAESU_UNIT * 2, MAESU_UNIT * 4, MAESU_UNIT * 4 ]
+MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 # 주의: 손절의 경우 첫 매입가 기준
 STOP_PLUS_PER_MAESU_COUNT = [  20,            20,             20,             20,             20,             20,             20,              20 ]
 STOP_LOSS_PER_MAESU_COUNT = [ -99,           -99,            -99,            -99,            -99,            -99,            -99,             -99 ]
 
-EXCEPTION_LIST = ['114800', '069500', '035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
+EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
 STOCK_POSSESION_COUNT = 10 + len(EXCEPTION_LIST)   # 최대 보유 종목수 제한 
 
@@ -56,7 +54,6 @@ AFTER_CLOSE_CHECK_MODE = False # 장종료 후 테스트를 하기 위해 운영
 DAY_TRADING_ENABLE = False
 DAY_TRADING_END_TIME = [15, 10] 
 
-TOTAL_5MIN_CANDLE_COUNT_ADAY = 77  # 5분봉 하루 총 갯수 타임컷이나 추가 매수 타임 제한 걸기 위해 사용 쉬는날 포함 시키기 위해 실제 시간보다 봉수로 제는게 확실함
 TRADING_INFO_GETTING_TIME = [15, 55] # 트레이딩 정보를 저장하기 시작하는 시간
 SLIPPAGE = 1.0 # 수익시 보통가 손절시 시장가  3호가까지 계산해서 매수 하므로 1% 적용 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -824,7 +821,9 @@ class KiwoomConditon(QObject):
         # 추가 매수시만 적용되는 조건 
         else:
             # 최근 매입가 대비 비교하여 추매 
-            if( last_maeip_price * (1.00 - (CHUMAE_GIJUN_PERCENT/100)) <  maedoHoga1 ):
+            target_high_limit_price =  last_maeip_price
+            target_low_limit_price =  last_maeip_price * (1.00 - (2/100)) 
+            if(  target_low_limit_price < maedoHoga1 and target_high_limit_price > maedoHoga1):
                 print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 pass            
             else:
@@ -1109,16 +1108,6 @@ class KiwoomConditon(QObject):
         #     twohundred_sum = sum(total_current_price_list[i:200+i])
         #     jongmok_info_dict['200봉{}평균'.format(i)] = int(twohundred_sum/ 200)
 
-
-        jongmok_code = jongmok_info_dict['종목코드']
-        if( jongmok_code in self.jangoInfo) :
-            current_jango  = self.jangoInfo[jongmok_code]
-            time_cut_5min = '5분 {0}봉전'.format(TIME_CUT_MAX_DAY * TOTAL_5MIN_CANDLE_COUNT_ADAY)
-            # 신규로 상장된지 얼마 안된 종목의 경우 처리 
-            if( time_cut_5min in jongmok_info_dict ):
-                current_jango['5분봉타임컷기준'] = jongmok_info_dict[time_cut_5min]
-            else:
-                current_jango['5분봉타임컷기준'] = 0
 
         # RSI 14 calculate
         rsi_up_sum = 0 
@@ -1489,18 +1478,6 @@ class KiwoomConditon(QObject):
         isSell = False
         printData = jongmokCode + ' {0:20} '.format(jongmokName) 
 
-        ########################################################################################
-        # time cut 적용 
-        base_time_str = ''
-        last_chegyeol_time_str = ''
-        # if( '5분봉타임컷기준' in current_jango ):
-        #     base_time_str =  current_jango['5분봉타임컷기준'][2]
-        #     base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
-        #     last_chegyeol_time_str = current_jango['체결가/체결시간'][-1].split(':')[0] # 날짜:가격
-        #     maeip_time = datetime.datetime.strptime(last_chegyeol_time_str, '%Y%m%d%H%M%S')
-
-        #     if( maeip_time < base_time ):
-        #         stop_loss = 99999999 
 
         #########################################################################################
         # day trading 용 
@@ -1529,11 +1506,6 @@ class KiwoomConditon(QObject):
             printData += maedo_type 
             isSijanga = True
             isSell = True
-        elif( stop_loss == 99999999 ):
-            maedo_type = "(타임컷임)"
-            printData += maedo_type 
-            isSijanga = True
-            isSell = True
         # 20180410150510 팜스웰바이오 실시간 매도 호가가 0으로 나오는 경우 있음 
         elif( stop_loss >= maesuHoga1 and maesuHoga1 > 0 ) :
             maedo_type = "(손절이다)"
@@ -1554,7 +1526,6 @@ class KiwoomConditon(QObject):
                         ' 이익실현가: {0:7}/'.format(str(stop_plus)) + \
                         ' 매입가: {0:7}/'.format(str(maeipga)) + \
                         ' 잔고수량: {0:7}'.format(str(jangosuryang)) +\
-                        ' 타임컷 기준 시간: {0:7}'.format(base_time_str) + \
                         ' 최근 주문/체결시간: {0:7}'.format(last_chegyeol_time_str) + \
                         ' 매수호가1 {0:7}/'.format(str(maesuHoga1)) + \
                         ' 매수호가수량1 {0:7}/'.format(str(maesuHogaAmount1)) + \
@@ -1716,8 +1687,8 @@ class KiwoomConditon(QObject):
         if( '{}일평균가'.format(ENVELOPE_DAYS) in self.jangoInfo ):
             _envelop_gijun = self.jangoInfo['{}일평균가'.format(ENVELOPE_DAYS)] 
 
-        _envelop_stop_plus = round( _envelop_gijun *  (1 + (ENVELOPE_PERCENT + SLIPPAGE) / 100) , 2 )
-        _basic_stop_plus = round( maeip_price *  (1 + (stop_plus_percent + SLIPPAGE) / 100) , 2 )
+        _envelop_stop_plus = round( _envelop_gijun *  (1 + (SLIPPAGE) / 100) , 2 )
+        _basic_stop_plus = round( maeip_price *  (1 + ((-ENVELOPE_PERCENT + SLIPPAGE) / 100)) , 2 )
 
         current_jango['손절가'] =  gibon_stoploss
         current_jango['이익실현가'] = min (_envelop_gijun, _basic_stop_plus)
@@ -1743,7 +1714,7 @@ class KiwoomConditon(QObject):
         remove_keys = [ '매도호가1', '매도호가2', '매도호가3', '매도호가수량1', '매도호가수량2', '매도호가수량3','매도호가총잔량',
                         '매수호가1', '매수호가2', '매수호가3', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가총잔량',
                         '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
-                        '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가', '5분봉타임컷기준' ]
+                        '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가'  ]
 
         # 기타 정보 업데이트
         for jongmok_code in self.jangoInfo.keys():
