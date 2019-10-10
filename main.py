@@ -209,7 +209,6 @@ class KiwoomConditon(QObject):
 
         determineBuyProcessBuyState.addTransition(self.sigNoBuy, waitingTRlimitProcessBuyState)
         determineBuyProcessBuyState.addTransition(self.sigBuy, waitingTRlimitProcessBuyState)
-        determineBuyProcessBuyState.addTransition(self.sigTrWaitComplete, standbyProcessBuyState)
 
         waitingTRlimitProcessBuyState.addTransition(self.sigTrWaitComplete, standbyProcessBuyState)
 
@@ -891,8 +890,7 @@ class KiwoomConditon(QObject):
             is_log_print_enable = True
             pass
         else:
-            self.sigTrWaitComplete.emit()
-            # self.sigNoBuy.emit()
+            self.sigNoBuy.emit()
             pass
 
         self.shuffleConditionOccurList()
@@ -1526,7 +1524,6 @@ class KiwoomConditon(QObject):
                         ' 이익실현가: {0:7}/'.format(str(stop_plus)) + \
                         ' 매입가: {0:7}/'.format(str(maeipga)) + \
                         ' 잔고수량: {0:7}'.format(str(jangosuryang)) +\
-                        ' 최근 주문/체결시간: {0:7}'.format(last_chegyeol_time_str) + \
                         ' 매수호가1 {0:7}/'.format(str(maesuHoga1)) + \
                         ' 매수호가수량1 {0:7}/'.format(str(maesuHogaAmount1)) + \
                         ' 매수호가2 {0:7}/'.format(str(maesuHoga2)) + \
@@ -1674,12 +1671,6 @@ class KiwoomConditon(QObject):
             # 체결가 정보 누락되어 기본으로 세팅시를 위한 대비 
             last_maeip_price = 99999999
 
-        # 기본 손절가 측정 
-        gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
-
-        # ?일전 저가 손절 책정 
-        low_price_stoploss =  current_jango.get('{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
-        print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
 
         # ? 일봉 기준으로 익절가 측정 
         _envelop_gijun = 999999999 
@@ -1688,9 +1679,20 @@ class KiwoomConditon(QObject):
             _envelop_gijun = self.jangoInfo['{}일평균가'.format(ENVELOPE_DAYS)] 
 
         _envelop_stop_plus = round( _envelop_gijun *  (1 + (SLIPPAGE) / 100) , 2 )
-        _basic_stop_plus = round( maeip_price *  (1 + ((-ENVELOPE_PERCENT + SLIPPAGE) / 100)) , 2 )
+        _basic_stop_plus = round( maeip_price *  (1 + ((ENVELOPE_PERCENT + SLIPPAGE) / 100)) , 2 )
 
-        current_jango['손절가'] =  gibon_stoploss
+
+        # 기본 손절가 측정 
+        gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
+
+        # ?일전 저가 손절 책정 
+        low_price_stoploss =  current_jango.get('{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
+        print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
+
+        _envelop_stoploss = round( maeip_price *  (1 - (ENVELOPE_PERCENT - SLIPPAGE) / 100) , 2 )
+
+        ###############################################################################################
+        current_jango['손절가'] =  max(gibon_stoploss, _envelop_stoploss )
         current_jango['이익실현가'] = min (_envelop_gijun, _basic_stop_plus)
 
         # ? 일 동안 추가 매수 금지 조치
