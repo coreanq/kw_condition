@@ -207,7 +207,7 @@ class KiwoomConditon(QObject):
         request5minInfoProcessBuyState.addTransition(self.sigGet5minInfo, determineBuyProcessBuyState)
         request5minInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState )
 
-        determineBuyProcessBuyState.addTransition(self.sigNoBuy, waitingTRlimitProcessBuyState)
+        determineBuyProcessBuyState.addTransition(self.sigNoBuy, standbyProcessBuyState)
         determineBuyProcessBuyState.addTransition(self.sigBuy, waitingTRlimitProcessBuyState)
 
         waitingTRlimitProcessBuyState.addTransition(self.sigTrWaitComplete, standbyProcessBuyState)
@@ -785,6 +785,18 @@ class KiwoomConditon(QObject):
             # printLog += '(거래금지종목)'
             return_vals.append(False)
 
+        ##########################################################################################################
+        # ? 평균선 종목 근처에서 매수 급등/급락 종목 매수 자제
+        if( '5일평균가' in jongmok_info_dict ):
+            _5avr = float(jongmok_info_dict['5일평균가'] )
+            if( maedoHoga1 >= _5avr * 0.99 and maedoHoga1 <= _5avr * 1.01 ):
+                pass
+            else:
+                printLog += '(급등락종목: 5일 평균가 {0})'.format(_5avr)
+                return_vals.append(False)
+        else:
+            printLog += '(5일 평균가 오류)'
+            return_vals.append(False)
 
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
@@ -806,33 +818,20 @@ class KiwoomConditon(QObject):
             #         break
 
             ##########################################################################################################
-            # 종목 등락율을 조건 적용 
-            # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
-            updown_percentage = float(jongmok_info_dict['등락율'] )
-            if( updown_percentage < 0 ):
-                pass
-            else:
-                printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
-                return_vals.append(False)
+            # # 종목 등락율을 조건 적용 
+            # # 가격이 많이 오르지 않은 경우 앞에 +, - 붙는 소수이므로 float 으로 먼저 처리 
+            # updown_percentage = float(jongmok_info_dict['등락율'] )
+            # if( updown_percentage < 0 ):
+            #     pass
+            # else:
+            #     printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
+            #     return_vals.append(False)
             pass
 
         ##########################################################################################################
         # 추가 매수시만 적용되는 조건 
         else:
-            # 최근 매입가 대비 비교하여 추매 
-            target_high_limit_price =  last_maeip_price
-            target_low_limit_price =  last_maeip_price * (1.00 - (2/100)) 
-            if(  target_low_limit_price < maedoHoga1 and target_high_limit_price > maedoHoga1):
-                print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                pass            
-            else:
-                printLog += '(추매조건미충족)'
-                return_vals.append(False)
-
-            temp = '({} {})'\
-                .format( jongmokName,  maedoHoga1 )
-            # print( util.cur_time_msec() , temp)
-            printLog += temp
+            pass
 
 
         ##########################################################################################################
@@ -1056,9 +1055,9 @@ class KiwoomConditon(QObject):
 
         if( jongmok_code in self.jangoInfo) :
             self.jangoInfo[jongmok_code]['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
-            self.jangoInfo[jongmok_code]['{}일평균가'.format(20)] = round(sum(total_current_price_list[0:20])/20, 2)
-            self.jangoInfo[jongmok_code]['{}일평균가'.format(5)] = round(sum(total_current_price_list[0:5])/5, 2)
-        
+            self.jangoInfo[jongmok_code]['{}일평균가'.format(5)] = jongmok_info_dict['{}일평균가'.format(5)] 
+            self.jangoInfo[jongmok_code]['{}일평균가'.format(20)] = jongmok_info_dict['{}일평균가'.format(20)] 
+
         return True
 
     # 주식 분봉 tr 요청 
@@ -1689,7 +1688,7 @@ class KiwoomConditon(QObject):
         low_price_stoploss =  current_jango.get('{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
         print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
 
-        _envelop_stoploss = round( maeip_price *  (1 - (ENVELOPE_PERCENT - SLIPPAGE) / 100) , 2 )
+        _envelop_stoploss = round( maeip_price *  (1 - (ENVELOPE_PERCENT/2 - SLIPPAGE) / 100) , 2 )
 
         ###############################################################################################
         current_jango['손절가'] =  max(gibon_stoploss, _envelop_stoploss )
