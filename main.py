@@ -785,22 +785,19 @@ class KiwoomConditon(QObject):
             # printLog += '(거래금지종목)'
             return_vals.append(False)
 
-        ##########################################################################################################
-        # ? 평균선 종목 근처에서 매수 급등/급락 종목 매수 자제
-        if( '5일평균가' in jongmok_info_dict ):
-            _5avr = float(jongmok_info_dict['5일평균가'] )
-            if( maedoHoga1 >= _5avr * 0.99 and maedoHoga1 <= _5avr * 1.01 ):
-                pass
-            else:
-                printLog += '(급등락종목: 5일 평균가 {0})'.format(_5avr)
-                return_vals.append(False)
-        else:
-            printLog += '(5일 평균가 오류)'
-            return_vals.append(False)
 
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmokCode not in self.jangoInfo ):
+            ##########################################################################################################
+            # 전일 종가 확인하여 envelop 하단을 계속 타고 내려 오는 종목 필터
+            _gijunga = float(jongmok_info_dict['기준가'] )
+
+            if( _gijunga > _20days_avr * (1 - ENVELOPE_PERCENT/100) ):
+                    pass
+            else:
+                printLog += '(기준가 미충족 {0})'.format(_gijunga)
+                return_vals.append(False)
 
             ##########################################################################################################
             #  업종 중복  매수 제한  
@@ -831,6 +828,20 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 추가 매수시만 적용되는 조건 
         else:
+            # 최근 매입가 대비 비교하여 추매 
+            target_high_limit_price =  last_maeip_price
+            target_low_limit_price =  last_maeip_price * (1.00 - (2/100)) 
+            if(  target_low_limit_price < maedoHoga1 and target_high_limit_price > maedoHoga1):
+                print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+                pass            
+            else:
+                printLog += '(추매조건미충족)'
+                return_vals.append(False)
+
+            temp = '({} {})'\
+                .format( jongmokName,  maedoHoga1 )
+            # print( util.cur_time_msec() , temp)
+            printLog += temp
             pass
 
 
