@@ -128,6 +128,14 @@ class KiwoomConditon(QObject):
         self.createState()
         self.createConnection()
         self.currentTime = datetime.datetime.now()
+
+        # 잔고 정보 저장시 저장 제외될 키 값들 
+        self.jango_remove_keys = [ 
+            '매도호가1', '매도호가2', '매도호가3', '매도호가수량1', '매도호가수량2', '매도호가수량3','매도호가총잔량',
+            '매수호가1', '매수호가2', '매수호가3', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가총잔량',
+            '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
+            '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가',
+            '5일봉', '10일봉', '20일봉', '60일봉'  ]
         
     def createState(self):
         # state defintion
@@ -659,15 +667,6 @@ class KiwoomConditon(QObject):
             printLog += '(추가매수한계)'
             return_vals.append(False)
 
-        ##########################################################################################################
-        #  envelope 적용 
-        # _20days_avr = jongmok_info_dict['{}일평균가'.format(ENVELOPE_DAYS)] 
-
-        # if( int(maedoHoga1) < _20days_avr * (1 - ENVELOPE_PERCENT/100) ):
-        #     pass
-        # else:
-        #     printLog += '(Envelop조건미달)'
-        #     return_vals.append(False)
 
         ##########################################################################################################
         # 업종 이동 평균선 조건 상승일때 매수  
@@ -832,7 +831,7 @@ class KiwoomConditon(QObject):
             target_high_limit_price =  last_maeip_price
             # target_low_limit_price =  last_maeip_price * (1.00 - (2/100)) 
             if(  target_high_limit_price < maedoHoga1):
-                print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
+                # print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 pass            
             else:
                 printLog += '(추매조건미충족)'
@@ -1061,17 +1060,17 @@ class KiwoomConditon(QObject):
         jongmok_info_dict['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
         jongmok_code = jongmok_info_dict['종목코드']
 
-        jongmok_info_dict['{}일평균가'.format(5)] = round(sum(total_current_price_list[0:5])/5, 2)
-        jongmok_info_dict['{}일평균가'.format(10)] = round(sum(total_current_price_list[0:10])/10, 2)
-        jongmok_info_dict['{}일평균가'.format(20)] = round(sum(total_current_price_list[0:20])/20, 2)
-        jongmok_info_dict['{}일평균가'.format(60)] = round(sum(total_current_price_list[0:60])/60, 2)
+        jongmok_info_dict['{}일봉'.format(5)] = total_current_price_list[0:5]
+        jongmok_info_dict['{}일봉'.format(10)] = total_current_price_list[0:10]
+        jongmok_info_dict['{}일봉'.format(20)] = total_current_price_list[0:20]
+        jongmok_info_dict['{}일봉'.format(60)] = total_current_price_list[0:60]
 
         if( jongmok_code in self.jangoInfo) :
             self.jangoInfo[jongmok_code]['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
-            self.jangoInfo[jongmok_code]['{}일평균가'.format(5)] = jongmok_info_dict['{}일평균가'.format(5)] 
-            self.jangoInfo[jongmok_code]['{}일평균가'.format(10)] = jongmok_info_dict['{}일평균가'.format(10)] 
-            self.jangoInfo[jongmok_code]['{}일평균가'.format(20)] = jongmok_info_dict['{}일평균가'.format(20)] 
-            self.jangoInfo[jongmok_code]['{}일평균가'.format(60)] = jongmok_info_dict['{}일평균가'.format(60)] 
+            self.jangoInfo[jongmok_code]['{}일봉'.format(5)] = jongmok_info_dict['{}일봉'.format(5)] 
+            self.jangoInfo[jongmok_code]['{}일봉'.format(10)] = jongmok_info_dict['{}일봉'.format(10)] 
+            self.jangoInfo[jongmok_code]['{}일봉'.format(20)] = jongmok_info_dict['{}일봉'.format(20)] 
+            self.jangoInfo[jongmok_code]['{}일봉'.format(60)] = jongmok_info_dict['{}일봉'.format(60)] 
 
         return True
 
@@ -1446,7 +1445,12 @@ class KiwoomConditon(QObject):
             return 
         current_jango = self.jangoInfo[jongmokCode]
 
-        if( '손절가' not in current_jango or '매수호가1' not in current_jango or '매매가능수량' not in current_jango  ):
+
+        if( '손절가' not in current_jango or 
+            '매수호가1' not in current_jango or 
+            '매매가능수량' not in current_jango or
+            '{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY ) not in current_jango    # 일봉 정보 얻었는지 확인 
+            ):
             return
 
         jangosuryang = int( current_jango['매매가능수량'] )
@@ -1472,8 +1476,13 @@ class KiwoomConditon(QObject):
         #     stop_loss = int(current_jango['손절가'])
         stop_loss = int(current_jango['손절가'])
 
-        _5day_avr = current_jango['{0}일평균가'.format(5)]
-        _10day_avr = current_jango['{0}일평균가'.format(10)]
+        # 일봉의 경우 0 봉이 전날 봉이므로 현재가를 포함한 평균가를 구함 
+        _4day_list = current_jango['{0}일봉'.format(5)][:-1]
+        _9day_list = current_jango['{0}일봉'.format(10)][:-1]
+        current_price = abs(float(current_jango['현재가']))
+
+        _5day_avr = ( sum(_4day_list)  + current_price) / 5
+        _10day_avr = ( sum(_9day_list) + current_price) / 10
         if( _5day_avr < _10day_avr ):
             stop_loss = 99999999
 
@@ -1691,14 +1700,6 @@ class KiwoomConditon(QObject):
             # 체결가 정보 누락되어 기본으로 세팅시를 위한 대비 
             last_maeip_price = 99999999
 
-
-        # ? 일봉 기준으로 익절가 측정 
-        _envelop_gijun = 999999999 
-
-        if( '{}일평균가'.format(ENVELOPE_DAYS) in self.jangoInfo ):
-            _envelop_gijun = self.jangoInfo['{}일평균가'.format(ENVELOPE_DAYS)] 
-
-        _envelop_stop_plus = round( _envelop_gijun *  (1 + (SLIPPAGE) / 100) , 2 )
         _basic_stop_plus = round( maeip_price *  (1 + ((ENVELOPE_PERCENT + SLIPPAGE) / 100)) , 2 )
 
 
@@ -1733,10 +1734,6 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def makeJangoInfoFile(self):
         print(util.whoami())
-        remove_keys = [ '매도호가1', '매도호가2', '매도호가3', '매도호가수량1', '매도호가수량2', '매도호가수량3','매도호가총잔량',
-                        '매수호가1', '매수호가2', '매수호가3', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가총잔량',
-                        '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
-                        '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가'  ]
 
         # 기타 정보 업데이트
         for jongmok_code in self.jangoInfo.keys():
@@ -1745,7 +1742,7 @@ class KiwoomConditon(QObject):
         temp = copy.deepcopy(self.jangoInfo)
         # 불필요 필드 제거 
         for jongmok_code, contents in temp.items():
-            for key in remove_keys:
+            for key in self.jango_remove_keys:
                 if( key in contents):
                     del contents[key]
 
