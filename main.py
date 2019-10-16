@@ -118,7 +118,7 @@ class KiwoomConditon(QObject):
         self.michegyeolInfo = {}
         self.jangoInfo = {} # { 'jongmokCode': { '이익실현가': 222, ...}}
         self.jangoInfoFromFile = {} # TR 잔고 정보 요청 조회로는 얻을 수 없는 데이터를 파일로 저장하고 첫 실행시 로드함  
-        self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '체결가/체결시간', '체결가' , '체결수량', '미체결수량'] ] }
+        self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '분할매수이력', '체결가' , '체결수량', '미체결수량'] ] }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
         self.conditionRevemoList = [] # 조건 이탈이 발생한 모든 리스트 저장 
 
@@ -648,19 +648,22 @@ class KiwoomConditon(QObject):
         #     )
 
         ##########################################################################################################
-        # 최근 매수가 정보 생성
+        # 최근 매수가/분할 매수 횟수  정보 생성
+        bunhal_maesu_list =  []
         last_maeip_price = 99999999
+        maesu_count = 0 
+
         if( jongmokCode in self.jangoInfo):
-            chegyeol_info = self.jangoInfo[jongmokCode]['체결가/체결시간'][-1]
+            bunhal_maesu_list = self.jangoInfo[jongmokCode].get('분할매수이력', [])
+
+            chegyeol_info = bunhal_maesu_list[-1]
             last_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격
+
+            maesu_count = len(bunhal_maesu_list)
         
 
         ##########################################################################################################
         #  추가 매수 횟수 제한   
-        maesu_count = 0 
-        if( jongmokCode in self.jangoInfo):
-            maesu_count = len(self.jangoInfo[jongmokCode]['체결가/체결시간'] )
-
         if( maesu_count < MAESU_LIMIT ):
             pass
         else:
@@ -852,14 +855,14 @@ class KiwoomConditon(QObject):
             util.save_log(jongmokName, '매수주문', folder= "log")
             qty = 0
             if( TEST_MODE == True ):
-                qty = 1 
+                qty = 2 
             else:
                 # 매수 수량을 조절하기 위함 
                 if( jongmokCode in self.jangoInfo):
-                    chegyeol_info_list = self.jangoInfo[jongmokCode].get('체결가/체결시간', [])
+
                     first_chegyeol_time_str = ""
                     if( len(chegyeol_info_list ) ):
-                        first_chegyeol_time_str = chegyeol_info_list[0].split(':')[0] # 날짜:가격
+                        first_chegyeol_time_str = bunhal_maesu_list[0].split(':')[0] # 날짜:가격:수량
 
                     if( first_chegyeol_time_str != ''):
                         base_time = datetime.datetime.strptime("20180127010101", "%Y%m%d%H%M%S") 
@@ -878,7 +881,7 @@ class KiwoomConditon(QObject):
                         else:
                             qty = int(total_price / maedoHoga1 / 30 ) + 1
                     else:
-                        print("체결가/체결시간 없음")
+                        pass
                 else:
                     # 신규 매수 
                     total_price = MAESU_TOTAL_PRICE[maesu_count] 
@@ -1596,6 +1599,7 @@ class KiwoomConditon(QObject):
             maeip_danga = int(self.getChejanData(kw_util.name_fid['매입단가']))
             jongmok_name= self.getChejanData(kw_util.name_fid['종목명']).strip()
             current_price = abs(int(self.getChejanData(kw_util.name_fid['현재가'])))
+            current_amount = abs(int(self.getChejanData(kw_util.name_fid['당일순매수수량'])))
 
             #미체결 수량이 있는 경우 잔고 정보 저장하지 않도록 함 
             if( jongmok_code in self.michegyeolInfo):
@@ -1621,19 +1625,20 @@ class KiwoomConditon(QObject):
                 current_jango['종목번호'] = jongmok_code
                 current_jango['종목명'] = jongmok_name.strip()
                 current_jango['업종'] = self.getMasterStockInfo(jongmok_code)
-                chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(current_price)
+                chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(current_price) + ":" + str(current_amount)
 
                 if( jongmok_code not in self.jangoInfo):
-                    current_jango['체결가/체결시간'] = [chegyeol_info] 
+                    current_jango['분할매수이력'] = [chegyeol_info] 
                     self.jangoInfo[jongmok_code] = current_jango 
 
                 else:
-                    last_chegyeol_info = self.jangoInfo[jongmok_code]['체결가/체결시간'][-1]
+                    # 매수가 분할로 되는 경우에는 분할 매수 이력 추가 안함 
+                    last_chegyeol_info = self.jangoInfo[jongmok_code]['분할매수이력'][-1]
                     last_price = int(last_chegyeol_info.split(':')[1])
                     if( last_price != current_price ):
-                        chegyeol_info_list = self.jangoInfo[jongmok_code]['체결가/체결시간']  
+                        chegyeol_info_list = self.jangoInfo[jongmok_code]['분할매수이력']  
                         chegyeol_info_list.append( chegyeol_info )
-                        current_jango['체결가/체결시간'] = chegyeol_info_list
+                        current_jango['분할매수이력'] = chegyeol_info_list
 
                     self.jangoInfo[jongmok_code].update(current_jango)
 
@@ -1675,18 +1680,16 @@ class KiwoomConditon(QObject):
 
         current_jango = self.jangoInfo[jongmok_code]
 
-        # 체결가/체결시간 데이터 파일로부터 읽어오고 파일로부터도 없으면 default 값 입력 
-        if( '체결가/체결시간' not in current_jango ):
+        # 분할매수 이력 데이터 파일로부터 읽어오고 파일로부터도 없으면 default 값 입력 
+        if( '분할매수이력' not in current_jango ):
+            current_jango['분할매수이력'] = ['29991212091234:2:1']
             if( jongmok_code in self.jangoInfoFromFile):
-                if( '체결가/체결시간' in self.jangoInfoFromFile[jongmok_code] ):
-                    current_jango['체결가/체결시간'] = self.jangoInfoFromFile[jongmok_code].get('체결가/체결시간', [])
-                else: 
-                    current_jango['체결가/체결시간'] = ['29991212091234:0']
-            else:
-                    current_jango['체결가/체결시간'] = ['29991212091234:0']
+                if( '분할매수이력' in self.jangoInfoFromFile[jongmok_code] ):
+                    current_jango['분할매수이력'] = self.jangoInfoFromFile[jongmok_code].get('분할매수이력', [])
 
         # 총 매수 갯수 게산 
-        maesu_count = len(current_jango['체결가/체결시간'])
+        bunhal_maesu_list = current_jango['분할매수이력']
+        maesu_count = len(bunhal_maesu_list)
 
         # 손절/익절가 퍼센티지 계산 
         stop_loss_percent = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
@@ -1694,10 +1697,12 @@ class KiwoomConditon(QObject):
 
         maeip_price = current_jango['매입가']
 
-        chegyeol_info = current_jango['체결가/체결시간'][-1]
-        last_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격
+        last_chegyeol_info = bunhal_maesu_list[-1]
+        last_maeip_price = int(last_chegyeol_info.split(':')[1]) #날짜:가격:수량
+        last_maeip_time = last_chegyeol_info.split(':')[0]
+
         if( last_maeip_price == 0 ):
-            # 체결가 정보 누락되어 기본으로 세팅시를 위한 대비 
+            # 분할매수 정보 누락되어 기본으로 세팅시를 위한 대비 
             last_maeip_price = 99999999
 
         _basic_stop_plus = round( maeip_price *  (1 + ((ENVELOPE_PERCENT + SLIPPAGE) / 100)) , 2 )
@@ -1717,8 +1722,7 @@ class KiwoomConditon(QObject):
         current_jango['이익실현가'] = 9999999
 
         # ? 일 동안 추가 매수 금지 조치
-        base_time_str =  current_jango['체결가/체결시간'][-1].split(':')[0] # 0 index 체결시간 
-        base_time = datetime.datetime.strptime(base_time_str, '%Y%m%d%H%M%S')
+        base_time = datetime.datetime.strptime(last_maeip_time, '%Y%m%d%H%M%S')
 
         from_day = copy.deepcopy(base_time)
         target_day = util.date_by_adding_business_days(from_day, CHUMAE_GIJUN_DAYS )
@@ -1764,6 +1768,7 @@ class KiwoomConditon(QObject):
         maedo_maesu_gubun = '매도' if result == '1' else '매수'
         # 첫 매수시는 잔고 정보가 없을 수 있으므로 
         current_jango = self.jangoInfo.get(jongmok_code, {})
+        bunhal_maesu_list = self.jangoInfo.get('분할매수이력', [])
 
 
         #################################################################################################
@@ -1776,7 +1781,7 @@ class KiwoomConditon(QObject):
             # 매도시 체결정보는 수익율 필드가 존재 
             profit = current_jango.get('수익', '0')
             profit_percent = current_jango.get('수익율', '0' )
-            maesu_count = len(current_jango['체결가/체결시간'])
+            maesu_count = len(bunhal_maesu_list)
             maedo_type = current_jango.get('매도중', '')
             if( maedo_type == ''):
                 maedo_type = '(수동매도)'
@@ -1791,7 +1796,7 @@ class KiwoomConditon(QObject):
             info.append('{0:>10}'.format('0'))
             # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
             # 첫매수에 대한 처리도 함
-            maesu_count = len(current_jango.get('체결가/체결시간', [] ) )
+            maesu_count = len(bunhal_maesu_list)
             info.append(' 매수횟수: {0:>1} '.format(maesu_count + 1))
             info.append(' {0} '.format('(단순매수)'))
 
@@ -1827,7 +1832,7 @@ class KiwoomConditon(QObject):
         #################################################################################################
         # 매도시 매수 이력 정보 필드 
         if( maedo_maesu_gubun == '매도'): 
-            info.append(' | '.join(current_jango['체결가/체결시간']))
+            info.append(' | '.join(current_jango['분할매수이력']))
             pass
 
         self.chegyeolInfo[current_date].append('|'.join(info))
