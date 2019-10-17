@@ -783,7 +783,7 @@ class KiwoomConditon(QObject):
         if( self.prohibitCodeList.count(jongmokCode) == 0 ):
             pass
         else:
-            # printLog += '(거래금지종목)'
+            printLog += '(거래금지종목)'
             return_vals.append(False)
 
         ##########################################################################################################
@@ -855,7 +855,7 @@ class KiwoomConditon(QObject):
             util.save_log(jongmokName, '매수주문', folder= "log")
             qty = 0
             if( TEST_MODE == True ):
-                qty = 2 
+                qty = 1 
             else:
                 # 매수 수량을 조절하기 위함 
                 if( jongmokCode in self.jangoInfo):
@@ -1724,11 +1724,15 @@ class KiwoomConditon(QObject):
         # ? 일 동안 추가 매수 금지 조치
         base_time = datetime.datetime.strptime(last_maeip_time, '%Y%m%d%H%M%S')
 
-        from_day = copy.deepcopy(base_time)
-        target_day = util.date_by_adding_business_days(from_day, CHUMAE_GIJUN_DAYS )
+        # 일기준으로만 하기 위해 시분초 정보 제거 
+        from_date = copy.deepcopy(base_time)
+        target_date = util.date_by_adding_business_days(from_date, CHUMAE_GIJUN_DAYS )
 
+        saved_date = datetime.date(year = target_date.year,month = target_date.month, day = target_date.day)
 
-        if(  target_day > self.currentTime):
+        current_date = datetime.date(year = self.currentTime.year, month = self.currentTime.month, day = self.currentTime.day )
+
+        if(  saved_date > current_date):
             if( jongmok_code not in self.prohibitCodeList):
                 self.prohibitCodeList.append(jongmok_code)
 
