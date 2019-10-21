@@ -16,37 +16,32 @@ from mainwindow_ui import Ui_MainWindow
 # 사용자 정의 파라미터 
 ###################################################################################################
 
-AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 57분에 동작해서 15시 19분에 자동 매수/매도 정지 매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
+AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
 CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 100000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 5 # 추가 매수 횟수 제한 
+BUNHAL_MAESU_LIMIT = 5 # 분할 매수 횟수 제한 
+MAX_STOCK_POSSESION_COUNT = 10 # 제외 종목 리스트 불포함 
 
-CHUMAE_GIJUN_DAYS = 1 # 최근 ? 내에서는 추가 매수 금지
+STOP_PLUS_PERC = BUNHAL_MAESU_LIMIT * MAX_STOCK_POSSESION_COUNT * 2 # 1번 매수 기준 전체 금액의 2% 수익이 난 경우 
 
-STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절로 삼음 
+BUNHAL_MAESU_PROHIBIT_DAYS = 1 # 최근 ? 내에서는 분할 매수 금지
 
-ENVELOPE_DAYS = 20
-ENVELOPE_PERCENT = 9 
+STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절 계산
 
-MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1, MAESU_UNIT * 1 ]
+MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-# 주의: 손절의 경우 첫 매입가 기준
-STOP_PLUS_PER_MAESU_COUNT = [  20,            20,             20,             20,             20,             20,             20,              20 ]
-STOP_LOSS_PER_MAESU_COUNT = [ -99,           -99,            -99,            -99,            -99,            -99,            -99,             -99 ]
+STOP_PLUS_PER_MAESU_COUNT = [ STOP_PLUS_PERC, STOP_PLUS_PERC/2, STOP_PLUS_PERC/3, STOP_PLUS_PERC/4, STOP_PLUS_PERC/5, STOP_PLUS_PERC/6, STOP_PLUS_PERC/7, STOP_PLUS_PERC/8 ]
+STOP_LOSS_PER_MAESU_COUNT = [ -99,            -99,              -99,              -99,              -99,              -99,              -99,              -99 ]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-
-STOCK_POSSESION_COUNT = 10 + len(EXCEPTION_LIST)   # 최대 보유 종목수 제한 
 
 ###################################################################################################
 ###################################################################################################
 
 TEST_MODE = True    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
-
-AFTER_CLOSE_CHECK_MODE = False # 장종료 후 테스트를 하기 위해 운영시간이 아님에도 buy process 가 돌아 가게 함
 
 # DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 이전으로 입력해야함 
 # auto_trading_operation_time 이전값을 잡아야 함 
@@ -602,7 +597,7 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 최대 보유 할 수 있는 종목 보유수를 넘었는지 확인 
-        if( len(self.jangoInfo.keys()) < STOCK_POSSESION_COUNT ):
+        if( len(self.jangoInfo.keys()) < MAX_STOCK_POSSESION_COUNT + len(EXCEPTION_LIST) ):
             pass
         else:
             if( jongmokCode not in self.jangoInfo):
@@ -651,7 +646,7 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         #  추가 매수 횟수 제한   
-        if( maesu_count < MAESU_LIMIT ):
+        if( maesu_count < BUNHAL_MAESU_LIMIT ):
             pass
         else:
             printLog += '(추가매수한계)'
@@ -787,15 +782,6 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmokCode not in self.jangoInfo ):
-            ##########################################################################################################
-            # 전일 종가 확인하여 envelop 하단을 계속 타고 내려 오는 종목 필터
-            # _gijunga = float(jongmok_info_dict['기준가'] )
-
-            # if( _gijunga > _20days_avr * (1 - ENVELOPE_PERCENT/100) ):
-            #         pass
-            # else:
-            #     printLog += '(기준가 미충족 {0})'.format(_gijunga)
-            #     return_vals.append(False)
 
             ##########################################################################################################
             #  업종 중복  매수 제한  
@@ -1690,9 +1676,6 @@ class KiwoomConditon(QObject):
             # 분할매수 정보 누락되어 기본으로 세팅시를 위한 대비 
             last_maeip_price = 99999999
 
-        _basic_stop_plus = round( maeip_price *  (1 + ((ENVELOPE_PERCENT + SLIPPAGE) / 100)) , 2 )
-
-
         # 기본 손절가 측정 
         gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
 
@@ -1700,18 +1683,16 @@ class KiwoomConditon(QObject):
         low_price_stoploss =  current_jango.get('{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
         print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
 
-        _envelop_stoploss = round( maeip_price *  (1 - (ENVELOPE_PERCENT/2 - SLIPPAGE) / 100) , 2 )
-
         ###############################################################################################
         current_jango['손절가'] =  gibon_stoploss
-        current_jango['이익실현가'] = 9999999
+        current_jango['이익실현가'] = round( maeip_price * (1 + ((stop_plus_percent + SLIPPAGE)/100) ) , 2)
 
         # ? 일 동안 추가 매수 금지 조치
         base_time = datetime.datetime.strptime(last_maeip_time, '%Y%m%d%H%M%S')
 
         # 일기준으로만 하기 위해 시분초 정보 제거 
         from_date = copy.deepcopy(base_time)
-        target_date = util.date_by_adding_business_days(from_date, CHUMAE_GIJUN_DAYS )
+        target_date = util.date_by_adding_business_days(from_date, BUNHAL_MAESU_PROHIBIT_DAYS )
 
         saved_date = datetime.date(year = target_date.year,month = target_date.month, day = target_date.day)
 
@@ -2316,7 +2297,7 @@ if __name__ == "__main__":
     def test_business_day():
         base_time = datetime.datetime.strptime('20190920090011', '%Y%m%d%H%M%S')
 
-        target_day = util.date_by_adding_business_days(base_time, CHUMAE_GIJUN_DAYS )
+        target_day = util.date_by_adding_business_days(base_time, BUNHAL_MAESU_PROHIBIT_DAYS )
         print(target_day)
 
 
