@@ -16,13 +16,13 @@ from mainwindow_ui import Ui_MainWindow
 # 사용자 정의 파라미터 
 ###################################################################################################
 
-AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 57분에 동작해서 15시 19분에 자동 매수/매도 정지
+AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 57분에 동작해서 15시 19분에 자동 매수/매도 정지 매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
 CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 100000 # 추가 매수 기본 단위 
-MAESU_LIMIT = 10 # 추가 매수 횟수 제한 
+MAESU_LIMIT = 5 # 추가 매수 횟수 제한 
 
 CHUMAE_GIJUN_DAYS = 1 # 최근 ? 내에서는 추가 매수 금지
 
@@ -325,15 +325,16 @@ class KiwoomConditon(QObject):
 
         self.timerSystem.setInterval(1000) 
         self.timerSystem.timeout.connect(self.onTimerSystemTimeout) 
-
+  
     def isTradeAvailable(self):
-        # 시간을 확인해 거래 가능한지 여부 판단 
+        # 매수 가능 시간 체크 
+        # 기본 정보를 얻기 위해서는 장 시작전 미리 동작을 시켜야 하고 매수를 위한 시간은 정확히 9시를 맞춤 (동시호가 시간의 매도 호가로 인해 매수 됨을 막기 위함)
         ret_vals= []
         current_time = self.currentTime.time()
         for start, stop in AUTO_TRADING_OPERATION_TIME:
             start_time =  datetime.time(
-                            hour = start[0],
-                            minute = start[1])
+                            hour = 9,
+                            minute = 0 )
             stop_time =   datetime.time( 
                             hour = stop[0],
                             minute = stop[1])
@@ -349,7 +350,7 @@ class KiwoomConditon(QObject):
         else:
             return False
         pass
-  
+
     @pyqtSlot()
     def mainStateEntered(self):
         pass
@@ -489,17 +490,7 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def standbyProcessBuyStateEntered(self):
         # print(util.whoami() )
-        # 운영 시간이 아닌 경우 운영시간이 될때까지 지속적으로 확인 
-        if( AFTER_CLOSE_CHECK_MODE == False ) :
-            if( self.isTradeAvailable() == False ):
-                print(util.whoami() )
-                QTimer.singleShot(10000, self.sigConditionOccur)
-                return
-            else:
-                # 무한으로 시그널 발생 방지를 위해 딜레이 줌
-                QTimer.singleShot(100, self.sigRequestEtcInfo)
-        else :
-            QTimer.singleShot(100, self.sigRequestEtcInfo)
+        QTimer.singleShot(100, self.sigRequestEtcInfo)
 
 
     @pyqtSlot()
@@ -571,10 +562,14 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def determineBuyProcessBuyStateEntered(self):
         # print('!', end='')
+        if( self.isTradeAvailable() == False ):
+            return
+
         jongmok_info_dict = []
         is_log_print_enable = False
         return_vals = []
         printLog = ''
+
 
         jongmok_info_dict = self.getConditionOccurList()   
         if( jongmok_info_dict ):
@@ -613,16 +608,6 @@ class KiwoomConditon(QObject):
             if( jongmokCode not in self.jangoInfo):
                 printLog += "(종목최대보유중)"
                 return_vals.append(False)
-
-        ##########################################################################################################
-        # 거래 가능시간인지 체크 
-        if( self.isTradeAvailable() ):  
-            pass
-        else:
-            printLog += "(거래시간X)"
-            return_vals.append(False)
-
-
         
         ##########################################################################################################
         # 5분봉 가격 및 거래량 정보 생성 
@@ -657,10 +642,12 @@ class KiwoomConditon(QObject):
             bunhal_maesu_list = self.jangoInfo[jongmokCode].get('분할매수이력', [])
 
             chegyeol_info = bunhal_maesu_list[-1]
-            last_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격
+            last_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격:수량 
 
             maesu_count = len(bunhal_maesu_list)
-        
+
+        # 전일 종가를 얻기 위한 기준가 정보 생성
+        gijunga = float(jongmok_info_dict['기준가'] )
 
         ##########################################################################################################
         #  추가 매수 횟수 제한   
@@ -770,7 +757,7 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 매도 호가 잔량 확인해  살만큼 있는 경우 매수  
         # 매도 2호가까지 봄 
-        totalMaedoHogaAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
+        # totalMaedoHogaAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
         # if( totalMaedoHogaAmount >= TOTAL_BUY_AMOUNT):
         #     pass 
         # else:
@@ -831,9 +818,7 @@ class KiwoomConditon(QObject):
         else:
             ##########################################################################################################
             # 최근 매입가 대비 비교하여 추매 
-            target_high_limit_price =  last_maeip_price
-            # target_low_limit_price =  last_maeip_price * (1.00 - (2/100)) 
-            if(  target_high_limit_price < maedoHoga1):
+            if(  last_maeip_price < maedoHoga1 and last_maeip_price < gijunga):
                 # print("{:<30}".format(jongmokName)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 pass            
             else:
@@ -1234,7 +1219,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def onTimerSystemTimeout(self):
-        print(".", end='') 
+        # print(".", end='') 
         self.currentTime = datetime.datetime.now()
         if( self.getConnectState() != 1 ):
             util.save_log("Disconnected!", "시스템", folder = "log")
@@ -1772,7 +1757,7 @@ class KiwoomConditon(QObject):
         maedo_maesu_gubun = '매도' if result == '1' else '매수'
         # 첫 매수시는 잔고 정보가 없을 수 있으므로 
         current_jango = self.jangoInfo.get(jongmok_code, {})
-        bunhal_maesu_list = self.jangoInfo.get('분할매수이력', [])
+        bunhal_maesu_list = current_jango.get('분할매수이력', [])
 
 
         #################################################################################################
