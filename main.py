@@ -558,6 +558,7 @@ class KiwoomConditon(QObject):
     def determineBuyProcessBuyStateEntered(self):
         # print('!', end='')
         if( self.isTradeAvailable() == False ):
+            self.sigNoBuy.emit()
             return
 
         jongmok_info_dict = []
