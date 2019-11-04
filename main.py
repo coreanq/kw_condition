@@ -47,11 +47,6 @@ EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTI
 
 TEST_MODE = True    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
 
-# DAY_TRADING_END_TIME 시간에 모두 시장가로 팔아 버림  반드시 동시 호가 시간 이전으로 입력해야함 
-# auto_trading_operation_time 이전값을 잡아야 함 
-DAY_TRADING_ENABLE = False
-DAY_TRADING_END_TIME = [15, 10] 
-
 TRADING_INFO_GETTING_TIME = [15, 55] # 트레이딩 정보를 저장하기 시작하는 시간
 SLIPPAGE = 1.0 # 수익시 보통가 손절시 시장가  3호가까지 계산해서 매수 하므로 1% 적용 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -431,7 +426,8 @@ class KiwoomConditon(QObject):
         # 장시작 전에 조건이 시작하도록 함 
         time_span = datetime.timedelta(minutes = 40)
         expected_time = (self.currentTime + time_span).time()
-        if( expected_time >= datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) ):
+        operation_time = datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) 
+        if( expected_time > operation_time ):
             self.sigSelectCondition.emit()       
 
             # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
@@ -450,9 +446,9 @@ class KiwoomConditon(QObject):
                         condition_num = int(number)
             print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
             self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
-
             
         else:
+            print(util.whoami())
             QTimer.singleShot(1000, self.sigWaitingTrade)
 
         pass
@@ -532,9 +528,27 @@ class KiwoomConditon(QObject):
 
         code = jongmok_info_dict['종목코드']
 
-        if( self.requestOpt10080(code) == False ):
-            self.sigError.emit()
+        key_string = '최근{}분봉체결시간'.format(REQUEST_MINUTE_CANDLE_TYPE)
+        last_request_time_str = jongmok_info_dict.get(key_string, '')
+        isRequestNeeded = False
 
+        if( last_request_time_str != ''):
+            last_request_time = datetime.datetime.strptime(last_request_time_str, "%Y%m%d%H%M%S") 
+            time_span = datetime.timedelta(minutes = REQUEST_MINUTE_CANDLE_TYPE)
+            expected_time = (last_request_time + time_span).time()
+
+            # 직전 봉시간이 요청 초과한 경우 
+            if( expected_time < self.currentTime.time() ):
+                isRequestNeeded = True
+        else:
+            #첫 요청
+            isRequestNeeded = True
+        
+        if( isRequestNeeded == True ):
+            if( self.requestOpt10080(code) == False ):
+                self.sigError.emit()
+        else:
+            self.sigDetermineBuy.emit()
         pass
 
     @pyqtSlot()
@@ -1065,11 +1079,15 @@ class KiwoomConditon(QObject):
 
         total_current_price_list = []
 
-        for i in range(min(repeatCnt, 400)):
+        for i in range(min(repeatCnt, 200)):
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 result = self.getCommData("opt10080", rQName, i, item_name)
                 if( item_name == "현재가"):
                     total_current_price_list.append( abs(int(result)  ) )
+                elif( i == 0 and item_name == "체결시간"):
+                    # 20191104145500 형시 
+                    jongmok_info_dict['최근{}분봉체결시간'.format(REQUEST_MINUTE_CANDLE_TYPE)] = result.strip()
+                    pass
                 # line.append(result.strip())
 
         key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
@@ -1421,9 +1439,12 @@ class KiwoomConditon(QObject):
         # else:
         #     stop_loss = int(current_jango['손절가'])
 
-        # 일봉의 경우 0 봉이 전날 봉이므로 현재가를 포함한 평균가를 구함 
-        _4day_list = current_jango['일{0}봉'.format(MAX_SAVE_CANDLE_COUNT)][:4]
-        _9day_list = current_jango['일{0}봉'.format(MAX_SAVE_CANDLE_COUNT)][:9]
+        ########################################################################################
+        # 일봉 연산
+        # 일봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
+        key_string = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT)
+        _4day_list = current_jango[key_string][:4]
+        _9day_list = current_jango[key_string][:9]
 
         _5day_avr = ( sum(_4day_list)  + maesuHoga2) / 5
         _10day_avr = ( sum(_9day_list) + maesuHoga2) / 10
@@ -1438,26 +1459,25 @@ class KiwoomConditon(QObject):
         if( _5day_avr < _10day_avr ):
             stop_loss = 99999999
 
+        ########################################################################################
+        # 분봉 연산
+        # 분봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
+        key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+
+        _4min_list = current_jango[key_string][:4]
+        _9min_list = current_jango[key_string][:9]
+
+        _5min_avr = ( sum(_4day_list)  + maesuHoga2) / 5
+        _10min_avr = ( sum(_9day_list) + maesuHoga2) / 10
+
+        if( maesuHoga2 < _10min_avr ):
+            stop_loss = 99999999
 
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
         totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2 + maesuHoga3 * maesuHogaAmount3
 
         isSell = False
         printData = jongmokCode + ' {0:20} '.format(jongmokName) 
-
-
-        #########################################################################################
-        # day trading 용 
-        if( DAY_TRADING_ENABLE == True ):
-            # day trading 주식 거래 시간 종료가 가까운 경우 모든 종목 매도 
-            time_span = datetime.timedelta(minutes = 10 )
-            dst_time = datetime.datetime.combine(datetime.date.today(), datetime.time(*DAY_TRADING_END_TIME)) + time_span
-
-            current_time = datetime.datetime.now()
-            if( datetime.time(*DAY_TRADING_END_TIME) <  current_time.time() and dst_time > current_time ):
-                # 0 으로 넣고 로그 남기면서 매도 처리하게 함  
-                stop_loss = -1  
-                pass
 
         # 손절 / 익절 계산 
         # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
@@ -1471,11 +1491,6 @@ class KiwoomConditon(QObject):
             printData += maedo_type 
             isSijanga = False
             isSell = False
-        elif( stop_loss == -1 ):
-            maedo_type = "(당일정리)"
-            printData += maedo_type 
-            isSijanga = True
-            isSell = True
         elif ( stop_loss == 88888888 ):
             maedo_type = "(분할매도)"
             printData += maedo_type 
