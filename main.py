@@ -500,7 +500,7 @@ class KiwoomConditon(QObject):
 
         jongmok_info_dict = self.getConditionOccurList()
 
-        if( len(jongmok_info_dict) != 0 ):
+        if( jongmok_info_dict != None ):
             jongmok_code = jongmok_info_dict['종목코드']
             jongmok_name = jongmok_info_dict['종목명'] 
             if ( '상한가' not in jongmok_info_dict):
@@ -522,7 +522,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami() )
         jongmok_info_dict = self.getConditionOccurList()   
 
-        if( len(jongmok_info_dict) == 0 ):
+        if( jongmok_info_dict == None ):
             self.sigError.emit()
             return 
 
@@ -535,10 +535,15 @@ class KiwoomConditon(QObject):
         if( last_request_time_str != ''):
             last_request_time = datetime.datetime.strptime(last_request_time_str, "%Y%m%d%H%M%S") 
             time_span = datetime.timedelta(minutes = REQUEST_MINUTE_CANDLE_TYPE)
-            expected_time = (last_request_time + time_span).time()
+            expected_time = (last_request_time + time_span)
 
-            # 직전 봉시간이 요청 초과한 경우 
-            if( expected_time < self.currentTime.time() ):
+            request_start_time = datetime.time(
+                                            hour = 9,
+                                            minute = REQUEST_MINUTE_CANDLE_TYPE 
+                                )
+
+            # 직전 봉시간이 초과한 경우와 장 시작 하고 바로 분봉 계속 요청하는 현상 막음  
+            if( expected_time <= self.currentTime and request_start_time <= self.currentTime.time() ):
                 isRequestNeeded = True
         else:
             #첫 요청
@@ -556,9 +561,19 @@ class KiwoomConditon(QObject):
         print(".", end= '')
 
         jongmok_info_dict = self.getConditionOccurList()
-        if( len(jongmok_info_dict) != 0 ):
-            # 실시간 정보가 없는 경우 매수 금지 
-            if( '매도호가1' not in jongmok_info_dict or '등락율' not in jongmok_info_dict ):
+
+        # 조건 검색에 걸린 종목도 같이 리스트업 되므로 
+        # 종목 기본정보, 실시간 체결정보, 실시간 호가 잔량 정보, 일봉 분봉 있어야 함 
+        if( jongmok_info_dict != None ):
+            # 기본, 일봉, 5분봉,  실시간 정보가 없는 경우 매수 금지 
+            key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+            if( 
+                '기준가' not in jongmok_info_dict or 
+                '등락율' not in jongmok_info_dict  or
+                '매도호가1' not in jongmok_info_dict or 
+                '{}봉중저가'.format(STOP_LOSS_CALCULATE_DAY) not in jongmok_info_dict or
+                key_string not in jongmok_info_dict 
+                ):
                 self.shuffleConditionOccurList()
                 self.sigNoWaitTr.emit()
                 return
@@ -570,7 +585,6 @@ class KiwoomConditon(QObject):
             self.sigNoWaitTr.emit()
             return
 
-        jongmok_info_dict = []
         is_log_print_enable = False
         return_vals = []
         printLog = ''
@@ -1008,7 +1022,7 @@ class KiwoomConditon(QObject):
     def makeOpt10081Info(self, rQName):
         # 조건 발생한 종목 상위 리스트의 정보를 얻기 위함 
         jongmok_info_dict = self.getConditionOccurList()
-        if( len(jongmok_info_dict) == 0 ):
+        if( jongmok_info_dict == None ):
             return False
 
         # 한번 읽으면 900개 읽힘 
@@ -1071,7 +1085,7 @@ class KiwoomConditon(QObject):
     def makeOpt10080Info(self, rQName):
         jongmok_code = rQName
         jongmok_info_dict = self.getConditionOccurList()
-        if( len(jongmok_info_dict) == 0 ):
+        if( jongmok_info_dict == None ):
             return False
 
         # 한번 읽으면 900개 읽힘 
@@ -1167,7 +1181,7 @@ class KiwoomConditon(QObject):
     def makeOpt10001Info(self, rQName):
 
         jongmok_info_dict = self.getConditionOccurList()
-        if( len(jongmok_info_dict) == 0 ):
+        if( jongmok_info_dict == None):
             return False
 
         jongmok_code = rQName
@@ -1229,7 +1243,7 @@ class KiwoomConditon(QObject):
 
         # buy 하다가 오류 난경우 강제로 buy signal 생성  
         if( 'buy' in rQName and '107066' not in msg ):
-            QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigWaitTr )
+            self.sigWaitTr.emit()
 
         print(printData)
         util.save_log(printData, "시스템메시지", "log")
@@ -1398,10 +1412,13 @@ class KiwoomConditon(QObject):
         current_jango = self.jangoInfo[jongmokCode]
 
 
+        key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+
         if( '손절가' not in current_jango or 
             '매수호가1' not in current_jango or 
             '매매가능수량' not in current_jango or
-            '{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY ) not in current_jango    # 일봉 정보 얻었는지 확인 
+            '{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY ) not in current_jango  or  # 일봉 정보 얻었는지 확인 
+            key_string not in current_jango    # 분봉  정보 얻었는지 확인 
             ):
             return
 
@@ -1467,8 +1484,8 @@ class KiwoomConditon(QObject):
         _4min_list = current_jango[key_string][:4]
         _9min_list = current_jango[key_string][:9]
 
-        _5min_avr = ( sum(_4day_list)  + maesuHoga2) / 5
-        _10min_avr = ( sum(_9day_list) + maesuHoga2) / 10
+        _5min_avr = ( sum(_4min_list)  + maesuHoga2) / 5
+        _10min_avr = ( sum(_9min_list) + maesuHoga2) / 10
 
         if( maesuHoga2 < _10min_avr ):
             stop_loss = 99999999
@@ -1582,7 +1599,8 @@ class KiwoomConditon(QObject):
                 self.removeConditionOccurList(jongmok_code)
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했으며 이에 TR 요청에 대한 대기 시간 필요 
-                QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigWaitTr)
+                self.sigWaitTr.emit()
+                # QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigWaitTr)
 
                 # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
                 current_jango = {}
@@ -1890,7 +1908,7 @@ class KiwoomConditon(QObject):
         if( len(self.conditionOccurList ) ):
             return self.conditionOccurList[0]
         else:
-            return {}
+            return None
         pass
     
     def getCodeListConditionOccurList(self):
