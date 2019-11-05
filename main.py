@@ -17,7 +17,8 @@ from mainwindow_ui import Ui_MainWindow
 ###################################################################################################
 
 AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
-CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 식 이름
+# CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 식 이름
+CONDITION_NAME = '당일' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
@@ -38,7 +39,7 @@ MAX_SAVE_CANDLE_COUNT = 60 # 일봉, 분봉을 몇봉까지 데이터로 저장�
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 STOP_PLUS_PER_MAESU_COUNT = [ STOP_PLUS_PERC, STOP_PLUS_PERC/2, STOP_PLUS_PERC/3, STOP_PLUS_PERC/4, STOP_PLUS_PERC/5, STOP_PLUS_PERC/6, STOP_PLUS_PERC/7, STOP_PLUS_PERC/8 ]
-STOP_LOSS_PER_MAESU_COUNT = [ -99,            -99,              -99,              -99,              -99,              -99,              -99,              -99 ]
+STOP_LOSS_PER_MAESU_COUNT = [ -5,            -5,              -5,              -5,              -5,              -5,              -5,              -5 ]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -463,7 +464,7 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def standbySystemStateEntered(self):
         print(util.whoami() )
-        self.sigStartProcessBuy.emit()
+        QTimer.singleShot( TR_TIME_LIMIT_MS * 5, self.sigStartProcessBuy)
         pass
 
     @pyqtSlot()
@@ -490,6 +491,7 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def requestEtcInfoProcessBuyStateEntered(self):
         #장중에 한번만 얻어도 되는 정보를 요청할 때  
+        # print(util.whoami() )
 
         # 조건 발생 리스트 검색 
         for jongmok_code in self.conditionRevemoList:
@@ -500,18 +502,27 @@ class KiwoomConditon(QObject):
 
         jongmok_info_dict = self.getConditionOccurList()
 
+        key_string1 = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT)
+        key_string2 = '{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)
+
         if( jongmok_info_dict != None ):
             jongmok_code = jongmok_info_dict['종목코드']
             jongmok_name = jongmok_info_dict['종목명'] 
 
-            key_string = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT)
             if ( '상한가' not in jongmok_info_dict):
                 #기본 정보 여부 확인 
                 self.requestOpt10001(jongmok_code)
-            elif(key_string not in jongmok_info_dict):
+            elif(key_string1 not in jongmok_info_dict):
                 #일봉 정보 여부 확인 
                 self.requestOpt10081(jongmok_code)
             else:
+                # 잔고 정보에 일봉 정보 없는 경우 update
+                if( jongmok_code in self.jangoInfo ):
+                    if( key_string1 not in self.jangoInfo[jongmok_code] ):
+                        self.jangoInfo[jongmok_code][key_string1] = jongmok_info_dict[key_string1] 
+                    if( key_string2 not in self.jangoInfo[jongmok_code] ):
+                        self.jangoInfo[jongmok_code][key_string2] = jongmok_info_dict[key_string2] 
+
                 #분봉 정보 확인 
                 self.sigRequestMinuteCandleInfo.emit()
         else:
@@ -568,13 +579,14 @@ class KiwoomConditon(QObject):
         # 종목 기본정보, 실시간 체결정보, 실시간 호가 잔량 정보, 일봉 분봉 있어야 함 
         if( jongmok_info_dict != None ):
             # 기본, 일봉, 5분봉,  실시간 정보가 없는 경우 매수 금지 
-            key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+            key_string1 = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT) 
+            key_string2 = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
             if( 
                 '기준가' not in jongmok_info_dict or 
                 '등락율' not in jongmok_info_dict  or
                 '매도호가1' not in jongmok_info_dict or 
-                '{}봉중저가'.format(STOP_LOSS_CALCULATE_DAY) not in jongmok_info_dict or
-                key_string not in jongmok_info_dict 
+                key_string1 not in jongmok_info_dict or
+                key_string2 not in jongmok_info_dict 
                 ):
                 self.shuffleConditionOccurList()
                 self.sigNoWaitTr.emit()
@@ -659,7 +671,11 @@ class KiwoomConditon(QObject):
             maesu_count = len(bunhal_maesu_list)
 
         # 전일 종가를 얻기 위한 기준가 정보 생성
-        gijunga = float(jongmok_info_dict['기준가'] )
+        # 기준가 정보가 공백 인 경우 있음 
+        if( jongmok_info_dict['기준가'] != '' ):
+            gijunga = float(jongmok_info_dict['기준가'] )
+        else: 
+            gijunga = 0
 
         ##########################################################################################################
         #  추가 매수 횟수 제한   
@@ -816,6 +832,26 @@ class KiwoomConditon(QObject):
             #         break
 
             # 전일 종가 대비 마이너스 인 경우 (급등하여 등락율 높은 종목 제외) +, - 붙는 소수이므로 float 으로 먼저 처리 
+
+            ########################################################################################
+            # 분봉 연산
+            # 분봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
+            key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+
+            _4min_list = jongmok_info_dict[key_string][:4]
+            _9min_list = jongmok_info_dict[key_string][:9]
+            _19min_list = jongmok_info_dict[key_string][:19]
+
+            _5min_avr = ( sum(_4min_list)  + maedoHoga1) / 5
+            _10min_avr = ( sum(_9min_list) + maedoHoga1) / 10
+            _20min_avr = ( sum(_19min_list) + maedoHoga1) / 20 
+
+            # 정배열
+            if( maedoHoga2 < _10min_avr and _10min_avr > _20min_avr and _5min_avr > _10min_avr):
+                pass
+            else:
+                return_vals.append(False)
+
             pass
 
         ##########################################################################################################
@@ -1050,13 +1086,7 @@ class KiwoomConditon(QObject):
                         total_current_price_list.append( abs(int(result)  ) )
 
         jongmok_info_dict['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
-        jongmok_code = jongmok_info_dict['종목코드']
-
         jongmok_info_dict['일{}봉'.format(MAX_SAVE_CANDLE_COUNT)] = total_current_price_list[0:MAX_SAVE_CANDLE_COUNT]
-
-        if( jongmok_code in self.jangoInfo) :
-            self.jangoInfo[jongmok_code]['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
-            self.jangoInfo[jongmok_code]['일{}봉'.format(MAX_SAVE_CANDLE_COUNT)] = jongmok_info_dict['일{}봉'.format(MAX_SAVE_CANDLE_COUNT)] 
 
         return True
 
@@ -1107,10 +1137,11 @@ class KiwoomConditon(QObject):
                 # line.append(result.strip())
 
         key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
-
         jongmok_info_dict[key_string] = total_current_price_list[:MAX_SAVE_CANDLE_COUNT]
-        if( jongmok_code in self.jangoInfo) :
-            self.jangoInfo[jongmok_code][key_string] = jongmok_info_dict[key_string] 
+
+        if( jongmok_code in self.jangoInfo ):
+            self.jangoInfo[jongmok_code][key_string] = jongmok_info_dict[key_string]
+
         
         return True
 
@@ -1464,19 +1495,21 @@ class KiwoomConditon(QObject):
         key_string = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT)
         _4day_list = current_jango[key_string][:4]
         _9day_list = current_jango[key_string][:9]
+        _19day_list = current_jango[key_string][:19]
 
         _5day_avr = ( sum(_4day_list)  + maesuHoga2) / 5
         _10day_avr = ( sum(_9day_list) + maesuHoga2) / 10
+        _20day_avr = ( sum(_19day_list) + maesuHoga2) / 20
 
         #TODO: 나중에 분할매도의 경우 수익이 났을때만 사용 5일봉 터치 반 매도 5<10 전부 매도 
-        if(
-            _5day_avr > maesuHoga2 and 
-            maeipga < maesuHoga2  and 
-            "분할매도이력" not in current_jango
-            ):
-            stop_loss = 88888888
-        if( _5day_avr < _10day_avr ):
-            stop_loss = 99999999
+        # if(
+        #     _5day_avr > maesuHoga2 and 
+        #     maeipga < maesuHoga2  and 
+        #     "분할매도이력" not in current_jango
+        #     ):
+        #     stop_loss = 88888888
+        # if( _5day_avr < _10day_avr ):
+        #     stop_loss = 99999999
 
         ########################################################################################
         # 분봉 연산
@@ -1485,11 +1518,13 @@ class KiwoomConditon(QObject):
 
         _4min_list = current_jango[key_string][:4]
         _9min_list = current_jango[key_string][:9]
+        _19min_list = current_jango[key_string][:19]
 
         _5min_avr = ( sum(_4min_list)  + maesuHoga2) / 5
         _10min_avr = ( sum(_9min_list) + maesuHoga2) / 10
+        _20min_avr = ( sum(_19min_list) + maesuHoga2) / 20 
 
-        if( maesuHoga2 < _10min_avr ):
+        if( maesuHoga2 < _20min_avr ):
             stop_loss = 99999999
 
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
