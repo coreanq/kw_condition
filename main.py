@@ -191,7 +191,7 @@ class KiwoomConditon(QObject):
         initProcessBuyState = QState(processBuyState)
         standbyProcessBuyState = QState(processBuyState)
         requestEtcInfoProcessBuyState = QState(processBuyState)
-        requestMinuteCandleInfoProcessBuyState = QState(processBuyState)
+        # requestMinuteCandleInfoProcessBuyState = QState(processBuyState)
         determineBuyProcessBuyState = QState(processBuyState)
         waitingTRlimitProcessBuyState = QState(processBuyState)
 
@@ -203,11 +203,11 @@ class KiwoomConditon(QObject):
         standbyProcessBuyState.addTransition(self.sigStopProcessBuy, initProcessBuyState)
 
         requestEtcInfoProcessBuyState.addTransition(self.sigRequestEtcInfo, requestEtcInfoProcessBuyState)
-        requestEtcInfoProcessBuyState.addTransition(self.sigRequestMinuteCandleInfo, requestMinuteCandleInfoProcessBuyState)
+        requestEtcInfoProcessBuyState.addTransition(self.sigDetermineBuy, determineBuyProcessBuyState)
         requestEtcInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState )
 
-        requestMinuteCandleInfoProcessBuyState.addTransition(self.sigDetermineBuy, determineBuyProcessBuyState)
-        requestMinuteCandleInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState )
+        # requestMinuteCandleInfoProcessBuyState.addTransition(self.sigDetermineBuy, determineBuyProcessBuyState)
+        # requestMinuteCandleInfoProcessBuyState.addTransition(self.sigError, standbyProcessBuyState )
 
         determineBuyProcessBuyState.addTransition(self.sigNoWaitTr, standbyProcessBuyState)
         determineBuyProcessBuyState.addTransition(self.sigWaitTr, waitingTRlimitProcessBuyState)
@@ -218,7 +218,7 @@ class KiwoomConditon(QObject):
         initProcessBuyState.entered.connect(self.initProcessBuyStateEntered)
         standbyProcessBuyState.entered.connect(self.standbyProcessBuyStateEntered)
         requestEtcInfoProcessBuyState.entered.connect(self.requestEtcInfoProcessBuyStateEntered)
-        requestMinuteCandleInfoProcessBuyState.entered.connect(self.requestMinuteCandleInfoProcessBuyStateEntered)
+        # requestMinuteCandleInfoProcessBuyState.entered.connect(self.requestMinuteCandleInfoProcessBuyStateEntered)
         determineBuyProcessBuyState.entered.connect(self.determineBuyProcessBuyStateEntered)
         waitingTRlimitProcessBuyState.entered.connect(self.waitingTRlimitProcessBuyStateEntered)
                 
@@ -502,31 +502,61 @@ class KiwoomConditon(QObject):
 
         jongmok_info_dict = self.getConditionOccurList()
 
-        key_string1 = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT)
-        key_string2 = '{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)
-
-        if( jongmok_info_dict != None ):
-            jongmok_code = jongmok_info_dict['종목코드']
-            jongmok_name = jongmok_info_dict['종목명'] 
-
-            if ( '상한가' not in jongmok_info_dict):
-                #기본 정보 여부 확인 
-                self.requestOpt10001(jongmok_code)
-            elif(key_string1 not in jongmok_info_dict):
-                #일봉 정보 여부 확인 
-                self.requestOpt10081(jongmok_code)
-            else:
-                # 잔고 정보에 일봉 정보 없는 경우 update
-                if( jongmok_code in self.jangoInfo ):
-                    if( key_string1 not in self.jangoInfo[jongmok_code] ):
-                        self.jangoInfo[jongmok_code][key_string1] = jongmok_info_dict[key_string1] 
-                    if( key_string2 not in self.jangoInfo[jongmok_code] ):
-                        self.jangoInfo[jongmok_code][key_string2] = jongmok_info_dict[key_string2] 
-
-                #분봉 정보 확인 
-                self.sigRequestMinuteCandleInfo.emit()
-        else:
+        if( jongmok_info_dict == None ):
             self.sigError.emit()
+            return 
+
+
+        jongmok_code = jongmok_info_dict['종목코드']
+        jongmok_name = jongmok_info_dict['종목명'] 
+
+        key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT)
+        key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE,  MAX_SAVE_CANDLE_COUNT)
+        key_day_low_candle = '{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)
+
+        if ( '상한가' not in jongmok_info_dict):
+            #기본 정보 여부 확인 
+            self.requestOpt10001(jongmok_code)
+        elif(key_day_candle not in jongmok_info_dict):
+            #일봉 정보 여부 확인 
+            self.requestOpt10081(jongmok_code)
+        else:
+            # 잔고 정보에 일봉 정보 없는 경우 update
+            if( jongmok_code in self.jangoInfo ):
+                if( key_day_candle not in self.jangoInfo[jongmok_code] ):
+                    self.jangoInfo[jongmok_code][key_day_candle] = jongmok_info_dict[key_day_candle] 
+                if( key_day_low_candle not in self.jangoInfo[jongmok_code] ):
+                    self.jangoInfo[jongmok_code][key_day_low_candle] = jongmok_info_dict[key_day_low_candle] 
+
+            #분봉 정보 확인 
+            key_last_minute_canlde_time = '최근{}분봉체결시간'.format(REQUEST_MINUTE_CANDLE_TYPE)
+            last_request_time_str = jongmok_info_dict.get(key_last_minute_canlde_time, '')
+            isRequestNeeded = False
+
+            if( last_request_time_str != ''):
+                last_request_time = datetime.datetime.strptime(last_request_time_str, "%Y%m%d%H%M%S") 
+                time_span = datetime.timedelta(minutes = REQUEST_MINUTE_CANDLE_TYPE)
+                expected_time = (last_request_time + time_span)
+
+                request_start_time = datetime.time(
+                                                hour = 9,
+                                                minute = REQUEST_MINUTE_CANDLE_TYPE 
+                                    )
+
+                # 직전 봉시간이 초과한 경우와 장 시작 하고 바로 분봉 계속 요청하는 현상 막음  
+                if( expected_time <= self.currentTime and request_start_time <= self.currentTime.time() ):
+                    isRequestNeeded = True
+            else:
+                #첫 요청
+                isRequestNeeded = True
+            
+            if( isRequestNeeded == True ):
+                if( self.requestOpt10080(jongmok_code) == False ):
+                    self.sigError.emit()
+            else:
+                self.sigDetermineBuy.emit()
+            pass
+
         pass
 
     @pyqtSlot()
@@ -579,14 +609,14 @@ class KiwoomConditon(QObject):
         # 종목 기본정보, 실시간 체결정보, 실시간 호가 잔량 정보, 일봉 분봉 있어야 함 
         if( jongmok_info_dict != None ):
             # 기본, 일봉, 5분봉,  실시간 정보가 없는 경우 매수 금지 
-            key_string1 = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT) 
-            key_string2 = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+            key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT) 
+            key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
             if( 
                 '기준가' not in jongmok_info_dict or 
                 '등락율' not in jongmok_info_dict  or
                 '매도호가1' not in jongmok_info_dict or 
-                key_string1 not in jongmok_info_dict or
-                key_string2 not in jongmok_info_dict 
+                key_day_candle not in jongmok_info_dict or
+                key_minute_candle not in jongmok_info_dict 
                 ):
                 self.shuffleConditionOccurList()
                 self.sigNoWaitTr.emit()
@@ -887,7 +917,7 @@ class KiwoomConditon(QObject):
                 if( jongmok_code in self.jangoInfo):
 
                     first_chegyeol_time_str = ""
-                    if( len(chegyeol_info_list ) ):
+                    if( len(bunhal_maesu_list) ):
                         first_chegyeol_time_str = bunhal_maesu_list[0].split(':')[0] # 날짜:가격:수량
 
                     if( first_chegyeol_time_str != ''):
