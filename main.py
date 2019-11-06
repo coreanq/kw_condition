@@ -1529,9 +1529,9 @@ class KiwoomConditon(QObject):
 
         #최근 5봉 저가가 5일 평균선 터치한적 있는지 확인 
         for cnt in range(5):
-            last_5min_list = sum( current_jango[key_minute_candle][0 + cnt : 4 + cnt] )
-            last_5min_avr = sum([ item[current_price_index]  for item in last_5min_list])
-            if( (last_5min_avr)/5 > current_jango[key_minute_candle][cnt][low_price_index]):
+            last_5min_list = current_jango[key_minute_candle][0 + cnt : 5 + cnt] 
+            last_5min_sum = sum([ item[current_price_index]  for item in last_5min_list])
+            if( (last_5min_sum)/5 > current_jango[key_minute_candle][cnt][low_price_index]):
                 is_min_candle_touched = True
                 break
 
