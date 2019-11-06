@@ -36,10 +36,10 @@ REQUEST_MINUTE_CANDLE_TYPE = 3  # 운영중 요청할 분봉 종류 -1 의 경�
 
 MAX_SAVE_CANDLE_COUNT = 60 # 일봉, 분봉을 몇봉까지 데이터로 저장할지 결정 
 
-MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1 ]
+MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  5,             5,               5,               5,               5,               5,               5,               5 ]
-STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,              -3,              -3,              -3,              -3,              -3 ]
+STOP_PLUS_PER_MAESU_COUNT = [  10,            10,              10,              10,               5]
+STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,               -3,              -3]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -49,7 +49,7 @@ EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTI
 TEST_MODE = True    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
 
 TRADING_INFO_GETTING_TIME = [15, 55] # 트레이딩 정보를 저장하기 시작하는 시간
-SLIPPAGE = 1.0 # 수익시 보통가 손절시 시장가  3호가까지 계산해서 매수 하므로 1% 적용 
+SLIPPAGE = 1.0 # 수익시 보통가 손절시 시장가  수수료 포함 3호가까지 계산해서 매수 하므로 1% 적용 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
 INTERESTED_STOCKS_FILE_PATH = "log" + os.path.sep +  "interested_stocks.json"
@@ -425,32 +425,25 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def waitingTradeSystemStateEntered(self):
         # 장시작 전에 조건이 시작하도록 함 
-        time_span = datetime.timedelta(minutes = 40)
-        expected_time = (self.currentTime + time_span).time()
-        operation_time = datetime.time(*AUTO_TRADING_OPERATION_TIME[0][0]) 
-        if( expected_time > operation_time ):
-            self.sigSelectCondition.emit()       
+        self.sigSelectCondition.emit()       
 
-            # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
-            # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
-            result = self.getConditionNameList()
-            searchPattern = r'(?P<index>[^\/:*?"<>|;]+)\^(?P<name>[^\/:*?"<>|;]+);'
-            fileSearchObj = re.compile(searchPattern, re.IGNORECASE)
-            findList = fileSearchObj.findall(result)
+        # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
+        # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
+        result = self.getConditionNameList()
+        searchPattern = r'(?P<index>[^\/:*?"<>|;]+)\^(?P<name>[^\/:*?"<>|;]+);'
+        fileSearchObj = re.compile(searchPattern, re.IGNORECASE)
+        findList = fileSearchObj.findall(result)
+        
+        tempDict = dict(findList)
+        print(tempDict)
+        
+        condition_num = 0 
+        for number, condition in tempDict.items():
+            if condition == CONDITION_NAME:
+                    condition_num = int(number)
+        print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
+        self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
             
-            tempDict = dict(findList)
-            print(tempDict)
-            
-            condition_num = 0 
-            for number, condition in tempDict.items():
-                if condition == CONDITION_NAME:
-                        condition_num = int(number)
-            print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
-            self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
-            
-        else:
-            print(util.whoami())
-            QTimer.singleShot(1000, self.sigWaitingTrade)
 
         pass
 
@@ -842,17 +835,15 @@ class KiwoomConditon(QObject):
             ########################################################################################
             # 분봉 연산
             # 분봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
-            key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
 
-            _4min_list = jongmok_info_dict[key_string][:4]
-            _9min_list = jongmok_info_dict[key_string][:9]
-            _19min_list = jongmok_info_dict[key_string][:19]
+            _4min_list = jongmok_info_dict[key_minute_candle][:4]
+            _9min_list = jongmok_info_dict[key_minute_candle][:9]
+            _19min_list = jongmok_info_dict[key_minute_candle][:19]
 
             _5min_avr = ( sum(_4min_list)  + maedoHoga1) / 5
             _10min_avr = ( sum(_9min_list) + maedoHoga1) / 10
             _20min_avr = ( sum(_19min_list) + maedoHoga1) / 20 
 
-            before_min_price = jongmok_info_dict[key_string][0]
 
             # 정배열
             if( maedoHoga1 > _5min_avr and _10min_avr > (_20min_avr * 1.005) and _5min_avr > (_10min_avr * 1.005) ):
@@ -1134,21 +1125,21 @@ class KiwoomConditon(QObject):
         total_current_price_list = []
 
         for i in range(min(repeatCnt, 200)):
+            line = []
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 result = self.getCommData("opt10080", rQName, i, item_name)
-                if( item_name == "현재가"):
-                    total_current_price_list.append( abs(int(result)  ) )
-                elif( i == 0 and item_name == "체결시간"):
+                line.append( abs(int(result.strip()) ))
+                if( i == 0 and item_name == "체결시간"):
                     # 20191104145500 형시 
                     jongmok_info_dict['최근{}분봉체결시간'.format(REQUEST_MINUTE_CANDLE_TYPE)] = result.strip()
                     pass
-                # line.append(result.strip())
+            total_current_price_list.append( line )
 
-        key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
-        jongmok_info_dict[key_string] = total_current_price_list[:MAX_SAVE_CANDLE_COUNT]
+        key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+        jongmok_info_dict[key_minute_candle] = total_current_price_list[:MAX_SAVE_CANDLE_COUNT]
 
         if( jongmok_code in self.jangoInfo ):
-            self.jangoInfo[jongmok_code][key_string] = jongmok_info_dict[key_string]
+            self.jangoInfo[jongmok_code][key_minute_candle] = jongmok_info_dict[key_minute_candle]
 
         
         return True
@@ -1453,13 +1444,14 @@ class KiwoomConditon(QObject):
         current_jango = self.jangoInfo[jongmok_code]
 
 
-        key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+        key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT ) 
+        key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
 
         if( '손절가' not in current_jango or 
             '매수호가1' not in current_jango or 
             '매매가능수량' not in current_jango or
-            '일{}봉'.format(MAX_SAVE_CANDLE_COUNT ) not in current_jango  or  # 일봉 정보 얻었는지 확인 
-            key_string not in current_jango    # 분봉  정보 얻었는지 확인 
+            key_day_candle in current_jango  or  # 일봉 정보 얻었는지 확인 
+            key_minute_candle not in current_jango    # 분봉  정보 얻었는지 확인 
             ):
             return
 
@@ -1500,10 +1492,9 @@ class KiwoomConditon(QObject):
         ########################################################################################
         # 일봉 연산
         # 일봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
-        key_string = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT)
-        _4day_list = current_jango[key_string][:4]
-        _9day_list = current_jango[key_string][:9]
-        _19day_list = current_jango[key_string][:19]
+        _4day_list = current_jango[key_day_candle][:4]
+        _9day_list = current_jango[key_day_candle][:9]
+        _19day_list = current_jango[key_day_candle][:19]
 
         _5day_avr = ( sum(_4day_list)  + maesuHoga2) / 5
         _10day_avr = ( sum(_9day_list) + maesuHoga2) / 10
@@ -1522,24 +1513,35 @@ class KiwoomConditon(QObject):
         ########################################################################################
         # 분봉 연산
         # 분봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
-        key_string = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
 
-        _4min_list = current_jango[key_string][:4]
-        _9min_list = current_jango[key_string][:9]
-        _19min_list = current_jango[key_string][:19]
+        current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
+        low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
 
-        _5min_avr = ( sum(_4min_list)  + maesuHoga2) / 5
-        _10min_avr = ( sum(_9min_list) + maesuHoga2) / 10
-        _20min_avr = ( sum(_19min_list) + maesuHoga2) / 20 
+        _4min_list = current_jango[key_minute_candle][:4]
+        _9min_list = current_jango[key_minute_candle][:9]
+        _19min_list = current_jango[key_minute_candle][:19]
 
-        # 최종 라인  
+        _5min_avr = ( sum([ item[current_price_index] for item in _4min_list])  + maesuHoga2) / 5
+        _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maesuHoga2) / 10
+        _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maesuHoga2) / 20 
+
+        is_min_candle_touched = False
+
+        #최근 5봉 저가가 5일 평균선 터치한적 있는지 확인 
+        for cnt in range(5):
+            last_5min_list = sum( current_jango[key_minute_candle][0 + cnt : 4 + cnt] )
+            last_5min_avr = sum([ item[current_price_index]  for item in last_5min_list])
+            if( (last_5min_avr)/5 > current_jango[key_minute_candle][cnt][low_price_index]):
+                is_min_candle_touched = True
+                break
+
+        # 기본 10일선 터치 손절 :w
         if( maesuHoga1 < _10min_avr ):
             stop_loss = 99999999
         
-        # 이익인데 5일선 터치 
-        if( maeipga * 1.01 < maesuHoga1 and maesuHoga1 < _5min_avr ):
+        #  5일선 터치 
+        if( is_min_candle_touched == True and maesuHoga1 < _5min_avr ):
             stop_loss = 99999999
-
 
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
         totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2 + maesuHoga3 * maesuHogaAmount3
