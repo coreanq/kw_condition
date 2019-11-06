@@ -23,23 +23,23 @@ CONDITION_NAME = '당일' #키움증권 HTS 에서 설정한 조건 검색 식 �
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 100000 # 추가 매수 기본 단위 
-BUNHAL_MAESU_LIMIT = 4 # 분할 매수 횟수 제한 
-MAX_STOCK_POSSESION_COUNT = 10 # 제외 종목 리스트 불포함 
 
-STOP_PLUS_PERC = BUNHAL_MAESU_LIMIT * MAX_STOCK_POSSESION_COUNT * 1 # 1번 매수 기준 전체 금액의 ?% 수익이 난 경우 
+BUNHAL_MAESU_LIMIT = 4 # 분할 매수 횟수 제한 
+
+MAX_STOCK_POSSESION_COUNT = 20 # 제외 종목 리스트 불포함 
 
 BUNHAL_MAESU_PROHIBIT_DAYS = 1 # 최근 ? 내에서는 분할 매수 금지
 
 STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절 계산
 
-REQUEST_MINUTE_CANDLE_TYPE = 5  # 운영중 요청할 분봉 종류 -1 의 경우 분봉 요청 안함 
+REQUEST_MINUTE_CANDLE_TYPE = 3  # 운영중 요청할 분봉 종류 -1 의 경우 분봉 요청 안함 
 
 MAX_SAVE_CANDLE_COUNT = 60 # 일봉, 분봉을 몇봉까지 데이터로 저장할지 결정 
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1 ]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [ STOP_PLUS_PERC, STOP_PLUS_PERC/2, STOP_PLUS_PERC/3, STOP_PLUS_PERC/4, STOP_PLUS_PERC/5, STOP_PLUS_PERC/6, STOP_PLUS_PERC/7, STOP_PLUS_PERC/8 ]
-STOP_LOSS_PER_MAESU_COUNT = [ -5,            -5,              -5,              -5,              -5,              -5,              -5,              -5 ]
+STOP_PLUS_PER_MAESU_COUNT = [  5,             5,               5,               5,               5,               5,               5,               5 ]
+STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,              -3,              -3,              -3,              -3,              -3 ]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -510,16 +510,21 @@ class KiwoomConditon(QObject):
         jongmok_code = jongmok_info_dict['종목코드']
         jongmok_name = jongmok_info_dict['종목명'] 
 
+
         key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT)
         key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE,  MAX_SAVE_CANDLE_COUNT)
         key_day_low_candle = '{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)
 
-        if ( '상한가' not in jongmok_info_dict):
+        # 기준가의 경우 당일 상장 종목의 경우 공백일 수 있음 
+        if ( '기준가' not in jongmok_info_dict ):
             #기본 정보 여부 확인 
             self.requestOpt10001(jongmok_code)
+            print("request {}".format(jongmok_name) )
+
         elif(key_day_candle not in jongmok_info_dict):
             #일봉 정보 여부 확인 
             self.requestOpt10081(jongmok_code)
+            print("request {}".format(jongmok_name) )
         else:
             # 잔고 정보에 일봉 정보 없는 경우 update
             if( jongmok_code in self.jangoInfo ):
@@ -560,46 +565,6 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
-    def requestMinuteCandleInfoProcessBuyStateEntered(self):
-        #장중에 여러번 얻어야 되는 정보를 요청할 때 
-        # print(util.whoami() )
-        jongmok_info_dict = self.getConditionOccurList()   
-
-        if( jongmok_info_dict == None ):
-            self.sigError.emit()
-            return 
-
-        code = jongmok_info_dict['종목코드']
-
-        key_string = '최근{}분봉체결시간'.format(REQUEST_MINUTE_CANDLE_TYPE)
-        last_request_time_str = jongmok_info_dict.get(key_string, '')
-        isRequestNeeded = False
-
-        if( last_request_time_str != ''):
-            last_request_time = datetime.datetime.strptime(last_request_time_str, "%Y%m%d%H%M%S") 
-            time_span = datetime.timedelta(minutes = REQUEST_MINUTE_CANDLE_TYPE)
-            expected_time = (last_request_time + time_span)
-
-            request_start_time = datetime.time(
-                                            hour = 9,
-                                            minute = REQUEST_MINUTE_CANDLE_TYPE 
-                                )
-
-            # 직전 봉시간이 초과한 경우와 장 시작 하고 바로 분봉 계속 요청하는 현상 막음  
-            if( expected_time <= self.currentTime and request_start_time <= self.currentTime.time() ):
-                isRequestNeeded = True
-        else:
-            #첫 요청
-            isRequestNeeded = True
-        
-        if( isRequestNeeded == True ):
-            if( self.requestOpt10080(code) == False ):
-                self.sigError.emit()
-        else:
-            self.sigDetermineBuy.emit()
-        pass
-
-    @pyqtSlot()
     def determineBuyProcessBuyStateEntered(self):
         print(".", end= '')
 
@@ -617,6 +582,17 @@ class KiwoomConditon(QObject):
                 '매도호가1' not in jongmok_info_dict or 
                 key_day_candle not in jongmok_info_dict or
                 key_minute_candle not in jongmok_info_dict 
+                ):
+                self.shuffleConditionOccurList()
+                self.sigNoWaitTr.emit()
+                return
+            # 상장한지 얼마 안되서 정보가 부족한 경우 제외 
+            if( 
+                jongmok_info_dict['기준가'] == '' or 
+                jongmok_info_dict['등락율'] == '' or
+                jongmok_info_dict['매도호가1'] == '' or
+                len(jongmok_info_dict[key_day_candle])  < MAX_SAVE_CANDLE_COUNT   or
+                len(jongmok_info_dict[key_minute_candle])  < MAX_SAVE_CANDLE_COUNT   
                 ):
                 self.shuffleConditionOccurList()
                 self.sigNoWaitTr.emit()
@@ -876,8 +852,10 @@ class KiwoomConditon(QObject):
             _10min_avr = ( sum(_9min_list) + maedoHoga1) / 10
             _20min_avr = ( sum(_19min_list) + maedoHoga1) / 20 
 
+            before_min_price = jongmok_info_dict[key_string][0]
+
             # 정배열
-            if( maedoHoga2 < _10min_avr and _10min_avr > _20min_avr and _5min_avr > _10min_avr):
+            if( maedoHoga1 > _5min_avr and _10min_avr > (_20min_avr * 1.005) and _5min_avr > (_10min_avr * 1.005) ):
                 pass
             else:
                 return_vals.append(False)
@@ -1554,8 +1532,14 @@ class KiwoomConditon(QObject):
         _10min_avr = ( sum(_9min_list) + maesuHoga2) / 10
         _20min_avr = ( sum(_19min_list) + maesuHoga2) / 20 
 
-        if( maesuHoga2 < _20min_avr ):
+        # 최종 라인  
+        if( maesuHoga1 < _10min_avr ):
             stop_loss = 99999999
+        
+        # 이익인데 5일선 터치 
+        if( maeipga * 1.01 < maesuHoga1 and maesuHoga1 < _5min_avr ):
+            stop_loss = 99999999
+
 
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
         totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2 + maesuHoga3 * maesuHogaAmount3
