@@ -836,13 +836,16 @@ class KiwoomConditon(QObject):
             # 분봉 연산
             # 분봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
 
+            current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
+            low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
+
             _4min_list = jongmok_info_dict[key_minute_candle][:4]
             _9min_list = jongmok_info_dict[key_minute_candle][:9]
             _19min_list = jongmok_info_dict[key_minute_candle][:19]
 
-            _5min_avr = ( sum(_4min_list)  + maedoHoga1) / 5
-            _10min_avr = ( sum(_9min_list) + maedoHoga1) / 10
-            _20min_avr = ( sum(_19min_list) + maedoHoga1) / 20 
+            _5min_avr = ( sum([ item[current_price_index] for item in _4min_list])  + maedoHoga1) / 5
+            _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maedoHoga1) / 10
+            _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maedoHoga1) / 20 
 
 
             # 정배열
@@ -1450,7 +1453,7 @@ class KiwoomConditon(QObject):
         if( '손절가' not in current_jango or 
             '매수호가1' not in current_jango or 
             '매매가능수량' not in current_jango or
-            key_day_candle in current_jango  or  # 일봉 정보 얻었는지 확인 
+            key_day_candle not in current_jango  or  # 일봉 정보 얻었는지 확인 
             key_minute_candle not in current_jango    # 분봉  정보 얻었는지 확인 
             ):
             return
@@ -1540,7 +1543,7 @@ class KiwoomConditon(QObject):
             stop_loss = 99999999
         
         #  5일선 터치 
-        if( is_min_candle_touched == True and maesuHoga1 < _5min_avr ):
+        if( maesuHoga2 >  maeipga * 1.01 and is_min_candle_touched == True and maesuHoga1 < _5min_avr ):
             stop_loss = 99999999
 
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
