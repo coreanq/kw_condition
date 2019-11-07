@@ -18,7 +18,7 @@ from mainwindow_ui import Ui_MainWindow
 
 AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
 # CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 식 이름
-CONDITION_NAME = '당일' #키움증권 HTS 에서 설정한 조건 검색 식 이름
+CONDITION_NAME = '단타' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
@@ -38,7 +38,7 @@ MAX_SAVE_CANDLE_COUNT = 60 # 일봉, 분봉을 몇봉까지 데이터로 저장�
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  10,            10,              10,              10,               5]
+STOP_PLUS_PER_MAESU_COUNT = [  15,            15,              15,              15,               15]
 STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,               -3,              -3]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
@@ -849,7 +849,7 @@ class KiwoomConditon(QObject):
 
 
             # 정배열
-            if( maedoHoga1 > _5min_avr and _10min_avr > (_20min_avr * 1.005) and _5min_avr > (_10min_avr * 1.005) ):
+            if( maedoHoga1 > _5min_avr ):
                 pass
             else:
                 return_vals.append(False)
@@ -1499,14 +1499,14 @@ class KiwoomConditon(QObject):
         _9day_list = current_jango[key_day_candle][:9]
         _19day_list = current_jango[key_day_candle][:19]
 
-        _5day_avr = ( sum(_4day_list)  + maesuHoga2) / 5
-        _10day_avr = ( sum(_9day_list) + maesuHoga2) / 10
-        _20day_avr = ( sum(_19day_list) + maesuHoga2) / 20
+        _5day_avr = ( sum(_4day_list)  + maesuHoga1) / 5
+        _10day_avr = ( sum(_9day_list) + maesuHoga1) / 10
+        _20day_avr = ( sum(_19day_list) + maesuHoga1) / 20
 
         #TODO: 나중에 분할매도의 경우 수익이 났을때만 사용 5일봉 터치 반 매도 5<10 전부 매도 
         # if(
-        #     _5day_avr > maesuHoga2 and 
-        #     maeipga < maesuHoga2  and 
+        #     _5day_avr > maesuHoga1 and 
+        #     maeipga < maesuHoga1  and 
         #     "분할매도이력" not in current_jango
         #     ):
         #     stop_loss = 88888888
@@ -1524,9 +1524,9 @@ class KiwoomConditon(QObject):
         _9min_list = current_jango[key_minute_candle][:9]
         _19min_list = current_jango[key_minute_candle][:19]
 
-        _5min_avr = ( sum([ item[current_price_index] for item in _4min_list])  + maesuHoga2) / 5
-        _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maesuHoga2) / 10
-        _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maesuHoga2) / 20 
+        _5min_avr = ( sum([ item[current_price_index] for item in _4min_list])  + maesuHoga1) / 5
+        _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maesuHoga1) / 10
+        _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maesuHoga1) / 20 
 
         is_min_candle_touched = False
 
@@ -1537,13 +1537,9 @@ class KiwoomConditon(QObject):
             if( (last_5min_sum)/5 > current_jango[key_minute_candle][cnt][low_price_index]):
                 is_min_candle_touched = True
                 break
-
-        # 기본 10일선 터치 손절 :w
-        if( maesuHoga1 < _10min_avr ):
-            stop_loss = 99999999
         
-        #  5일선 터치 
-        if( maesuHoga2 >  maeipga * 1.01 and is_min_candle_touched == True and maesuHoga1 < _5min_avr ):
+        #  5일선 터치 손절 
+        if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _5min_avr ):
             stop_loss = 99999999
 
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
