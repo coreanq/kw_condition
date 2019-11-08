@@ -38,7 +38,7 @@ MAX_SAVE_CANDLE_COUNT = 60 # 일봉, 분봉을 몇봉까지 데이터로 저장�
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  0.5,           0.5,             0.5,              0.5,             0.5]
+STOP_PLUS_PER_MAESU_COUNT = [  4,             4,               4,                4,               4] 
 STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,               -3,              -3]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
@@ -821,13 +821,20 @@ class KiwoomConditon(QObject):
 
             last_min_amount = jongmok_info_dict[key_minute_candle][0][amount_index]
 
-            # 5일봉보다 높고 직전 거래량이 10000 주 이상인 경우  
-            if( maedoHoga1 > _5min_avr and last_min_amount > 10000):
-                pass
-            else:
-                return_vals.append(False)
 
-            pass
+            jang_choban_time = datetime.time( hour = 9, minute = 30 )
+            if( jang_choban_time > self.currentTime.time()):
+                # 9시 30분 이전 장 초반 거래량 10만주 
+                if( maedoHoga1 > _5min_avr ):
+                    pass
+                else:
+                    return_vals.append(False)
+            else:
+                # 9시 30분 이후 장 초반 거래량 100만주
+                if( maedoHoga1 > _5min_avr and last_min_amount > 100000):
+                    pass
+                else:
+                    return_vals.append(False)
 
         ##########################################################################################################
         # 추가 매수시만 적용되는 조건 
@@ -1524,13 +1531,21 @@ class KiwoomConditon(QObject):
                         is_min_candle_touched = True
                         break
                 
-                # 수익시 10일선 터치 손절 
-                if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
-                    stop_plus = 1
-                #  손해시 5일선 터치 손절 
-                elif( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
-                    stop_loss = 99999999
+                jang_choban_time = datetime.time( hour = 9, minute = 30 )
 
+                # 장초반인경우 
+                if( jang_choban_time > self.currentTime.time() ) :
+                    # 수익시 10일선 터치 손절 
+                    if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
+                        stop_plus = 1
+                    #  손해시 5일선 터치 손절 
+                    elif( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
+                        stop_loss = 99999999
+                        pass
+                else:
+                    # 무조건 10일선 터치 손절
+                    if(  maesuHoga1 < _10min_avr ):
+                        stop_plus = 1
 
         ########################################################################################
 
