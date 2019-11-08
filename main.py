@@ -654,11 +654,8 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 전일 종가를 얻기 위한 기준가 정보 생성
         # 기준가 정보가 공백 인 경우 있음 
-        if( jongmok_info_dict['기준가'] != '' ):
-            gijunga = float(jongmok_info_dict['현재가']) / ( 1 + float(jongmok_info_dict['등락율']) / 100 )
-            print( '{} 기준가: {}'.format( jongmok_name,  gijunga ))
-        else: 
-            gijunga = 0
+        gijunga = int(float(jongmok_info_dict['현재가']) / ( 1 + float(jongmok_info_dict['등락율']) / 100 ) )
+        # print( '{} 기준가: {}'.format( jongmok_name,  gijunga ))
 
         ##########################################################################################################
         #  추가 매수 횟수 제한   
@@ -1385,9 +1382,12 @@ class KiwoomConditon(QObject):
         maeip_price = abs(int(current_jango['매입가']))
         boyou_suryang = int(current_jango['보유수량'])
 
-        suik_price = round( (current_price - maeip_price) * boyou_suryang , 2)
+        maeip_danga = maeip_price + maeip_price* 0.00015
+        maedo_danga = current_price + current_price * 0.00015 + current_price * 0.0025
+
+        suik_price = round( (maedo_danga - maeip_danga) * boyou_suryang , 2)
         current_jango['수익'] = suik_price 
-        current_jango['수익율'] = round( ( (current_price-maeip_price)  / maeip_price ) * 100 , 2) 
+        current_jango['수익율'] = round( ( (maedo_danga - maeip_danga)  / maeip_danga ) * 100 , 2) 
         pass
 
     # 실시간 호가 잔량 정보         
@@ -1784,7 +1784,7 @@ class KiwoomConditon(QObject):
             f.write(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys = True ))
         pass
 
-        self.makeInterestedStocksFile()
+        # self.makeInterestedStocksFile()
 
     @pyqtSlot()
     def makeInterestedStocksFile(self):
