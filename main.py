@@ -1551,8 +1551,8 @@ class KiwoomConditon(QObject):
                     # 수익시 
                     if( maesuHoga1 >  maeipga * 1.02 ):
                         stop_plus = 1
-                    # 무조건 10일선 터치 손절
-                    if(  maesuHoga1 < _10min_avr ):
+                    #  손해시 5일선 터치 손절 
+                    elif( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
                         stop_loss = 99999999
 
         ########################################################################################
