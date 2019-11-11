@@ -811,16 +811,19 @@ class KiwoomConditon(QObject):
             low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
             amount_index  =  kw_util.dict_jusik['TR:분봉'].index('거래량')
 
-            _4min_list = jongmok_info_dict[key_minute_candle][:4]
-            _9min_list = jongmok_info_dict[key_minute_candle][:9]
-            _19min_list = jongmok_info_dict[key_minute_candle][:19]
+            _4min_list = jongmok_info_dict[key_minute_candle][1:5]
+            _9min_list = jongmok_info_dict[key_minute_candle][1:10]
+            _19min_list = jongmok_info_dict[key_minute_candle][1:20]
 
             _5min_avr = ( sum([ item[current_price_index] for item in _4min_list])  + maedoHoga1) / 5
             _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maedoHoga1) / 10
             _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maedoHoga1) / 20 
 
-            last_min_amount = jongmok_info_dict[key_minute_candle][0][amount_index]
-            last_min_price = jongmok_info_dict[key_minute_candle][0][current_price_index]
+            # 0번의 경우 현재봉을 뜻하며, TR 요청을 계속 하게 되는 경우 정확해짐 
+            # 현재봉의 경우 3분마다 요청하므로 데이터가 정확하지 않음 
+            # 직전봉으로 함
+            last_min_amount = jongmok_info_dict[key_minute_candle][1][amount_index]
+            last_min_price = jongmok_info_dict[key_minute_candle][1][current_price_index]
 
 
             jang_choban_time = datetime.time( hour = 9, minute = 30 )
@@ -832,7 +835,7 @@ class KiwoomConditon(QObject):
                     return_vals.append(False)
             else:
                 # 9시 30분 이후 100만
-                print('{}, 직전봉거래량: {}, 직전봉가격: {}'.format(jongmok_name, last_min_amount, last_min_price))
+                print('{}, 거래량: {}, 봉가격: {}'.format(jongmok_name, last_min_amount, last_min_price))
                 if( maedoHoga1 > _5min_avr and last_min_amount > 100000 and maedoHoga1 > last_min_price):
                     pass
                 else:
@@ -1483,14 +1486,14 @@ class KiwoomConditon(QObject):
 
         ########################################################################################
         # 일봉 연산
-        # 일봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
+        # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
         if( key_day_candle in current_jango ):  # 일봉 정보 얻었는지 확인 
             current_price_index = kw_util.dict_jusik['TR:일봉'].index('현재가')
             low_price_index  =  kw_util.dict_jusik['TR:일봉'].index('저가')
 
-            _4day_list = current_jango[key_day_candle][:4]
-            _9day_list = current_jango[key_day_candle][:9]
-            _19day_list = current_jango[key_day_candle][:19]
+            _4day_list = current_jango[key_day_candle][1:5]
+            _9day_list = current_jango[key_day_candle][1:10]
+            _19day_list = current_jango[key_day_candle][1:20]
 
             _5day_avr = ( sum(_4day_list)  + maesuHoga1) / 5
             _10day_avr = ( sum(_9day_list) + maesuHoga1) / 10
@@ -1508,16 +1511,16 @@ class KiwoomConditon(QObject):
 
         ########################################################################################
         # 분봉 연산
-        # 분봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
+        # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
 
         if( key_minute_candle in current_jango ):  # 분봉 정보 얻었는지 확인 
             if( len( current_jango[key_minute_candle] )  ==  MAX_SAVE_CANDLE_COUNT ):  # 일봉 정보 얻었는지 확인 
                 current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
                 low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
 
-                _4min_list = current_jango[key_minute_candle][:4]
-                _9min_list = current_jango[key_minute_candle][:9]
-                _19min_list = current_jango[key_minute_candle][:19]
+                _4min_list = current_jango[key_minute_candle][1:5]
+                _9min_list = current_jango[key_minute_candle][1:10]
+                _19min_list = current_jango[key_minute_candle][1:20]
 
                 _5min_avr = ( sum([ item[current_price_index] for item in _4min_list])  + maesuHoga1) / 5
                 _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maesuHoga1) / 10
@@ -1545,9 +1548,9 @@ class KiwoomConditon(QObject):
                         stop_loss = 99999999
                         pass
                 else:
-                    # # 수익시 
-                    # if( maesuHoga1 >  maeipga * 1.02 ):
-                    #     stop_plus = 1
+                    # 수익시 
+                    if( maesuHoga1 >  maeipga * 1.02 ):
+                        stop_plus = 1
                     # 무조건 10일선 터치 손절
                     if(  maesuHoga1 < _10min_avr ):
                         stop_loss = 99999999
