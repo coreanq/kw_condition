@@ -17,7 +17,7 @@ from mainwindow_ui import Ui_MainWindow
 ###################################################################################################
 
 AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
-# CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 식 이름
+
 CONDITION_NAME = '단타' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
 TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
@@ -820,18 +820,20 @@ class KiwoomConditon(QObject):
             _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maedoHoga1) / 20 
 
             last_min_amount = jongmok_info_dict[key_minute_candle][0][amount_index]
+            last_min_price = jongmok_info_dict[key_minute_candle][0][current_price_index]
 
 
             jang_choban_time = datetime.time( hour = 9, minute = 30 )
             if( jang_choban_time > self.currentTime.time()):
-                # 9시 30분 이전 장 초반 거래량 10만주 
-                if( maedoHoga1 > _5min_avr ):
+                # 9시 30분 이전
+                if( maedoHoga1 > _5min_avr and maedoHoga1 > last_min_price):
                     pass
                 else:
                     return_vals.append(False)
             else:
-                # 9시 30분 이후 장 초반 거래량 100만주
-                if( maedoHoga1 > _5min_avr and last_min_amount > 100000):
+                # 9시 30분 이후 100만
+                print('{}, 직전봉거래량: {}, 직전봉가격: {}'.format(jongmok_name, last_min_amount, last_min_price))
+                if( maedoHoga1 > _5min_avr and last_min_amount > 100000 and maedoHoga1 > last_min_price):
                     pass
                 else:
                     return_vals.append(False)
@@ -1508,7 +1510,7 @@ class KiwoomConditon(QObject):
         # 분봉 연산
         # 분봉의 경우 0 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
 
-        if( key_minute_candle in current_jango ):  # 일봉 정보 얻었는지 확인 
+        if( key_minute_candle in current_jango ):  # 분봉 정보 얻었는지 확인 
             if( len( current_jango[key_minute_candle] )  ==  MAX_SAVE_CANDLE_COUNT ):  # 일봉 정보 얻었는지 확인 
                 current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
                 low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
@@ -1524,12 +1526,12 @@ class KiwoomConditon(QObject):
                 is_min_candle_touched = False
 
                 #최근 5봉 저가가 5일 평균선 터치한적 있는지 확인 
-                for cnt in range(5):
-                    last_5min_list = current_jango[key_minute_candle][0 + cnt : 5 + cnt] 
-                    last_5min_sum = sum([ item[current_price_index]  for item in last_5min_list])
-                    if( (last_5min_sum)/5 > current_jango[key_minute_candle][cnt][low_price_index]):
-                        is_min_candle_touched = True
-                        break
+                # for cnt in range(5):
+                #     last_5min_list = current_jango[key_minute_candle][0 + cnt : 5 + cnt] 
+                #     last_5min_sum = sum([ item[current_price_index]  for item in last_5min_list])
+                #     if( (last_5min_sum)/5 > current_jango[key_minute_candle][cnt][low_price_index]):
+                #         is_min_candle_touched = True
+                #         break
                 
                 jang_choban_time = datetime.time( hour = 9, minute = 30 )
 
@@ -1543,9 +1545,12 @@ class KiwoomConditon(QObject):
                         stop_loss = 99999999
                         pass
                 else:
+                    # # 수익시 
+                    # if( maesuHoga1 >  maeipga * 1.02 ):
+                    #     stop_plus = 1
                     # 무조건 10일선 터치 손절
                     if(  maesuHoga1 < _10min_avr ):
-                        stop_plus = 1
+                        stop_loss = 99999999
 
         ########################################################################################
 
@@ -1928,8 +1933,8 @@ class KiwoomConditon(QObject):
     # strConditionName : 조건명
     # strConditionIndex : 조건명 인덱스
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
-        print(util.whoami() + 'code: {}, type: {}, conditionName: {}, conditionIndex: {}'
-        .format(code, type, conditionName, conditionIndex ))
+        print(util.whoami() + 'code: {}, 종목이름: {},  type: {}, conditionName: {}, conditionIndex: {}'
+        .format(code, self.getMasterCodeName(code), type, conditionName, conditionIndex ))
         if type == 'I':
             self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
         else:
