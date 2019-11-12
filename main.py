@@ -834,9 +834,15 @@ class KiwoomConditon(QObject):
                 else:
                     return_vals.append(False)
             else:
-                # 9시 30분 이후 100만
-                print('{}, 거래량: {}, 봉가격: {}'.format(jongmok_name, last_min_amount, last_min_price))
-                if( maedoHoga1 > _5min_avr and last_min_amount > 100000 and maedoHoga1 > last_min_price):
+                # 9시 30분 이후 50만 이거는 손절이 짧다 
+                print('{}, 직전거래량: {}, 직전봉가격: {}, 매도호가1: {}, 5봉평균 {}'.format(
+                    jongmok_name, 
+                    last_min_amount, 
+                    last_min_price,
+                    maedoHoga1,
+                    _5min_avr
+                    ))
+                if( maedoHoga1 > _5min_avr and  maedoHoga1 > last_min_price):
                     pass
                 else:
                     return_vals.append(False)
@@ -1262,8 +1268,19 @@ class KiwoomConditon(QObject):
         printData =  'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'.format(scrNo, rQName, trCode, msg)
 
         # buy 하다가 오류 난경우 강제로 buy signal 생성  
+        # buy 정상 메시지는 107066
         if( 'buy' in rQName and '107066' not in msg ):
             self.sigWaitTr.emit()
+
+        # sell 하다가 오류 난경우 강제로 buy signal 생성  
+        # sell 정상 메시지는 107066
+        if( 'sell' in rQName and '107048' not in msg ):
+            pass
+            # self.sigWaitTr.emit()
+
+        # sell 하다가 오류 난경우 
+        # if( 'sell' in rQName and '매도가능수량' in msg ):
+        #     self.sigWaitTr.emit()
 
         print(printData)
         util.save_log(printData, "시스템메시지", "log")
@@ -1549,7 +1566,7 @@ class KiwoomConditon(QObject):
                         pass
                 else:
                     # 수익시 
-                    if( maesuHoga1 >  maeipga * 1.02 ):
+                    if( maesuHoga1 >  maeipga * 1.015 ):
                         stop_plus = 1
                     #  손해시 5일선 터치 손절 
                     elif( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
