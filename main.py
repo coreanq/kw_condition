@@ -833,19 +833,6 @@ class KiwoomConditon(QObject):
                     pass
                 else:
                     return_vals.append(False)
-            else:
-                # 9시 30분 이후 50만 이거는 손절이 짧다 
-                print('{}, 직전거래량: {}, 직전봉가격: {}, 매도호가1: {}, 5봉평균 {}'.format(
-                    jongmok_name, 
-                    last_min_amount, 
-                    last_min_price,
-                    maedoHoga1,
-                    _5min_avr
-                    ))
-                if( maedoHoga1 > _5min_avr and  maedoHoga1 > last_min_price):
-                    pass
-                else:
-                    return_vals.append(False)
 
         ##########################################################################################################
         # 추가 매수시만 적용되는 조건 
@@ -1555,22 +1542,13 @@ class KiwoomConditon(QObject):
                 
                 jang_choban_time = datetime.time( hour = 9, minute = 30 )
 
-                # 장초반인경우 
-                if( jang_choban_time > self.currentTime.time() ) :
-                    # 수익시 10일선 터치 손절 
-                    if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
-                        stop_plus = 1
-                    #  손해시 5일선 터치 손절 
-                    elif( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
-                        stop_loss = 99999999
-                        pass
-                else:
-                    # 수익시 
-                    if( maesuHoga1 >  maeipga * 1.015 ):
-                        stop_plus = 1
-                    #  손해시 5일선 터치 손절 
-                    elif( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
-                        stop_loss = 99999999
+                # 수익시 10일선 터치 손절 
+                if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
+                    stop_plus = 1
+                #  손해시 5일선 터치 손절 
+                elif( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
+                    stop_loss = 99999999
+                    pass
 
         ########################################################################################
 
