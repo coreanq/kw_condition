@@ -817,24 +817,10 @@ class KiwoomConditon(QObject):
             _9min_list = jongmok_info_dict[key_minute_candle][1:10]
             _19min_list = jongmok_info_dict[key_minute_candle][1:20]
 
-            # 20191104145500 형식 
-            _today_min_list = []
-            for item in jongmok_info_dict[key_minute_candle]:
-                item_date = datetime.datetime.strptime(item[time_index], '%Y%m%d%H%M%S').date() 
-                # print(item_date)
-                if( item_date >= self.currentTime.date()) :
-                    # print(item)
-                    _today_min_list.append(item)
-
             _5min_avr = ( sum([ item[current_price_index] for item in _4min_list])  + maedoHoga1) / 5
             _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maedoHoga1) / 10
             _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maedoHoga1) / 20 
 
-            # 당일 최고가 계산 
-            _today_high_price = max([ item[current_price_index] for item in _today_min_list] )
-
-            # 직전 4일봉 가장 낮은 현재가 계산
-            _last_4min_min_price  = min([ item[current_price_index] for item in _4min_list])
 
             # 0번의 경우 현재봉을 뜻하며, TR 요청을 계속 하게 되는 경우 정확해짐 
             # 현재봉의 경우 3분마다 요청하므로 데이터가 정확하지 않음 
@@ -842,18 +828,38 @@ class KiwoomConditon(QObject):
             last_min_amount = jongmok_info_dict[key_minute_candle][1][amount_index]
             last_min_price = jongmok_info_dict[key_minute_candle][1][current_price_index]
 
-            jang_choban_time = datetime.time( hour = 9, minute = 30 )
+            jang_choban_time = datetime.time( hour = AUTO_TRADING_OPERATION_TIME[0][0][0] + 1, minute = 30 )
 
             if( jang_choban_time > self.currentTime.time()):
+                ##########################################################################################################
                 # 9시 30분 이전
                 if( maedoHoga1 > _5min_avr and maedoHoga1 > last_min_price):
                     pass
                 else:
                     return_vals.append(False)
             else:
+                ##########################################################################################################
                 # 9시 30분 이후
-                # 직전 4봉이 당일 고가위에 가격 형성된 경우 
-                if( _last_4min_min_price > _today_high_price ):
+                # 직전 2봉이 당일 고가위에 가격 형성된 경우 확인 
+
+                _today_min_list = []
+                for item in jongmok_info_dict[key_minute_candle][3:]:
+                    # 최근 2봉 제외  
+                    # 20191104145500 형식 
+                    item_date = datetime.datetime.strptime(item[time_index], '%Y%m%d%H%M%S').date() 
+                    # print(item_date)
+                    if( item_date >= self.currentTime.date()) :
+                        # print(item)
+                        _today_min_list.append(item)
+
+                # 당일 최고가 계산 
+                _today_high_price = max([ item[current_price_index] for item in _today_min_list], default = 99999999 )
+
+                # 직전 2봉 가장 낮은 현재가 계산
+                # print( '{} last 2 candle: {}'.format(jongmok_name , _4min_list[:2] ) )
+                _last_2min_min_price  = min([ item[current_price_index] for item in _4min_list[:2]])
+
+                if( _last_2min_min_price > _today_high_price ):
                     pass
                 else:
                     return_vals.append(False)
@@ -1684,7 +1690,7 @@ class KiwoomConditon(QObject):
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행한 것임  
                 self.jangoInfo.pop(jongmok_code)
-                self.removeConditionOccurList(jongmok_code)
+                # self.removeConditionOccurList(jongmok_code)
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했으며 이에 TR 요청에 대한 대기 시간 필요 
                 self.sigWaitTr.emit()
