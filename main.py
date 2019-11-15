@@ -21,7 +21,7 @@ AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작�
 CONDITION_NAME = '단타' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 # CONDITION_NAME = '장후반' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 
-TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+TOTAL_BUY_AMOUNT = 50000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 100000 # 추가 매수 기본 단위 
 
@@ -760,12 +760,12 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 매도 호가 잔량 확인해  살만큼 있는 경우 매수  
         # 매도 2호가까지 봄 
-        # totalMaedoHogaAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
-        # if( totalMaedoHogaAmount >= TOTAL_BUY_AMOUNT):
-        #     pass 
-        # else:
-        #     printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
-        #     return_vals.append(False)
+        totalMaedoHogaAmount = maedoHoga1 * maedoHogaAmount1 + maedoHoga2 * maedoHogaAmount2
+        if( totalMaedoHogaAmount >= TOTAL_BUY_AMOUNT):
+            pass 
+        else:
+            printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
+            # return_vals.append(False)
 
         ##########################################################################################################
         # 기존에 이미 매도 발생하거나, 
