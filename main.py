@@ -39,8 +39,8 @@ MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  4,             4,               4,                4,               4] 
-STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,               -3,              -3]
+STOP_PLUS_PER_MAESU_COUNT = [  3,             3,               3,                3,               3] 
+STOP_LOSS_PER_MAESU_COUNT = [ -2,            -2,              -2,               -2,              -2]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -666,7 +666,7 @@ class KiwoomConditon(QObject):
         if( maesu_count < BUNHAL_MAESU_LIMIT ):
             pass
         else:
-            printLog += '(추가매수한계)'
+            printLog += '(분할매수한계)'
             return_vals.append(False)
 
 
@@ -1585,7 +1585,7 @@ class KiwoomConditon(QObject):
                     ##########################################################################################################
                     # 9시 30분 이후
                     # 수익시 10일선 터치 손절 
-                    if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
+                    if( maesuHoga1 >  maeipga * 1.02 ):
                         stop_plus = 1
                     #  손해시 5일선 터치 손절 
                     elif( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
