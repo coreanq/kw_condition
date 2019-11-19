@@ -1560,10 +1560,10 @@ class KiwoomConditon(QObject):
             # if( _5day_avr < _10day_avr ):
             #     stop_loss = 99999999
 
+
         ########################################################################################
         # 분봉 연산
         # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
-
         if( key_minute_candle in current_jango ):  # 분봉 정보 얻었는지 확인 
             if( len( current_jango[key_minute_candle] )  ==  MAX_SAVE_CANDLE_COUNT ):  # 분봉 정보 갯수 확인 
                 current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
@@ -1577,6 +1577,15 @@ class KiwoomConditon(QObject):
                 _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maesuHoga1) / 10
                 _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maesuHoga1) / 20 
 
+                #  손해시 5일선 터치 손절 
+                if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
+                    stop_loss = 99999999
+                    pass
+                #  수익시 10 일선 터치 손절 
+                if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
+                    stop_plus = 1
+                    pass
+
                 jang_choban_time = datetime.time( hour = 9, minute = 30 )
 
                 if( jang_choban_time > self.currentTime.time()):
@@ -1589,24 +1598,17 @@ class KiwoomConditon(QObject):
                     pass
                 else:
                     ##########################################################################################################
-                    # 9시 30분 이후
+                    # 9시 30분 이후 적게 먹음 
                     # if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
                     # if( maesuHoga1 >  maeipga * 1.02 ):
                     #     stop_plus = 1
+                    #     pass
                     # #  10일선 터치 손절 
                     # elif( maesuHoga1 < _10min_avr ):
                     #     stop_loss = 99999999
                         # pass
                     pass
 
-                #  손해시 5일선 터치 손절 
-                if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
-                    stop_loss = 99999999
-                    pass
-                #  수익시 10 일선 터치 손절 
-                if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
-                    stop_plus = 1
-                    pass
 
         ########################################################################################
 
