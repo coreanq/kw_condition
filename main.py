@@ -39,8 +39,8 @@ MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  3,             3,               3,                3,               3] 
-STOP_LOSS_PER_MAESU_COUNT = [ -2,            -2,              -2,               -2,              -2]
+STOP_PLUS_PER_MAESU_COUNT = [  8,             8,               8,                8,               8] 
+STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,               -3,              -3]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -764,6 +764,7 @@ class KiwoomConditon(QObject):
         if( totalMaedoHogaAmount >= TOTAL_BUY_AMOUNT):
             pass 
         else:
+            print('(호가수량부족: 매도호가1 {} 매도호가잔량1 {} 매도호가2 {} 매도호가잔량2 {})'.format(maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2))
             printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
             # return_vals.append(False)
 
@@ -862,9 +863,13 @@ class KiwoomConditon(QObject):
 
                 # 직전 2봉 가장 낮은 현재가 계산
                 # print( '{} last 2 candle: {}'.format(jongmok_name , _4min_list[:2] ) )
-                _last_2min_min_price  = min([ item[current_price_index] for item in _4min_list[:2]])
+                _last_2min_candles = [ item[current_price_index] for item in _4min_list[:2]]
+                _last_2min_min_price  = min(_last_2min_candles)
 
-                if( _last_2min_min_price > _today_high_price and maedoHoga1 > _5min_avr and maedoHoga1 > last_min_price ):
+                if( _last_2min_min_price > _today_high_price and
+                    _last_2min_candles[0] > _last_2min_candles[1] and   # 직전 2봉 정배열
+                    maedoHoga1 > _5min_avr and 
+                    maedoHoga1 > last_min_price ):
                     pass
                 else:
                     return_vals.append(False)
@@ -1578,19 +1583,30 @@ class KiwoomConditon(QObject):
                     ##########################################################################################################
                     # 9시 30분 이전
                     #  손해시 5일선 터치 손절 
-                    if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
-                        stop_loss = 99999999
-                        pass
+                    # if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
+                    #     stop_loss = 99999999
+                    #     pass
+                    pass
                 else:
                     ##########################################################################################################
                     # 9시 30분 이후
-                    # 수익시 10일선 터치 손절 
-                    if( maesuHoga1 >  maeipga * 1.02 ):
-                        stop_plus = 1
-                    #  손해시 5일선 터치 손절 
-                    elif( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
-                        stop_loss = 99999999
-                        pass
+                    # if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
+                    # if( maesuHoga1 >  maeipga * 1.02 ):
+                    #     stop_plus = 1
+                    # #  10일선 터치 손절 
+                    # elif( maesuHoga1 < _10min_avr ):
+                    #     stop_loss = 99999999
+                        # pass
+                    pass
+
+                #  손해시 5일선 터치 손절 
+                if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
+                    stop_loss = 99999999
+                    pass
+                #  수익시 10 일선 터치 손절 
+                if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
+                    stop_plus = 1
+                    pass
 
         ########################################################################################
 
