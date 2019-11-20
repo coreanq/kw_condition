@@ -39,8 +39,8 @@ MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  8,             8,               8,                8,               8] 
-STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,               -3,              -3]
+STOP_PLUS_PER_MAESU_COUNT = [  10,            10,              10,               10,              10] 
+STOP_LOSS_PER_MAESU_COUNT = [ -4,            -4,              -4,               -4,              -4]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -764,7 +764,7 @@ class KiwoomConditon(QObject):
         if( totalMaedoHogaAmount >= TOTAL_BUY_AMOUNT):
             pass 
         else:
-            print('(호가수량부족: 매도호가1 {} 매도호가잔량1 {} 매도호가2 {} 매도호가잔량2 {})'.format(maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2))
+            print('{} (호가수량부족: 매도호가1 {} 매도호가잔량1 {} 매도호가2 {} 매도호가잔량2 {})'.format(jongmok_name, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2))
             printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
             # return_vals.append(False)
 
@@ -781,7 +781,7 @@ class KiwoomConditon(QObject):
         # # 종목 등락율을 조건 적용 
         #  +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage < 20 ):
+        if( updown_percentage < 15 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -1577,14 +1577,25 @@ class KiwoomConditon(QObject):
                 _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maesuHoga1) / 10
                 _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maesuHoga1) / 20 
 
-                #  손해시 5일선 터치 손절 
-                if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
-                    stop_loss = 99999999
+                last_min_low_price = current_jango[key_minute_candle][1]
+
+
+                #  직전봉 저가 터치 손절 
+                if( maesuHoga1 < last_min_low_price ):
+                    if( maesuHoga1 > maeipga * 1.01 ):
+                        stop_plus = 1
+                    else:
+                        stop_loss = 99999999
                     pass
+
+                #  손해시 직전봉 5일선 터치 손절 
+                # if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
+                #     stop_loss = 99999999
+                #     pass
                 #  수익시 10 일선 터치 손절 
-                if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
-                    stop_plus = 1
-                    pass
+                # if( maesuHoga1 >  maeipga * 1.01 and maesuHoga1 < _10min_avr ):
+                #     stop_plus = 1
+                #     pass
 
                 jang_choban_time = datetime.time( hour = 9, minute = 30 )
 
