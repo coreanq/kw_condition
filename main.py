@@ -17,6 +17,7 @@ from mainwindow_ui import Ui_MainWindow
 ###################################################################################################
 
 AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
+JANG_CHOBAN_TIME = [ AUTO_TRADING_OPERATION_TIME[0][0][0] + 1, 10 ]
 
 CONDITION_NAME = '단타' #키움증권 HTS 에서 설정한 조건 검색 식 이름
 # CONDITION_NAME = '장후반' #키움증권 HTS 에서 설정한 조건 검색 식 이름
@@ -764,7 +765,8 @@ class KiwoomConditon(QObject):
         if( totalMaedoHogaAmount >= TOTAL_BUY_AMOUNT):
             pass 
         else:
-            print('{} (호가수량부족: 매도호가1 {} 매도호가잔량1 {} 매도호가2 {} 매도호가잔량2 {})'.format(jongmok_name, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2))
+            # print('{} (호가수량부족: 매도호가1 {} 매도호가잔량1 {} 매도호가2 {} 매도호가잔량2 {})'.format(jongmok_name, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2))
+            print("*", end='')
             printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
             # return_vals.append(False)
 
@@ -833,7 +835,7 @@ class KiwoomConditon(QObject):
             last_min_amount = jongmok_info_dict[key_minute_candle][1][amount_index]
             last_min_price = jongmok_info_dict[key_minute_candle][1][current_price_index]
 
-            jang_choban_time = datetime.time( hour = AUTO_TRADING_OPERATION_TIME[0][0][0] + 1, minute = 30 )
+            jang_choban_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
 
             if( jang_choban_time > self.currentTime.time()):
                 ##########################################################################################################
@@ -1582,6 +1584,7 @@ class KiwoomConditon(QObject):
 
                 #  직전봉 저가 터치 손절 
                 if( maesuHoga1 < last_min_low_price ):
+                    print("매도 {} 직전 저가 {}".format(jongmok_name, last_min_low_price))
                     if( maesuHoga1 > maeipga * 1.01 ):
                         stop_plus = 1
                     else:
@@ -1597,7 +1600,7 @@ class KiwoomConditon(QObject):
                 #     stop_plus = 1
                 #     pass
 
-                jang_choban_time = datetime.time( hour = 9, minute = 30 )
+                jang_choban_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
 
                 if( jang_choban_time > self.currentTime.time()):
                     ##########################################################################################################
