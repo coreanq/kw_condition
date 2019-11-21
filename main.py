@@ -19,9 +19,6 @@ from mainwindow_ui import Ui_MainWindow
 AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
 JANG_CHOBAN_TIME = [ AUTO_TRADING_OPERATION_TIME[0][0][0] + 1, 10 ]
 
-CONDITION_NAME = '단타' #키움증권 HTS 에서 설정한 조건 검색 식 이름
-# CONDITION_NAME = '장후반' #키움증권 HTS 에서 설정한 조건 검색 식 이름
-
 TOTAL_BUY_AMOUNT = 50000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 100000 # 추가 매수 기본 단위 
@@ -36,7 +33,7 @@ STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절 계�
 
 REQUEST_MINUTE_CANDLE_TYPE = 3  # 운영중 요청할 분봉 종류 -1 의 경우 분봉 요청 안함 
 
-MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장할지 결정 
+MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장할지 결정 하루 분봉 기준 130 
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
@@ -76,8 +73,7 @@ class KiwoomConditon(QObject):
     sigTryConnect = pyqtSignal()
     sigGetConditionCplt = pyqtSignal()
     sigSelectCondition = pyqtSignal()
-    sigWaitingTrade = pyqtSignal()
-    sigRefreshCondition = pyqtSignal()
+    sigReselectCondition = pyqtSignal()
 
     sigStateStop = pyqtSignal()
     sigStockComplete = pyqtSignal()
@@ -126,6 +122,7 @@ class KiwoomConditon(QObject):
         self.createConnection()
         self.currentTime = datetime.datetime.now()
         self.systemTick = 0
+        self.current_condition_name = ''
 
         # 잔고 정보 저장시 저장 제외될 키 값들 
         self.jango_remove_keys = [ 
@@ -168,11 +165,10 @@ class KiwoomConditon(QObject):
         initSystemState.addTransition(self.sigGetConditionCplt, requestingJangoSystemState)
         requestingJangoSystemState.addTransition(self.sigRequestJangoComplete, waitingTradeSystemState)
 
-        waitingTradeSystemState.addTransition(self.sigWaitingTrade, waitingTradeSystemState )
         waitingTradeSystemState.addTransition(self.sigSelectCondition, standbySystemState)
 
-        standbySystemState.addTransition(self.sigRefreshCondition, initSystemState)
         standbySystemState.addTransition(self.sigTerminating,  terminatingSystemState )
+        standbySystemState.addTransition(self.sigReselectCondition, waitingTradeSystemState )
         
         #state entered slot connect
         mainState.entered.connect(self.mainStateEntered)
@@ -425,6 +421,13 @@ class KiwoomConditon(QObject):
         pass
 
     @pyqtSlot()
+    def requestingJangoSystemStateEntered(self):
+        # print(util.whoami() )
+        # 계좌 정보 조회 
+        self.requestOpw00018(self.account_list[0], "0")
+        pass 
+
+    @pyqtSlot()
     def waitingTradeSystemStateEntered(self):
         # 장시작 전에 조건이 시작하도록 함 
         self.sigSelectCondition.emit()       
@@ -441,20 +444,14 @@ class KiwoomConditon(QObject):
         
         condition_num = 0 
         for number, condition in tempDict.items():
-            if condition == CONDITION_NAME:
+            if condition == self.current_condition_name:
                     condition_num = int(number)
-        print("select condition" + kw_util.sendConditionScreenNo, CONDITION_NAME)
-        self.sendCondition(kw_util.sendConditionScreenNo, CONDITION_NAME, condition_num,   1)
+        print("select condition" + kw_util.sendConditionScreenNo, self.current_condition_name)
+        self.sendCondition(kw_util.sendConditionScreenNo, self.current_condition_name, condition_num,   1)
             
 
         pass
 
-    @pyqtSlot()
-    def requestingJangoSystemStateEntered(self):
-        # print(util.whoami() )
-        # 계좌 정보 조회 
-        self.requestOpw00018(self.account_list[0], "0")
-        pass 
 
     @pyqtSlot()
     def standbySystemStateEntered(self):
@@ -544,6 +541,9 @@ class KiwoomConditon(QObject):
 
             if( last_request_time_str != ''):
                 last_request_time = datetime.datetime.strptime(last_request_time_str, "%Y%m%d%H%M%S") 
+                # 초 정보 초기화 
+                last_request_time = last_request_time.replace(second = 0)
+
                 time_span = datetime.timedelta(minutes = REQUEST_MINUTE_CANDLE_TYPE)
                 expected_time = (last_request_time + time_span)
 
@@ -766,7 +766,6 @@ class KiwoomConditon(QObject):
             pass 
         else:
             # print('{} (호가수량부족: 매도호가1 {} 매도호가잔량1 {} 매도호가2 {} 매도호가잔량2 {})'.format(jongmok_name, maedoHoga1, maedoHogaAmount1, maedoHoga2, maedoHogaAmount2))
-            print("*", end='')
             printLog += '(호가수량부족: 매도호가1 {0} 매도호가잔량1 {1})'.format(maedoHoga1, maedoHogaAmount1)
             # return_vals.append(False)
 
@@ -863,13 +862,13 @@ class KiwoomConditon(QObject):
                 # 당일 최고가 계산 
                 _today_high_price = max([ item[high_price_index] for item in _today_min_list], default = 99999999 )
 
-                # 직전 2봉 가장 낮은 현재가 계산
+                # 직전 봉 가장 낮은 현재가 계산
                 # print( '{} last 2 candle: {}'.format(jongmok_name , _4min_list[:2] ) )
-                _last_2min_candles = [ item[current_price_index] for item in _4min_list[:2]]
+                _last_2min_candles = [ item[current_price_index] for item in _4min_list[:1]]
                 _last_2min_min_price  = min(_last_2min_candles)
 
                 if( _last_2min_min_price > _today_high_price and
-                    _last_2min_candles[0] > _last_2min_candles[1] and   # 직전 2봉 정배열
+                    # _last_2min_candles[0] > _last_2min_candles[1] and   # 직전 2봉 정배열
                     maedoHoga1 > _5min_avr and 
                     maedoHoga1 > last_min_price ):
                     pass
@@ -1257,6 +1256,16 @@ class KiwoomConditon(QObject):
     def onTimerSystemTimeout(self):
         self.systemTick = self.systemTick + 1
         self.currentTime = datetime.datetime.now()
+
+        jang_choban_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
+
+        if( jang_choban_time > self.currentTime.time() ):
+            self.current_condition_name = "단타"
+        elif( self.current_condition_name != "장후반"):
+            # 한번발생해야함
+            self.current_condition_name = "장후반"
+            self.sigReselectCondition.emit()
+
         if( self.getConnectState() != 1 ):
             util.save_log("Disconnected!", "시스템", folder = "log")
             self.sigDisconnected.emit() 
