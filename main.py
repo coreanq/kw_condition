@@ -38,7 +38,7 @@ MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
 STOP_PLUS_PER_MAESU_COUNT = [  10,            10,              10,               10,              10] 
-STOP_LOSS_PER_MAESU_COUNT = [ -4,            -4,              -4,               -4,              -4]
+STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,               -3,              -3]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -121,7 +121,6 @@ class KiwoomConditon(QObject):
         self.createState()
         self.createConnection()
         self.currentTime = datetime.datetime.now()
-        self.systemTick = 0
         self.current_condition_name = ''
 
         # 잔고 정보 저장시 저장 제외될 키 값들 
@@ -816,6 +815,7 @@ class KiwoomConditon(QObject):
 
             current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
             high_price_index = kw_util.dict_jusik['TR:분봉'].index('고가')
+            open_price_index = kw_util.dict_jusik['TR:분봉'].index('시가')
             amount_index  =  kw_util.dict_jusik['TR:분봉'].index('거래량')
             time_index  =  kw_util.dict_jusik['TR:분봉'].index('체결시간')
 
@@ -832,14 +832,22 @@ class KiwoomConditon(QObject):
             # 현재봉의 경우 3분마다 요청하므로 데이터가 정확하지 않음 
             # 직전봉으로 함
             last_min_amount = jongmok_info_dict[key_minute_candle][1][amount_index]
-            last_min_price = jongmok_info_dict[key_minute_candle][1][current_price_index]
+            last_min_current_price = jongmok_info_dict[key_minute_candle][1][current_price_index]
+            current_min_open_price = jongmok_info_dict[key_minute_candle][0][open_price_index]
+
 
             jang_choban_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
 
             if( jang_choban_time > self.currentTime.time()):
                 ##########################################################################################################
                 # 9시 30분 이전
-                if( maedoHoga1 > _5min_avr and maedoHoga1 > last_min_price):
+                if( 
+                    maedoHoga1 > _5min_avr  
+                    and maedoHoga1 > last_min_current_price 
+                    # and maedoHoga1 > current_min_open_price * 0.99 
+                    # and maedoHoga1 < current_min_open_price * 1.01 
+                    ):
+
                     pass
                 else:
                     return_vals.append(False)
@@ -867,10 +875,13 @@ class KiwoomConditon(QObject):
                 _last_2min_candles = [ item[current_price_index] for item in _4min_list[:1]]
                 _last_2min_min_price  = min(_last_2min_candles)
 
-                if( _last_2min_min_price > _today_high_price and
-                    # _last_2min_candles[0] > _last_2min_candles[1] and   # 직전 2봉 정배열
-                    maedoHoga1 > _5min_avr and 
-                    maedoHoga1 > last_min_price ):
+                if( _last_2min_min_price > _today_high_price 
+                    # and _last_2min_candles[0] > _last_2min_candles[1]    # 직전 2봉 정배열
+                    and maedoHoga1 > _5min_avr  
+                    and maedoHoga1 > last_min_current_price 
+                    # and maedoHoga1 > current_min_open_price * 0.99 
+                    # and maedoHoga1 < current_min_open_price * 1.01 
+                    ):
                     pass
                 else:
                     return_vals.append(False)
@@ -1254,7 +1265,7 @@ class KiwoomConditon(QObject):
 
     @pyqtSlot()
     def onTimerSystemTimeout(self):
-        self.systemTick = self.systemTick + 1
+
         self.currentTime = datetime.datetime.now()
 
         jang_choban_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
