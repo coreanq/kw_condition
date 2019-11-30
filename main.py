@@ -37,7 +37,7 @@ MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  10,            10,              10,               10,              10] 
+STOP_PLUS_PER_MAESU_COUNT = [  8,            8,               8,               8,               8] 
 STOP_LOSS_PER_MAESU_COUNT = [ -4,            -4,              -4,               -4,              -4]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
@@ -444,8 +444,12 @@ class KiwoomConditon(QObject):
         condition_num = 0 
         for number, condition in tempDict.items():
             if condition == self.current_condition_name:
-                    condition_num = int(number)
-        print("select condition" + kw_util.sendConditionScreenNo, self.current_condition_name)
+                condition_num = int(number)
+            else: 
+                print("stop condition {}".format( condition))
+                self.sendConditionStop(kw_util.sendConditionScreenNo, condition, number)
+        # 정지 명령 모두 끝나고 시작 
+        print("start condition " + kw_util.sendConditionScreenNo, self.current_condition_name)
         self.sendCondition(kw_util.sendConditionScreenNo, self.current_condition_name, condition_num,   1)
             
 
@@ -456,7 +460,8 @@ class KiwoomConditon(QObject):
     def standbySystemStateEntered(self):
         print(util.whoami() )
         self.makeJangoInfoFile()
-        QTimer.singleShot( TR_TIME_LIMIT_MS * 2, self.sigStartProcessBuy)
+        # 연속으로 최대 5개 가능하므로 5개까지 기다림 
+        QTimer.singleShot( TR_TIME_LIMIT_MS * 5, self.sigStartProcessBuy)
         pass
 
     @pyqtSlot()
@@ -843,9 +848,11 @@ class KiwoomConditon(QObject):
                 # 9시 30분 이전
                 if( 
                     maedoHoga1 > _5min_avr  
-                    and maedoHoga1 > last_min_current_price 
+                    # and maedoHoga1 > last_min_current_price 
                     and maedoHoga1 > current_min_open_price * 0.99 
                     and maedoHoga1 < current_min_open_price * 1.01 
+                    # and maedoHoga1 > last_min_current_price * 0.99 
+                    # and maedoHoga1 < last_min_current_price * 1.01 
                     ):
 
                     pass
@@ -876,13 +883,12 @@ class KiwoomConditon(QObject):
                 _last_2min_min_price  = min(_last_2min_candles)
 
                 if( 
-                    _last_2min_min_price < _today_high_price  * 0.98
-                    and _last_2min_min_price > _today_high_price  * 0.97
+                    maedoHoga1 > _5min_avr  
+                    # and maedoHoga1 > last_min_current_price 
+                    and maedoHoga1 > _today_high_price  * 0.98
                     # and _last_2min_candles[0] > _last_2min_candles[1]    # 직전 2봉 정배열
-                    and maedoHoga1 > _5min_avr  
-                    and maedoHoga1 > last_min_current_price 
-                    # and maedoHoga1 > current_min_open_price * 0.99 
-                    # and maedoHoga1 < current_min_open_price * 1.01 
+                    and maedoHoga1 > last_min_current_price * 0.99 
+                    and maedoHoga1 < last_min_current_price * 1.01 
                     ):
                     pass
                 else:
@@ -1596,54 +1602,60 @@ class KiwoomConditon(QObject):
                 _4min_list = current_jango[key_minute_candle][1:5]
                 _9min_list = current_jango[key_minute_candle][1:10]
                 _19min_list = current_jango[key_minute_candle][1:20]
+                _59min_list = current_jango[key_minute_candle][1:60]
 
                 _5min_avr = ( sum([ item[current_price_index] for item in _4min_list])  + maesuHoga1) / 5
                 _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maesuHoga1) / 10
                 _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maesuHoga1) / 20 
+                _60min_avr = ( sum([ item[current_price_index] for item in _59min_list]) + maesuHoga1) / 60 
 
                 last_min_low_price = current_jango[key_minute_candle][1][low_price_index]
 
-
-
-                #  손해시 
-                if( 
-                    maesuHoga1 <  maeipga 
-                    and maesuHoga1 < last_min_low_price  # 직전봉 저가 터치 손절 
-                    # and maesuHoga1 < _5min_avr 
-                    ):
-                    print("매도 {} 직전 저가 {}".format(jongmok_name, last_min_low_price))
-                    stop_loss = 99999999
-                    pass
-                #  수익시                 
-                if( 
-                    maesuHoga1 >  maeipga * 1.01 
-                    and maesuHoga1 < _10min_avr # 10 일선 터치 손절 
-                    ):
-                    stop_plus = 1
-                    pass
-
                 jang_choban_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
 
-                if( jang_choban_time > self.currentTime.time()):
-                    ##########################################################################################################
-                    # 9시 30분 이전
-                    #  손해시 5일선 터치 손절 
-                    # if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
-                    #     stop_loss = 99999999
-                    #     pass
-                    pass
-                else:
-                    ##########################################################################################################
-                    # 9시 30분 이후 적게 먹음 
-                    # if( maesuHoga1 <  maeipga and maesuHoga1 < _5min_avr ):
-                    if( maesuHoga1 >  maeipga * 1.01 ):
-                        stop_plus = 1
+                #  손해시 
+                if( maesuHoga1 <  maeipga ):
+                    # print("매도 {} 직전 저가 {}".format(jongmok_name, last_min_low_price))
+
+                    if( jang_choban_time > self.currentTime.time()):
+                        ##########################################################################################################
+                        # 장초반    
+                        # if( maesuHoga1 <  last_min_low_price ):  # 직전봉 터치 손절 
+                        if( maesuHoga1 <  _10min_avr ):  # 10 선 터치 손절 
+                            stop_loss = 99999999
+                            pass
                         pass
-                    #  10일선 터치 손절 
-                    # elif( maesuHoga1 < _10min_avr ):
-                    #     stop_loss = 99999999
-                        # pass
+                    else:
+                        ##########################################################################################################
+                        # 장후반  
+                        # if( _5min_avr < _20min_avr ): #  5/20 데드 크로스 
+                    #     if( maesuHoga1 <  last_min_low_price ):  # 직전봉 터치 손절 
+                        if( maesuHoga1 <  _10min_avr ):  # 10 선 터치 손절 
+                            stop_loss = 99999999
+                            pass
+                        pass
+
                     pass
+                #  수익시                 
+                if( maesuHoga1 >  maeipga * 1.01 ):
+                    if( jang_choban_time > self.currentTime.time()):
+                        ##########################################################################################################
+                        # 장초반    
+                        if( maesuHoga1 <  _10min_avr ):  # 10 선 터치 손절 
+                            stop_plus = 1
+                            pass
+                        pass
+                    else:
+                        ##########################################################################################################
+                        # 장후반  
+                        # if( maesuHoga1 <  last_min_low_price ):  # 직전봉 터치 손절 
+                        if( maesuHoga1 <  _10min_avr ):  # 10 선 터치 손절 
+                        # if( maesuHoga1 <  _5min_avr ):  # 5 선 터치 손절 
+                            stop_plus = 1
+                            pass
+                        pass
+                    pass
+
 
 
         ########################################################################################
