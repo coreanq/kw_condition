@@ -37,8 +37,8 @@ MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  8,            8,               8,               8,               8] 
-STOP_LOSS_PER_MAESU_COUNT = [ -4,            -4,              -4,               -4,              -4]
+STOP_PLUS_PER_MAESU_COUNT = [  9,            9,               9,               9,               9] 
+STOP_LOSS_PER_MAESU_COUNT = [ -3,            -3,              -3,               -3,              -3]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -845,12 +845,12 @@ class KiwoomConditon(QObject):
 
             if( jang_choban_time > self.currentTime.time()):
                 ##########################################################################################################
-                # 9시 30분 이전
+                # 장초반  
                 if( 
                     maedoHoga1 > _5min_avr  
                     # and maedoHoga1 > last_min_current_price 
-                    and maedoHoga1 > current_min_open_price * 0.99 
-                    and maedoHoga1 < current_min_open_price * 1.01 
+                    # and maedoHoga1 > current_min_open_price * 0.99 
+                    # and maedoHoga1 < current_min_open_price * 1.01 
                     # and maedoHoga1 > last_min_current_price * 0.99 
                     # and maedoHoga1 < last_min_current_price * 1.01 
                     ):
@@ -885,10 +885,10 @@ class KiwoomConditon(QObject):
                 if( 
                     maedoHoga1 > _5min_avr  
                     # and maedoHoga1 > last_min_current_price 
-                    and maedoHoga1 > _today_high_price  * 0.98
-                    # and _last_2min_candles[0] > _last_2min_candles[1]    # 직전 2봉 정배열
-                    and maedoHoga1 > last_min_current_price * 0.99 
-                    and maedoHoga1 < last_min_current_price * 1.01 
+                    and maedoHoga1 > _today_high_price  * 1.00
+                    # and last_min_current_price > _today_high_price * 1.00
+                    # and maedoHoga1 > last_min_current_price * 0.99 
+                    # and maedoHoga1 < last_min_current_price * 1.01 
                     ):
                     pass
                 else:
@@ -1610,50 +1610,41 @@ class KiwoomConditon(QObject):
                 _60min_avr = ( sum([ item[current_price_index] for item in _59min_list]) + maesuHoga1) / 60 
 
                 last_min_low_price = current_jango[key_minute_candle][1][low_price_index]
+                last_min_current_price = current_jango[key_minute_candle][1][current_price_index]
 
                 jang_choban_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
 
                 #  손해시 
                 if( maesuHoga1 <  maeipga ):
                     # print("매도 {} 직전 저가 {}".format(jongmok_name, last_min_low_price))
-
-                    if( jang_choban_time > self.currentTime.time()):
-                        ##########################################################################################################
-                        # 장초반    
-                        # if( maesuHoga1 <  last_min_low_price ):  # 직전봉 터치 손절 
-                        if( maesuHoga1 <  _10min_avr ):  # 10 선 터치 손절 
-                            stop_loss = 99999999
-                            pass
+                    ##########################################################################################################
+                    if( 
+                        maesuHoga1 < _10min_avr                  # 현재봉 10일선 터치
+                        # and maesuHoga1 <  last_min_low_price   # 직전봉 터치 손절 
+                        # _5min_avr < _20min_avr                 # 5/20 데드 크로스 
+                        and last_min_current_price < _10min_avr  # 직전봉 10일선 터치
+                        ):  
+                        stop_loss = 99999999
                         pass
-                    else:
-                        ##########################################################################################################
-                        # 장후반  
-                        # if( _5min_avr < _20min_avr ): #  5/20 데드 크로스 
-                    #     if( maesuHoga1 <  last_min_low_price ):  # 직전봉 터치 손절 
-                        if( maesuHoga1 <  _10min_avr ):  # 10 선 터치 손절 
-                            stop_loss = 99999999
-                            pass
-                        pass
-
                     pass
+
                 #  수익시                 
                 if( maesuHoga1 >  maeipga * 1.01 ):
-                    if( jang_choban_time > self.currentTime.time()):
-                        ##########################################################################################################
-                        # 장초반    
-                        if( maesuHoga1 <  _10min_avr ):  # 10 선 터치 손절 
-                            stop_plus = 1
-                            pass
+                    ##########################################################################################################
+                    # 장초반
+                    # if( jang_choban_time > self.currentTime.time() )
+                    #     pass
+                    # 장후반  
+                    if( 
+                        # maesuHoga1 <  _10min_avr                   # 10 선 터치 손절 
+                        # maesuHoga1 <  _5min_avr                    # 5 선 터치 손절 
+                        maesuHoga1 <  last_min_low_price           # 직전저가 터치 손절 
+                        # maesuHoga1 < _10min_avr                  # 현재봉 10일선 터치
+                        # and last_min_current_price < _10min_avr  # 직전봉 10일선 터치
+                        ):  
+                        stop_plus = 1
                         pass
-                    else:
-                        ##########################################################################################################
-                        # 장후반  
-                        # if( maesuHoga1 <  last_min_low_price ):  # 직전봉 터치 손절 
-                        if( maesuHoga1 <  _10min_avr ):  # 10 선 터치 손절 
-                        # if( maesuHoga1 <  _5min_avr ):  # 5 선 터치 손절 
-                            stop_plus = 1
-                            pass
-                        pass
+                    pass
                     pass
 
 
