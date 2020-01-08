@@ -807,38 +807,27 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 당일 분봉 확인 
-        # _today_min_list = []
-        # for item in jongmok_info_dict[key_minute_candle][1:]:
-        #     # 현재봉 제외  
-        #     # 20191104145500 형식 
-        #     item_date = datetime.datetime.strptime(item[time_index], '%Y%m%d%H%M%S').date() 
-        #     # print(item_date)
-        #     # 당일 봉만 포함 
-        #     if( item_date >= self.currentTime.date()) :
-        #         # print(item)
-        #         _today_min_list.append(item)
+        _today_min_list = []
+        for item in jongmok_info_dict[key_minute_candle][1:]:
+            # 현재봉 제외  
+            # 20191104145500 형식 
+            item_date = datetime.datetime.strptime(item[time_index], '%Y%m%d%H%M%S').date() 
+            # print(item_date)
+            # 당일 봉만 포함 
+            if( item_date >= self.currentTime.date()) :
+                # print(item)
+                _today_min_list.append(item)
 
-        # # 당일 최고가 계산 
-        # _today_high_price = max([ item[high_price_index] for item in _today_min_list], default = 99999999 )
+        # 당일 최고가 계산 
+        _today_high_price = max([ item[high_price_index] for item in _today_min_list], default = 99999999 )
 
-        # # 당일 최고 거래량 계산 
-        # _today_high_amount = max([ item[amount_index] for item in _today_min_list], default = 9999999999 )
+        # 당일 최고 거래량 계산 
+        _today_high_amount = max([ item[amount_index] for item in _today_min_list], default = 9999999999 )
 
-        # if( 
-        #     maedoHoga1 > _5min_avr  
-        #     and maedoHoga1 > last_min_current_price 
-        #     # and last_min_current_price > _today_high_price  * 1.00
-        #     # and last_min_amount > _today_high_amount  * 1.00
-        #     # and maedoHoga1 > last_min_current_price * 0.99 
-        #     # and maedoHoga1 < last_min_current_price * 1.01 
-        #     ):
-        #     pass
-        # else:
-        #     return_vals.append(False)
-
-
-
-
+        # 당일 시작가 계산 
+        _today_open_price = 0
+        if( len(_today_min_list) > 0 ):
+            _today_open_price = _today_min_list[-1][open_price_index]
 
         ##########################################################################################################
         # 매도 호가 잔량 확인해  살만큼 있는 경우 매수  
@@ -872,20 +861,28 @@ class KiwoomConditon(QObject):
         pass
 
 
-
-
-o
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
-            # jang_choban_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
-            if( 
-                maedoHoga1 > _5min_avr  
-                ):
+            if( self.currentTime != '장후반'):
+                if( 
+                    maedoHoga1 > _5min_avr  
+                    ):
 
-                pass
+                    pass
+                else:
+                    return_vals.append(False)
             else:
-                return_vals.append(False)
+                if( 
+                    maedoHoga1 > _5min_avr  
+                    and _today_high_price > _today_open_price
+                    and  _today_open_price * 1.02  < maedoHoga1 
+                    ):
+
+                    pass
+                else:
+                    return_vals.append(False)
+
 
 
         ##########################################################################################################
@@ -1270,13 +1267,29 @@ o
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
+        jang_choban_start_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
+        jang_choban_end_time = datetime.time( hour = 10, minute = 0 )
+        jang_jungban_start_time = datetime.time( hour = 12, minute = 0 )
 
-        if( jang_choban_time > self.currentTime.time() ):
+
+        current_time = self.currentTime.time()
+
+        isConditionRefreshed = False
+
+        if( current_time > jang_choban_start_time and current_time < jang_choban_end_time ):
+            if( self.current_condition_name != '단타' ):
+                isConditionRefreshed = True
             self.current_condition_name = "단타"
-        elif( self.current_condition_name != "장후반"):
-            # 한번발생해야함
+        elif( current_time > jang_jungban_start_time ):
+            if( self.current_condition_name != '장후반' ):
+                isConditionRefreshed = True
             self.current_condition_name = "장후반"
+        else:
+            if( self.current_condition_name != '휴식' ):
+                isConditionRefreshed = True
+            self.current_condition_name = "휴식"
+
+        if(isConditionRefreshed == True):
             self.sigReselectCondition.emit()
 
         if( self.getConnectState() != 1 ):
