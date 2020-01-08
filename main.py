@@ -864,7 +864,7 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
-            if( self.currentTime != '장후반'):
+            if( self.currentTime == '장초반'):
                 if( 
                     maedoHoga1 > _5min_avr  
                     ):
@@ -876,7 +876,7 @@ class KiwoomConditon(QObject):
                 if( 
                     maedoHoga1 > _5min_avr  
                     and _today_high_price > _today_open_price
-                    and  _today_open_price * 1.02  < maedoHoga1 
+                    and  _today_open_price < maedoHoga1 
                     ):
 
                     pass
@@ -1269,7 +1269,7 @@ class KiwoomConditon(QObject):
 
         jang_choban_start_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
         jang_choban_end_time = datetime.time( hour = 10, minute = 0 )
-        jang_jungban_start_time = datetime.time( hour = 12, minute = 0 )
+        jang_jungban_start_time = datetime.time( hour = 13, minute = 0 )
 
 
         current_time = self.currentTime.time()
@@ -1277,9 +1277,9 @@ class KiwoomConditon(QObject):
         isConditionRefreshed = False
 
         if( current_time > jang_choban_start_time and current_time < jang_choban_end_time ):
-            if( self.current_condition_name != '단타' ):
+            if( self.current_condition_name != '장초반' ):
                 isConditionRefreshed = True
-            self.current_condition_name = "단타"
+            self.current_condition_name = "장초반"
         elif( current_time > jang_jungban_start_time ):
             if( self.current_condition_name != '장후반' ):
                 isConditionRefreshed = True
