@@ -37,8 +37,8 @@ MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  9,            9,               9,               9,               9] 
-STOP_LOSS_PER_MAESU_COUNT = [ -20,         -20,              -20,            -20,              -20]
+STOP_PLUS_PER_MAESU_COUNT = [  5,            5,               5,               5,               5] 
+STOP_LOSS_PER_MAESU_COUNT = [ -10,         -10,              -10,            -10,              -10]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -853,7 +853,7 @@ class KiwoomConditon(QObject):
         # 종목 등락율을 조건 적용 
         #  +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage < 15  and updown_percentage > 0):
+        if( updown_percentage < 23  and updown_percentage > 0):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -876,6 +876,7 @@ class KiwoomConditon(QObject):
                 if( 
                     maedoHoga1 > _5min_avr  
                     and _today_high_price > _today_open_price
+                    # and  _today_open_price + ((_today_high_price - _today_open_price)/2) < maedoHoga1 
                     and  _today_open_price < maedoHoga1 
                     ):
 
@@ -1267,9 +1268,9 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = JANG_CHOBAN_TIME[0], minute = JANG_CHOBAN_TIME[1] )
+        jang_choban_start_time = datetime.time( hour = 9, minute = 0, second = 10 )
         jang_choban_end_time = datetime.time( hour = 10, minute = 0 )
-        jang_jungban_start_time = datetime.time( hour = 13, minute = 0 )
+        jang_jungban_start_time = datetime.time( hour = 14, minute = 0 )
 
 
         current_time = self.currentTime.time()
@@ -1628,7 +1629,7 @@ class KiwoomConditon(QObject):
         # 전일 종가 밑으로 떨어지면
         #  +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(current_jango['등락율']) 
-        if(  updown_percentage < 0 ):
+        if(  updown_percentage < -1 ):
             stop_loss = 99999999
             pass
 
