@@ -29,11 +29,11 @@ MAX_STOCK_POSSESION_COUNT = 10 # 제외 종목 리스트 불포함
 
 BUNHAL_MAESU_PROHIBIT_DAYS = 1 # 최근 ? 내에서는 분할 매수 금지
 
-STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절 계산
+STOP_LOSS_CALCULATE_DAY = 1   # 최근 ? 일간 특정 가격 기준으로 손절 계산
 
 REQUEST_MINUTE_CANDLE_TYPE = 3  # 운영중 요청할 분봉 종류 -1 의 경우 분봉 요청 안함 
 
-MAX_SAVE_CANDLE_COUNT = 150 # 일봉, 분봉을 몇봉까지 데이터로 저장할지 결정 하루 분봉 기준 130 
+MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저장 분봉 갯수 
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
@@ -1157,7 +1157,8 @@ class KiwoomConditon(QObject):
 
         total_current_price_list = []
 
-        for i in range(min(repeatCnt, 200)):
+        # 3분봉 기준 6.5 시간 * 20 = 130  
+        for i in range(min(repeatCnt, MAX_SAVE_CANDLE_COUNT)):
             line = []
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 result = self.getCommData("opt10080", rQName, i, item_name)
@@ -1168,13 +1169,11 @@ class KiwoomConditon(QObject):
                     line.append( result.strip() )
                 else:
                     line.append( abs(int(result.strip()) ))
-
-                    
                     pass
             total_current_price_list.append( line )
 
         key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
-        jongmok_info_dict[key_minute_candle] = total_current_price_list[:MAX_SAVE_CANDLE_COUNT]
+        jongmok_info_dict[key_minute_candle] = total_current_price_list
 
         if( jongmok_code in self.jangoInfo ):
             self.jangoInfo[jongmok_code][key_minute_candle] = jongmok_info_dict[key_minute_candle]
@@ -1599,15 +1598,18 @@ class KiwoomConditon(QObject):
             #     stop_loss = 99999999
             pass
 
+
         ########################################################################################
         # 분봉 연산
         # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
+        current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
+        low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
+        high_price_index  =  kw_util.dict_jusik['TR:분봉'].index('고가')
+        open_price_index  =  kw_util.dict_jusik['TR:분봉'].index('시가')
+        time_index  =  kw_util.dict_jusik['TR:분봉'].index('체결시간')
+
         if( key_minute_candle in current_jango ):  # 분봉 정보 얻었는지 확인 
             if( len( current_jango[key_minute_candle] )  ==  MAX_SAVE_CANDLE_COUNT ):  # 분봉 정보 갯수 확인 
-                current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
-                low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
-                high_price_index  =  kw_util.dict_jusik['TR:분봉'].index('고가')
-                open_price_index  =  kw_util.dict_jusik['TR:분봉'].index('시가')
 
                 _4min_list = current_jango[key_minute_candle][1:5]
                 _9min_list = current_jango[key_minute_candle][1:10]
@@ -1626,12 +1628,46 @@ class KiwoomConditon(QObject):
 
 
         ##########################################################################################################
-        # 전일 종가 밑으로 떨어지면
-        #  +, - 붙는 소수이므로 float 으로 먼저 처리 
-        updown_percentage = float(current_jango['등락율']) 
-        if(  updown_percentage < -1 ):
-            stop_loss = 99999999
-            pass
+        #  1일전 분봉 확인 
+        _yesterday_min_list = []
+        time_span = datetime.timedelta(days = 1)
+        expected_date = (self.currentTime.date() - time_span).date()
+
+        for item in current_jango[key_minute_candle]:
+            # 20191104145500 형식 
+            item_date = datetime.datetime.strptime(item[time_index], '%Y%m%d%H%M%S').date() 
+            # print(item_date)
+            # 특정 봉만 포함 
+
+            if( item_date == expected_date) :
+                # print(item)
+                _yesterday_min_list.append(item)
+
+        # 1일전 최고가 계산 
+        # _yesterday_high_price = max([ item[high_price_index] for item in _yesterday_min_list], default = 99999999 )
+
+        # 1일전 시작가 계산 
+        _yesterday_open_price = 0
+        if( len(_yesterday_min_list) > 0 ):
+            _yesterday_open_price = _yesterday_min_list[-1][open_price_index]
+
+
+        bunhal_maesu_history = current_jango['분할매수이력'][-1].split(':')[0]
+        bunhal_maesu_date = datetime.datetime.strptime( bunhal_maesu_history, '%Y%m%d%H%M%S').date()
+
+        if( expected_date >= bunhal_maesu_date ):
+            # 1일전 날짜가 최근 매수 날짜보다 크거나 같은 경우 1일전 시작가로 손절 책정 
+            stop_loss = _yesterday_open_price
+            stop_plus = 99999999
+        else:
+            # 당일 매수 종목 
+            ##########################################################################################################
+            # 전일 종가 밑으로 떨어지면
+            #  +, - 붙는 소수이므로 float 으로 먼저 처리 
+            updown_percentage = float(current_jango['등락율']) 
+            if(  updown_percentage < 0 ):
+                stop_loss = 99999999
+                pass
 
         ########################################################################################
 
@@ -1835,10 +1871,8 @@ class KiwoomConditon(QObject):
         # 기본 손절가 측정 
         gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
 
-        # ?일전 저가 손절 책정 
-        low_price_stoploss =  current_jango.get('{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY), 0)
-        print("종목이름:{}, 저가손절:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), low_price_stoploss, gibon_stoploss))
-
+        print("종목이름:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), gibon_stoploss))
+ 
         ###############################################################################################
         current_jango['손절가'] =  gibon_stoploss
         current_jango['이익실현가'] = round( maeip_price * (1 + ((stop_plus_percent + SLIPPAGE)/100) ) , 2)
