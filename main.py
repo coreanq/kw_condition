@@ -891,7 +891,9 @@ class KiwoomConditon(QObject):
         else:
             ##########################################################################################################
             # 최근 매입가 대비 비교하여 추매 
-            if(  last_maeip_price < maedoHoga1 and last_maeip_price < gijunga):
+            if(  last_maeip_price < maedoHoga1 
+                and maedoHoga1 > _5min_avr  
+                ):
                 # print("{:<30}".format(jongmok_name)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 pass            
             else:
@@ -1603,10 +1605,17 @@ class KiwoomConditon(QObject):
         # 분봉 연산
         # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
         current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
+        close_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
         low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
         high_price_index  =  kw_util.dict_jusik['TR:분봉'].index('고가')
         open_price_index  =  kw_util.dict_jusik['TR:분봉'].index('시가')
         time_index  =  kw_util.dict_jusik['TR:분봉'].index('체결시간')
+
+        time_span = datetime.timedelta(days = 1)
+        expected_date = (self.currentTime - time_span).date()
+        _yesterday_open_price = 0 
+        _yesterday_close_price = 0 
+        _yesterday_low_price = 0 
 
         if( key_minute_candle in current_jango ):  # 분봉 정보 얻었는지 확인 
             if( len( current_jango[key_minute_candle] )  ==  MAX_SAVE_CANDLE_COUNT ):  # 분봉 정보 갯수 확인 
@@ -1627,44 +1636,55 @@ class KiwoomConditon(QObject):
                 last_min_close_price = current_jango[key_minute_candle][1][current_price_index]
 
 
-        ##########################################################################################################
-        #  1일전 분봉 확인 
-        _yesterday_min_list = []
-        time_span = datetime.timedelta(days = 1)
-        expected_date = (self.currentTime.date() - time_span).date()
+            ##########################################################################################################
+            #  1일전 분봉 확인 
+            _yesterday_min_list = []
 
-        for item in current_jango[key_minute_candle]:
-            # 20191104145500 형식 
-            item_date = datetime.datetime.strptime(item[time_index], '%Y%m%d%H%M%S').date() 
-            # print(item_date)
-            # 특정 봉만 포함 
+            for item in current_jango[key_minute_candle]:
+                # 20191104145500 형식 
+                item_date = datetime.datetime.strptime(item[time_index], '%Y%m%d%H%M%S').date() 
+                # print(item_date)
+                # 특정 봉만 포함 
 
-            if( item_date == expected_date) :
-                # print(item)
-                _yesterday_min_list.append(item)
+                # 공휴일 주말 끼는 경우를 대비해 최근 item_date 기준으로 삼음 
+                if( len( _yesterday_min_list) == 0 and  item_date <= expected_date ):
+                    expected_date = item_date
 
-        # 1일전 최고가 계산 
-        # _yesterday_high_price = max([ item[high_price_index] for item in _yesterday_min_list], default = 99999999 )
+                if( item_date == expected_date) :
+                    _yesterday_min_list.append(item)
 
-        # 1일전 시작가 계산 
-        _yesterday_open_price = 0
-        if( len(_yesterday_min_list) > 0 ):
-            _yesterday_open_price = _yesterday_min_list[-1][open_price_index]
+            # 1일전 최고가 계산 
+            # _yesterday_high_price = max([ item[high_price_index] for item in _yesterday_min_list], default = 99999999 )
+
+            # 1일전 시작가 계산 
+            if( len(_yesterday_min_list) > 0 ):
+                _yesterday_open_price = _yesterday_min_list[-1][open_price_index]
+                _yesterday_close_price = _yesterday_min_list[0][close_price_index]
+                _yesterday_low_price = min( [item[low_price_index] for item in _yesterday_min_list] )
 
 
-        bunhal_maesu_history = current_jango['분할매수이력'][-1].split(':')[0]
+        bunhal_maesu_history = current_jango['분할매수이력'][0].split(':')[0]
+        last_maeip_price = int(current_jango['분할매수이력'][-1].split(':')[1]) #날짜:가격:수량 
+        last_maeip_date_time = int(current_jango['분할매수이력'][-1].split(':')[0]) #날짜:가격:수량 
         bunhal_maesu_date = datetime.datetime.strptime( bunhal_maesu_history, '%Y%m%d%H%M%S').date()
+        updown_percentage = float(current_jango['등락율']) 
 
         if( expected_date >= bunhal_maesu_date ):
-            # 1일전 날짜가 최근 매수 날짜보다 크거나 같은 경우 1일전 시작가로 손절 책정 
-            stop_loss = _yesterday_open_price
+            # 1일전 날짜가 첫 매수 날짜보다 크거나 같은 경우 1일전 저가로 
+            stop_loss = _yesterday_low_price 
+            # 스윙 종목으로 당일 등락율 높은 경우 매도 
+            if(  updown_percentage > 20 ):
+                stop_loss = 99999999
+                pass
+            if( maesuHoga1 >  last_maeip_price * 1.5 ):
+                stop_loss = 99999999
+                pass
             stop_plus = 99999999
         else:
             # 당일 매수 종목 
             ##########################################################################################################
             # 전일 종가 밑으로 떨어지면
             #  +, - 붙는 소수이므로 float 으로 먼저 처리 
-            updown_percentage = float(current_jango['등락율']) 
             if(  updown_percentage < 0 ):
                 stop_loss = 99999999
                 pass
