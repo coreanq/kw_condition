@@ -25,7 +25,7 @@ MAESU_UNIT = 50000 # 추가 매수 기본 단위
 
 BUNHAL_MAESU_LIMIT = 4 # 분할 매수 횟수 제한 
 
-MAX_STOCK_POSSESION_COUNT = 10 # 제외 종목 리스트 불포함 
+MAX_STOCK_POSSESION_COUNT = 8 # 제외 종목 리스트 불포함 
 
 BUNHAL_MAESU_PROHIBIT_DAYS = 1 # 최근 ? 내에서는 분할 매수 금지
 
@@ -36,9 +36,9 @@ REQUEST_MINUTE_CANDLE_TYPE = 3  # 운영중 요청할 분봉 종류 -1 의 경�
 MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저장 분봉 갯수 
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
-# 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경 
-STOP_PLUS_PER_MAESU_COUNT = [  5,            5,               5,               5,               5] 
-STOP_LOSS_PER_MAESU_COUNT = [ -10,         -10,              -10,            -10,              -10]
+# 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경
+STOP_PLUS_PER_MAESU_COUNT = [  5,          5,               5,             5,               5] 
+STOP_LOSS_PER_MAESU_COUNT = [ -5,         -5,              -5,            -5,              -5]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -866,7 +866,7 @@ class KiwoomConditon(QObject):
         if( jongmok_code not in self.jangoInfo ):
             if( self.currentTime == '장초반'):
                 if( 
-                    maedoHoga1 > _5min_avr  
+                    maedoHoga1 < _5min_avr  
                     ):
 
                     pass
@@ -874,7 +874,7 @@ class KiwoomConditon(QObject):
                     return_vals.append(False)
             else:
                 if( 
-                    maedoHoga1 > _5min_avr  
+                    maedoHoga1 < _5min_avr  
                     and _today_high_price > _today_open_price
                     # and  _today_open_price + ((_today_high_price - _today_open_price)/2) < maedoHoga1 
                     and  _today_open_price < maedoHoga1 
@@ -1269,8 +1269,8 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 9, minute = 0, second = 10 )
-        jang_choban_end_time = datetime.time( hour = 10, minute = 0 )
+        jang_choban_start_time = datetime.time( hour = 8, minute = 58, second = 0 )
+        jang_choban_end_time = datetime.time( hour = 13, minute = 59 )
         jang_jungban_start_time = datetime.time( hour = 14, minute = 0 )
 
 
@@ -1508,6 +1508,24 @@ class KiwoomConditon(QObject):
                 self.setHogaConditionOccurList(jongmok_code, col_name, result.strip() )
         pass 
 
+    def isMinCandleExist(self, current_jango):
+        key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+        if( key_minute_candle in current_jango
+            and len( current_jango[key_minute_candle] ) == MAX_SAVE_CANDLE_COUNT ):  # 분봉 정보 얻었는지 확인 
+            return True
+        else:
+            return False
+
+    def isDayCandleExist(self, current_jango):
+        key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT ) 
+        if( key_day_candle in current_jango
+            # and len( current_jango[key_day_candle] ) == MAX_SAVE_CANDLE_COUNT 
+            ):  # 분봉 정보 얻었는지 확인 
+            return True
+        else:
+            return False
+
+
     def processStopLoss(self, jongmok_code):
         jongmok_name = self.getMasterCodeName(jongmok_code)
         if( self.isTradeAvailable() == False ):
@@ -1525,9 +1543,14 @@ class KiwoomConditon(QObject):
             return 
         current_jango = self.jangoInfo[jongmok_code]
 
-
         key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT ) 
         key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+
+        first_bunhal_maesu_time_str = current_jango['분할매수이력'][0].split(':')[0] #날짜:가격:수량 
+        first_maeip_price = int(current_jango['분할매수이력'][0].split(':')[1]) #날짜:가격:수량 
+
+        last_maeip_date_time_str = current_jango['분할매수이력'][-1].split(':')[0]  #날짜:가격:수량 
+        last_maeip_price = int(current_jango['분할매수이력'][-1].split(':')[1]) #날짜:가격:수량 
 
         if( 
             '손절가' not in current_jango or 
@@ -1554,62 +1577,37 @@ class KiwoomConditon(QObject):
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
         totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2 + maesuHoga3 * maesuHogaAmount3
 
-        ########################################################################################
-        # 업종 이평가를 기준으로 stop loss 값 조정 
-        # twenty_avr = 0
-        # five_avr = 0
-        # if( '20봉평균' in self.yupjongInfo['코스피'] and
-        #     '5봉평균' in self.yupjongInfo['코스피'] and 
-        #     '20봉평균' in self.yupjongInfo['코스닥'] and
-        #     '5봉평균' in self.yupjongInfo['코스닥']  
-        # ):
-        #     if( jongmok_code in self.kospiCodeList):
-        #         twenty_avr = abs(float(self.yupjongInfo['코스피']['20봉평균']))
-        #         five_avr = abs(float(self.yupjongInfo['코스피']['5봉평균']))
-        #     else:
-        #         twenty_avr = abs(float(self.yupjongInfo['코스닥']['20봉평균']))
-        #         five_avr = abs(float(self.yupjongInfo['코스닥']['5봉평균']))
-
-        #     stop_loss = int(current_jango['손절가']) 
-        # else:
-        #     stop_loss = int(current_jango['손절가'])
 
         ########################################################################################
         # 일봉 연산
         # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
-        if( key_day_candle in current_jango ):  # 일봉 정보 얻었는지 확인 
-            current_price_index = kw_util.dict_jusik['TR:일봉'].index('현재가')
-            low_price_index  =  kw_util.dict_jusik['TR:일봉'].index('저가')
+        # if( self.isDayCandleExist(current_jango) == True ):  # 일봉 정보 얻었는지 확인 
+        #     current_price_index = kw_util.dict_jusik['TR:일봉'].index('현재가')
+        #     low_price_index  =  kw_util.dict_jusik['TR:일봉'].index('저가')
 
-            _4day_list = current_jango[key_day_candle][1:5]
-            _9day_list = current_jango[key_day_candle][1:10]
-            _19day_list = current_jango[key_day_candle][1:20]
+        #     _4day_list = current_jango[key_day_candle][1:5]
+        #     _9day_list = current_jango[key_day_candle][1:10]
+        #     _19day_list = current_jango[key_day_candle][1:20]
 
-            _5day_avr = ( sum(_4day_list)  + maesuHoga1) / 5
-            _10day_avr = ( sum(_9day_list) + maesuHoga1) / 10
-            _20day_avr = ( sum(_19day_list) + maesuHoga1) / 20
+        #     _5day_avr = ( sum(_4day_list)  + maesuHoga1) / 5
+        #     _10day_avr = ( sum(_9day_list) + maesuHoga1) / 10
+        #     _20day_avr = ( sum(_19day_list) + maesuHoga1) / 20
 
-            #TODO: 나중에 분할매도의 경우 수익이 났을때만 사용 5일봉 터치 반 매도 5<10 전부 매도 
-            # if(
-            #     _5day_avr > maesuHoga1 and 
-            #     maeipga < maesuHoga1  and 
-            #     "분할매도이력" not in current_jango
-            #     ):
-            #     stop_loss = 88888888
-            # if( _5day_avr < _10day_avr ):
-            #     stop_loss = 99999999
-            pass
+        #     pass
 
 
         ########################################################################################
         # 분봉 연산
         # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
-        current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
-        close_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
-        low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
-        high_price_index  =  kw_util.dict_jusik['TR:분봉'].index('고가')
-        open_price_index  =  kw_util.dict_jusik['TR:분봉'].index('시가')
+        min_current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
+        min_close_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
+        min_low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
+        min_high_price_index  =  kw_util.dict_jusik['TR:분봉'].index('고가')
+        min_open_price_index  =  kw_util.dict_jusik['TR:분봉'].index('시가')
         time_index  =  kw_util.dict_jusik['TR:분봉'].index('체결시간')
+
+        updown_percentage = float(current_jango['등락율']) 
+
 
         time_span = datetime.timedelta(days = 1)
         expected_date = (self.currentTime - time_span).date()
@@ -1617,23 +1615,22 @@ class KiwoomConditon(QObject):
         _yesterday_close_price = 0 
         _yesterday_low_price = 0 
 
-        if( key_minute_candle in current_jango ):  # 분봉 정보 얻었는지 확인 
-            if( len( current_jango[key_minute_candle] )  ==  MAX_SAVE_CANDLE_COUNT ):  # 분봉 정보 갯수 확인 
+        if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
 
-                _4min_list = current_jango[key_minute_candle][1:5]
-                _9min_list = current_jango[key_minute_candle][1:10]
-                _19min_list = current_jango[key_minute_candle][1:20]
-                _59min_list = current_jango[key_minute_candle][1:60]
+            _4min_list = current_jango[key_minute_candle][1:5]
+            _9min_list = current_jango[key_minute_candle][1:10]
+            _19min_list = current_jango[key_minute_candle][1:20]
+            _59min_list = current_jango[key_minute_candle][1:60]
 
-                _5min_avr = ( sum([ item[current_price_index] for item in _4min_list])  + maesuHoga1) / 5
-                _10min_avr = ( sum([ item[current_price_index] for item in _9min_list]) + maesuHoga1) / 10
-                _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maesuHoga1) / 20 
-                _60min_avr = ( sum([ item[current_price_index] for item in _59min_list]) + maesuHoga1) / 60 
+            _5min_avr = ( sum([ item[min_current_price_index] for item in _4min_list])  + maesuHoga1) / 5
+            _10min_avr = ( sum([ item[min_current_price_index] for item in _9min_list]) + maesuHoga1) / 10
+            _20min_avr = ( sum([ item[min_current_price_index] for item in _19min_list]) + maesuHoga1) / 20 
+            _60min_avr = ( sum([ item[min_current_price_index] for item in _59min_list]) + maesuHoga1) / 60 
 
-                last_min_open_price = current_jango[key_minute_candle][1][open_price_index]
-                last_min_low_price = current_jango[key_minute_candle][1][low_price_index]
-                last_min_high_price = current_jango[key_minute_candle][1][high_price_index]
-                last_min_close_price = current_jango[key_minute_candle][1][current_price_index]
+            last_min_open_price = current_jango[key_minute_candle][1][min_open_price_index]
+            last_min_low_price = current_jango[key_minute_candle][1][min_low_price_index]
+            last_min_high_price = current_jango[key_minute_candle][1][min_high_price_index]
+            last_min_close_price = current_jango[key_minute_candle][1][min_current_price_index]
 
 
             ##########################################################################################################
@@ -1658,36 +1655,49 @@ class KiwoomConditon(QObject):
 
             # 1일전 시작가 계산 
             if( len(_yesterday_min_list) > 0 ):
-                _yesterday_open_price = _yesterday_min_list[-1][open_price_index]
-                _yesterday_close_price = _yesterday_min_list[0][close_price_index]
-                _yesterday_low_price = min( [item[low_price_index] for item in _yesterday_min_list] )
+                _yesterday_open_price = _yesterday_min_list[-1][min_open_price_index]
+                _yesterday_close_price = _yesterday_min_list[0][min_close_price_index]
+                _yesterday_low_price = min( [item[min_low_price_index] for item in _yesterday_min_list] )
 
+        first_bunhal_maesu_date_time = datetime.datetime.strptime( first_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
 
-        bunhal_maesu_history = current_jango['분할매수이력'][0].split(':')[0]
-        last_maeip_price = int(current_jango['분할매수이력'][-1].split(':')[1]) #날짜:가격:수량 
-        last_maeip_date_time = int(current_jango['분할매수이력'][-1].split(':')[0]) #날짜:가격:수량 
-        bunhal_maesu_date = datetime.datetime.strptime( bunhal_maesu_history, '%Y%m%d%H%M%S').date()
-        updown_percentage = float(current_jango['등락율']) 
-
-        if( expected_date >= bunhal_maesu_date ):
+        if( expected_date >= first_bunhal_maesu_date_time ):
             # 1일전 날짜가 첫 매수 날짜보다 크거나 같은 경우 1일전 저가로 
             stop_loss = _yesterday_low_price 
-            # 스윙 종목으로 당일 등락율 높은 경우 매도 
+            # 스윙 종목으로 당일 등락율 너무 높은 경우 매도 
             if(  updown_percentage > 20 ):
-                stop_loss = 99999999
-                pass
-            if( maesuHoga1 >  last_maeip_price * 1.5 ):
                 stop_loss = 99999999
                 pass
             stop_plus = 99999999
         else:
             # 당일 매수 종목 
             ##########################################################################################################
-            # 전일 종가 밑으로 떨어지면
-            #  +, - 붙는 소수이므로 float 으로 먼저 처리 
-            if(  updown_percentage < 0 ):
-                stop_loss = 99999999
-                pass
+            last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
+            time_span = datetime.timedelta(minutes = 6)
+
+            # 전고가 돌파 후 매수 한지 ? 분이 지나면 본전 손절 
+            # if( last_bunhal_maesu_date_time + time_span < self.currentTime ) :
+            #     if( maesuHoga1 < last_maeip_price ):
+            #         stop_loss = 99999999
+
+            if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
+                    
+                last_min_open_price = current_jango[key_minute_candle][1][min_open_price_index]
+                last_min_low_price = current_jango[key_minute_candle][1][min_low_price_index]
+                last_min_high_price = current_jango[key_minute_candle][1][min_high_price_index]
+                last_min_close_price = current_jango[key_minute_candle][1][min_current_price_index]
+
+                # 수익중인 경우 직전 1봉 저가 트레일링 스탑 
+                if( last_maeip_price * 1.01 < maesuHoga1  
+                    and maesuHoga1 < last_min_low_price ):
+                    stop_plus = 0
+
+                # 전일 종가 밑으로 떨어지면
+                #  +, - 붙는 소수이므로 float 으로 먼저 처리 
+                if(  updown_percentage < 0 ):
+                    stop_loss = 99999999
+                    pass
+
 
         ########################################################################################
 
