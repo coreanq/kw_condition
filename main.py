@@ -37,8 +37,8 @@ MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저�
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경
-STOP_PLUS_PER_MAESU_COUNT = [  5,          5,               5,             5,               5] 
-STOP_LOSS_PER_MAESU_COUNT = [ -5,         -5,              -5,            -5,              -5]
+STOP_PLUS_PER_MAESU_COUNT = [  2,          2,               2,             2,               2] 
+STOP_LOSS_PER_MAESU_COUNT = [ -3,         -3,              -3,            -3,              -3]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -441,18 +441,19 @@ class KiwoomConditon(QObject):
         tempDict = dict(findList)
         print(tempDict)
         
-        condition_num = 0 
-        for number, condition in tempDict.items():
-            if condition == self.current_condition_name:
-                condition_num = int(number)
-            else: 
-                print("stop condition {}".format( condition))
-                self.sendConditionStop(kw_util.sendConditionScreenNo, condition, number)
-        # 정지 명령 모두 끝나고 시작 
-        print("start condition " + kw_util.sendConditionScreenNo, self.current_condition_name)
-        self.sendCondition(kw_util.sendConditionScreenNo, self.current_condition_name, condition_num,   1)
-            
 
+        condition_name_screenNo_dict = {}
+        for number, condition in tempDict.items():
+            condition_name_screenNo_dict[condition] = [kw_util.sendConditionScreenNo + '{}'.format(int (number)), number]
+        
+        for name, info in condition_name_screenNo_dict.items():
+
+            if name == self.current_condition_name:
+                print("start condition " + name + ", screen_no: " + info[0] + ", number " + info[1] )
+                self.sendCondition( info[0], name, info[1], 1) 
+            else: 
+                print("stop condition " + name + ", screen_no: " + info[0] + ", number " + info[1] )
+                self.sendConditionStop( info[0], name, info[1]) 
         pass
 
 
@@ -866,7 +867,7 @@ class KiwoomConditon(QObject):
         if( jongmok_code not in self.jangoInfo ):
             if( self.currentTime == '장초반'):
                 if( 
-                    maedoHoga1 < _5min_avr  
+                    maedoHoga1 < _20min_avr  
                     ):
 
                     pass
@@ -874,7 +875,7 @@ class KiwoomConditon(QObject):
                     return_vals.append(False)
             else:
                 if( 
-                    maedoHoga1 < _5min_avr  
+                    maedoHoga1 < _20min_avr  
                     and _today_high_price > _today_open_price
                     # and  _today_open_price + ((_today_high_price - _today_open_price)/2) < maedoHoga1 
                     and  _today_open_price < maedoHoga1 
@@ -892,7 +893,7 @@ class KiwoomConditon(QObject):
             ##########################################################################################################
             # 최근 매입가 대비 비교하여 추매 
             if(  last_maeip_price < maedoHoga1 
-                and maedoHoga1 > _5min_avr  
+                and maedoHoga1 > _20min_avr  
                 ):
                 # print("{:<30}".format(jongmok_name)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 pass            
