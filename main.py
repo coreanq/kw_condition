@@ -37,8 +37,8 @@ MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저�
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경
-STOP_PLUS_PER_MAESU_COUNT = [  2,          2,               2,             2,               2] 
-STOP_LOSS_PER_MAESU_COUNT = [ -3,         -3,              -3,            -3,              -3]
+STOP_PLUS_PER_MAESU_COUNT = [  5,          5,             5,            5,              5] 
+STOP_LOSS_PER_MAESU_COUNT = [ -5,         -5,            -5,           -5,             -5]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -1270,7 +1270,7 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 8, minute = 58, second = 0 )
+        jang_choban_start_time = datetime.time( hour = 8, minute = 0, second = 0 )
         jang_choban_end_time = datetime.time( hour = 13, minute = 59 )
         jang_jungban_start_time = datetime.time( hour = 14, minute = 0 )
 
@@ -1662,7 +1662,7 @@ class KiwoomConditon(QObject):
 
         first_bunhal_maesu_date_time = datetime.datetime.strptime( first_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
 
-        if( expected_date >= first_bunhal_maesu_date_time ):
+        if( expected_date >= first_bunhal_maesu_date_time):
             # 1일전 날짜가 첫 매수 날짜보다 크거나 같은 경우 1일전 저가로 
             stop_loss = _yesterday_low_price 
             # 스윙 종목으로 당일 등락율 너무 높은 경우 매도 
@@ -1675,6 +1675,7 @@ class KiwoomConditon(QObject):
             ##########################################################################################################
             last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
             time_span = datetime.timedelta(minutes = 6)
+            stop_plus = 9999999 
 
             # 전고가 돌파 후 매수 한지 ? 분이 지나면 본전 손절 
             # if( last_bunhal_maesu_date_time + time_span < self.currentTime ) :
