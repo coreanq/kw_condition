@@ -38,7 +38,7 @@ MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저�
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경
 STOP_PLUS_PER_MAESU_COUNT = [  5,          5,             5,            5,              5] 
-STOP_LOSS_PER_MAESU_COUNT = [ -5,         -5,            -5,           -5,             -5]
+STOP_LOSS_PER_MAESU_COUNT = [ -3,         -3,            -3,           -3,             -3]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -867,7 +867,8 @@ class KiwoomConditon(QObject):
         if( jongmok_code not in self.jangoInfo ):
             if( self.currentTime == '장초반'):
                 if( 
-                    maedoHoga1 < _20min_avr  
+                    maedoHoga1 < _5min_avr  
+                    and  maedoHoga1 > _10min_avr  
                     ):
 
                     pass
@@ -1674,13 +1675,12 @@ class KiwoomConditon(QObject):
             # 당일 매수 종목 
             ##########################################################################################################
             last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
-            time_span = datetime.timedelta(minutes = 6)
+            time_span = datetime.timedelta(minutes = 60 )
             stop_plus = 9999999 
 
-            # 전고가 돌파 후 매수 한지 ? 분이 지나면 본전 손절 
-            # if( last_bunhal_maesu_date_time + time_span < self.currentTime ) :
-            #     if( maesuHoga1 < last_maeip_price ):
-            #         stop_loss = 99999999
+            # 전고가 돌파 후 매수 한지 ? 분이 지나면 손절 
+            if( last_bunhal_maesu_date_time + time_span < self.currentTime ) :
+                    stop_loss = 99999999
 
             if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
                     
