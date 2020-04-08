@@ -867,8 +867,10 @@ class KiwoomConditon(QObject):
         if( jongmok_code not in self.jangoInfo ):
             if( self.currentTime == '장초반'):
                 if( 
-                    maedoHoga1 < _5min_avr  
-                    and  maedoHoga1 > _10min_avr  
+                    maedoHoga1 < _20min_avr  
+                    and _today_high_price > _today_open_price
+                    # and  _today_open_price + ((_today_high_price - _today_open_price)/2) < maedoHoga1 
+                    and  _today_open_price < maedoHoga1 
                     ):
 
                     pass
@@ -1678,7 +1680,7 @@ class KiwoomConditon(QObject):
             time_span = datetime.timedelta(minutes = 60 )
             stop_plus = 9999999 
 
-            # 전고가 돌파 후 매수 한지 ? 분이 지나면 손절 
+            # 매수 한지 ? 분이 지나면 손절 
             if( last_bunhal_maesu_date_time + time_span < self.currentTime ) :
                     stop_loss = 99999999
 
