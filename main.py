@@ -21,7 +21,7 @@ JANG_CHOBAN_TIME = [ AUTO_TRADING_OPERATION_TIME[0][0][0] + 1, 59 ]  # 9시 1분
 
 TOTAL_BUY_AMOUNT = 50000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
-MAESU_UNIT = 50000 # 추가 매수 기본 단위 
+MAESU_UNIT = 50000 # 추가 매수 기본 단위  총 자본의 1/10 수준 유지 증거금 40% 적용(1/20)
 
 BUNHAL_MAESU_LIMIT = 4 # 분할 매수 횟수 제한 
 
@@ -38,7 +38,7 @@ MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저�
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경
 STOP_PLUS_PER_MAESU_COUNT = [  5,          5,             5,            5,              5] 
-STOP_LOSS_PER_MAESU_COUNT = [ -3,         -3,            -3,           -3,             -3]
+STOP_LOSS_PER_MAESU_COUNT = [ -10,         -10,          -10,          -10,            -10]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -1680,9 +1680,10 @@ class KiwoomConditon(QObject):
             time_span = datetime.timedelta(minutes = 60 )
             stop_plus = 9999999 
 
-            # 매수 한지 ? 분이 지나면 손절 
-            if( last_bunhal_maesu_date_time + time_span < self.currentTime ) :
-                    stop_loss = 99999999
+            # 매수 한지 ? 분이 지나고 수익이 나지 않으면  손절 
+            if( last_bunhal_maesu_date_time + time_span < self.currentTime
+                and maesuHoga1 < maeipga  ) :
+                stop_loss = 99999999
 
             if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
                     
