@@ -38,7 +38,7 @@ MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저�
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경
 STOP_PLUS_PER_MAESU_COUNT = [  5,          5,             5,            5,              5] 
-STOP_LOSS_PER_MAESU_COUNT = [ -10,         -10,          -10,          -10,            -10]
+STOP_LOSS_PER_MAESU_COUNT = [ -5,         -5,          -5,          -5,            -5]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -865,23 +865,22 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
-            if( self.currentTime == '장초반'):
+            if( self.current_condition_name == '장초반'):
                 if( 
-                    maedoHoga1 < _20min_avr  
-                    and _today_high_price > _today_open_price
-                    # and  _today_open_price + ((_today_high_price - _today_open_price)/2) < maedoHoga1 
-                    and  _today_open_price < maedoHoga1 
+                    maedoHoga1 > _5min_avr  
+                    and _today_open_price < maedoHoga1 
                     ):
 
                     pass
                 else:
                     return_vals.append(False)
+
             else:
                 if( 
                     maedoHoga1 < _20min_avr  
+                    and _today_open_price < maedoHoga1 
                     and _today_high_price > _today_open_price
                     # and  _today_open_price + ((_today_high_price - _today_open_price)/2) < maedoHoga1 
-                    and  _today_open_price < maedoHoga1 
                     ):
 
                     pass
@@ -1274,8 +1273,8 @@ class KiwoomConditon(QObject):
         self.currentTime = datetime.datetime.now()
 
         jang_choban_start_time = datetime.time( hour = 8, minute = 0, second = 0 )
-        jang_choban_end_time = datetime.time( hour = 13, minute = 59 )
-        jang_jungban_start_time = datetime.time( hour = 14, minute = 0 )
+        jang_choban_end_time = datetime.time( hour = 10, minute = 00 )
+        jang_jungban_start_time = datetime.time( hour = 14, minute = 30 )
 
 
         current_time = self.currentTime.time()
@@ -1681,9 +1680,10 @@ class KiwoomConditon(QObject):
             stop_plus = 9999999 
 
             # 매수 한지 ? 분이 지나고 수익이 나지 않으면  손절 
-            if( last_bunhal_maesu_date_time + time_span < self.currentTime
-                and maesuHoga1 < maeipga  ) :
-                stop_loss = 99999999
+            # if( last_bunhal_maesu_date_time + time_span < self.currentTime
+            #     # and maesuHoga1 < maeipga  
+            #     ) :
+            #     stop_loss = 99999999
 
             if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
                     
@@ -1693,13 +1693,21 @@ class KiwoomConditon(QObject):
                 last_min_close_price = current_jango[key_minute_candle][1][min_current_price_index]
 
                 # 수익중인 경우 직전 1봉 저가 트레일링 스탑 
-                if( last_maeip_price * 1.01 < maesuHoga1  
+                if( last_maeip_price * 1.02 < maesuHoga1  
                     and maesuHoga1 < last_min_low_price ):
                     stop_plus = 0
 
                 # 전일 종가 밑으로 떨어지면
                 #  +, - 붙는 소수이므로 float 으로 먼저 처리 
-                if(  updown_percentage < 0 ):
+
+                _today_open_price = 99999999
+                for item in current_jango:
+                    if( '시가' in current_jango ):
+                        _today_open_price = int(current_jango['시가'])
+                        # print( '{}: {}'.format(jongmok_name , _today_open_price) )
+
+                if(  updown_percentage < 0 
+                    or _today_open_price < maesuHoga1 ):
                     stop_loss = 99999999
                     pass
 
