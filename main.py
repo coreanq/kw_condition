@@ -446,14 +446,21 @@ class KiwoomConditon(QObject):
         for number, condition in tempDict.items():
             condition_name_screenNo_dict[condition] = [kw_util.sendConditionScreenNo + '{}'.format(int (number)), number]
         
+        start_info = []
+        start_name = None
+
         for name, info in condition_name_screenNo_dict.items():
 
             if name == self.current_condition_name:
-                print("start condition " + name + ", screen_no: " + info[0] + ", number " + info[1] )
-                self.sendCondition( info[0], name, info[1], 1) 
+                start_info = info
+                start_name = name
             else: 
                 print("stop condition " + name + ", screen_no: " + info[0] + ", number " + info[1] )
                 self.sendConditionStop( info[0], name, info[1]) 
+
+        print("start condition " + start_name + ", screen_no: " + start_info[0] + ", number " + start_info[1] )
+        self.sendCondition( start_info[0], start_name, staart_info[1], 1) 
+
         pass
 
 
@@ -867,8 +874,9 @@ class KiwoomConditon(QObject):
         if( jongmok_code not in self.jangoInfo ):
             if( self.current_condition_name == '장초반'):
                 if( 
-                    maedoHoga1 > _5min_avr  
-                    and _today_open_price < maedoHoga1 
+                    maedoHoga1 < _5min_avr  
+                    and maedoHoga1 > _10min_avr  
+                    and maedoHoga1 > _today_open_price 
                     ):
 
                     pass
@@ -877,10 +885,8 @@ class KiwoomConditon(QObject):
 
             else:
                 if( 
-                    maedoHoga1 < _20min_avr  
-                    and _today_open_price < maedoHoga1 
-                    and _today_high_price > _today_open_price
-                    # and  _today_open_price + ((_today_high_price - _today_open_price)/2) < maedoHoga1 
+                    maedoHoga1 > _today_open_price 
+                    # and maedoHoga1 >  _today_open_price + ((_today_high_price - _today_open_price)/2)
                     ):
 
                     pass
@@ -1676,14 +1682,14 @@ class KiwoomConditon(QObject):
             # 당일 매수 종목 
             ##########################################################################################################
             last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
-            time_span = datetime.timedelta(minutes = 60 )
+            time_span = datetime.timedelta(minutes = 6 )
             stop_plus = 9999999 
 
             # 매수 한지 ? 분이 지나고 수익이 나지 않으면  손절 
-            # if( last_bunhal_maesu_date_time + time_span < self.currentTime
-            #     # and maesuHoga1 < maeipga  
-            #     ) :
-            #     stop_loss = 99999999
+            if( last_bunhal_maesu_date_time + time_span < self.currentTime
+                and maesuHoga1 < maeipga  
+                ) :
+                stop_loss = 99999999
 
             if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
                     
@@ -1706,10 +1712,11 @@ class KiwoomConditon(QObject):
                         _today_open_price = int(current_jango['시가'])
                         # print( '{}: {}'.format(jongmok_name , _today_open_price) )
 
-                if(  updown_percentage < 0 
-                    or _today_open_price < maesuHoga1 ):
-                    stop_loss = 99999999
-                    pass
+                # if(  updown_percentage < 0 
+                #     # or _today_open_price > maesuHoga1
+                #      ):
+                #     stop_loss = 99999999
+                #     pass
 
 
         ########################################################################################
