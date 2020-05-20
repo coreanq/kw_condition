@@ -37,8 +37,8 @@ MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저�
 
 MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1, MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1,   MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경
-STOP_PLUS_PER_MAESU_COUNT = [  5,          5,             5,            5,              5] 
-STOP_LOSS_PER_MAESU_COUNT = [ -5,         -5,          -5,          -5,            -5]
+STOP_PLUS_PER_MAESU_COUNT = [  100,        100,         100,          100,           100] 
+STOP_LOSS_PER_MAESU_COUNT = [ -10,        -10,         -10,          -10,           -10]
 
 EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
@@ -459,7 +459,7 @@ class KiwoomConditon(QObject):
                 self.sendConditionStop( info[0], name, info[1]) 
 
         print("start condition " + start_name + ", screen_no: " + start_info[0] + ", number " + start_info[1] )
-        self.sendCondition( start_info[0], start_name, staart_info[1], 1) 
+        self.sendCondition( start_info[0], start_name, start_info[1], 1) 
 
         pass
 
@@ -875,8 +875,7 @@ class KiwoomConditon(QObject):
             if( self.current_condition_name == '장초반'):
                 if( 
                     maedoHoga1 < _5min_avr  
-                    and maedoHoga1 > _10min_avr  
-                    and maedoHoga1 > _today_open_price 
+                    and maedoHoga1 > _20min_avr  
                     ):
 
                     pass
@@ -885,7 +884,8 @@ class KiwoomConditon(QObject):
 
             else:
                 if( 
-                    maedoHoga1 > _today_open_price 
+                    maedoHoga1 < _5min_avr  
+                    and maedoHoga1 > _20min_avr  
                     # and maedoHoga1 >  _today_open_price + ((_today_high_price - _today_open_price)/2)
                     ):
 
@@ -900,7 +900,7 @@ class KiwoomConditon(QObject):
         else:
             ##########################################################################################################
             # 최근 매입가 대비 비교하여 추매 
-            if(  last_maeip_price < maedoHoga1 
+            if(  maedoHoga1 > last_maeip_price 
                 and maedoHoga1 > _20min_avr  
                 ):
                 # print("{:<30}".format(jongmok_name)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
@@ -1278,9 +1278,9 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 8, minute = 0, second = 0 )
-        jang_choban_end_time = datetime.time( hour = 10, minute = 00 )
-        jang_jungban_start_time = datetime.time( hour = 14, minute = 30 )
+        jang_choban_start_time = datetime.time( hour = 8, minute = 00, second = 0 )
+        jang_choban_end_time = datetime.time( hour = 9, minute = 30 )
+        jang_jungban_start_time = datetime.time( hour = 9, minute = 30 )
 
 
         current_time = self.currentTime.time()
@@ -1586,6 +1586,19 @@ class KiwoomConditon(QObject):
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
         totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2 + maesuHoga3 * maesuHogaAmount3
 
+        if( "최대체결강도" not in current_jango ):
+            current_jango['최대체결강도'] = 0
+
+        max_chegyeol_gangdo  = int(current_jango['최대체결강도'])
+        current_chegyeol_gagndo = float(current_jango['체결강도'])
+
+        # if( max_chegyeol_gang > current_chegyeol_gagndo + 5 ):
+        if( current_chegyeol_gagndo < 100 ):
+            stop_loss = 99999999
+        elif( max_chegyeol_gangdo < current_chegyeol_gagndo ):
+            current_jango['최대체결강도'] = current_chegyeol_gagndo
+    
+
 
         ########################################################################################
         # 일봉 연산
@@ -1682,14 +1695,16 @@ class KiwoomConditon(QObject):
             # 당일 매수 종목 
             ##########################################################################################################
             last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
-            time_span = datetime.timedelta(minutes = 6 )
+            time_span = datetime.timedelta( minutes = 6 )
             stop_plus = 9999999 
 
             # 매수 한지 ? 분이 지나고 수익이 나지 않으면  손절 
-            if( last_bunhal_maesu_date_time + time_span < self.currentTime
-                and maesuHoga1 < maeipga  
-                ) :
-                stop_loss = 99999999
+            # if( 
+            #     last_bunhal_maesu_date_time + time_span < self.currentTime
+            #     and maesuHoga1 < maeipga  
+            #     ) :
+            #     stop_loss = 99999999
+
 
             if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
                     
@@ -1698,19 +1713,24 @@ class KiwoomConditon(QObject):
                 last_min_high_price = current_jango[key_minute_candle][1][min_high_price_index]
                 last_min_close_price = current_jango[key_minute_candle][1][min_current_price_index]
 
-                # 수익중인 경우 직전 1봉 저가 트레일링 스탑 
-                if( last_maeip_price * 1.02 < maesuHoga1  
-                    and maesuHoga1 < last_min_low_price ):
-                    stop_plus = 0
+                # timecut 시간 이후 직전 1봉 저가 트레일링 스탑 
+                # if( 
+                #     last_bunhal_maesu_date_time + time_span < self.currentTime
+                #     and maesuHoga1 < last_min_low_price ):
+                #     if( maesuHoga1 < maeipga ):
+                #         stop_loss = 99999999 
+                #     else:
+                #         stop_plus = 0
 
-                # 전일 종가 밑으로 떨어지면
-                #  +, - 붙는 소수이므로 float 으로 먼저 처리 
 
                 _today_open_price = 99999999
                 for item in current_jango:
                     if( '시가' in current_jango ):
                         _today_open_price = int(current_jango['시가'])
                         # print( '{}: {}'.format(jongmok_name , _today_open_price) )
+
+                # 전일 종가 밑으로 떨어지면
+                #  +, - 붙는 소수이므로 float 으로 먼저 처리 
 
                 # if(  updown_percentage < 0 
                 #     # or _today_open_price > maesuHoga1
