@@ -874,8 +874,7 @@ class KiwoomConditon(QObject):
         if( jongmok_code not in self.jangoInfo ):
             if( self.current_condition_name == '장초반'):
                 if( 
-                    maedoHoga1 < _5min_avr  
-                    and maedoHoga1 > _20min_avr  
+                    maedoHoga1 > _20min_avr  
                     ):
 
                     pass
@@ -1278,9 +1277,9 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 8, minute = 00, second = 0 )
+        jang_choban_start_time = datetime.time( hour = 8, minute = 40, second = 0 )
         jang_choban_end_time = datetime.time( hour = 9, minute = 30 )
-        jang_jungban_start_time = datetime.time( hour = 9, minute = 30 )
+        jang_jungban_start_time = datetime.time( hour = 14, minute = 30 )
 
 
         current_time = self.currentTime.time()
@@ -1703,7 +1702,17 @@ class KiwoomConditon(QObject):
             #     last_bunhal_maesu_date_time + time_span < self.currentTime
             #     and maesuHoga1 < maeipga  
             #     ) :
-            #     stop_loss = 99999999
+            #     stop_loss = 999999999
+            if( self.current_condition_name == '장초반'):
+                if( maesuHoga1 > maeipga * 1.04 ):
+                    stop_plus = 0
+
+                if( maesuHoga1 < maeipga * 0.97 ):
+                    stop_loss = 99999999 
+
+            if( self.current_condition_name == '휴식'):
+                stop_loss = 99999999
+                pass
 
 
             if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
