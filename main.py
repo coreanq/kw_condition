@@ -693,12 +693,12 @@ class KiwoomConditon(QObject):
         _20min_avr = ( sum([ item[current_price_index] for item in _19min_list]) + maedoHoga1) / 20 
 
 
-        # 0번의 경우 현재봉을 뜻하며, TR 요청을 계속 하게 되는 경우 정확해짐 
-        # 현재봉의 경우 3분마다 요청하므로 데이터가 정확하지 않음 
-        # 직전봉으로 함
-        last_min_amount = jongmok_info_dict[key_minute_candle][1][amount_index]
-        last_min_current_price = jongmok_info_dict[key_minute_candle][1][current_price_index]
-        current_min_open_price = jongmok_info_dict[key_minute_candle][0][open_price_index]
+        # # 0번의 경우 현재봉을 뜻하며, TR 요청을 계속 하게 되는 경우 정확해짐 
+        # # 현재봉의 경우 3분마다 요청하므로 데이터가 정확하지 않음 
+        # # 직전봉으로 함
+        # last_min_amount = jongmok_info_dict[key_minute_candle][1][amount_index]
+        # last_min_current_price = jongmok_info_dict[key_minute_candle][1][current_price_index]
+        # current_min_open_price = jongmok_info_dict[key_minute_candle][0][open_price_index]
 
 
         ##########################################################################################################
@@ -815,27 +815,27 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 당일 분봉 확인 
-        _today_min_list = []
-        for item in jongmok_info_dict[key_minute_candle][1:]:
-            # 현재봉 제외  
-            # 20191104145500 형식 
-            item_date = datetime.datetime.strptime(item[time_index], '%Y%m%d%H%M%S').date() 
-            # print(item_date)
-            # 당일 봉만 포함 
-            if( item_date >= self.currentTime.date()) :
-                # print(item)
-                _today_min_list.append(item)
+        # _today_min_list = []
+        # for item in jongmok_info_dict[key_minute_candle][1:]:
+        #     # 현재봉 제외  
+        #     # 20191104145500 형식 
+        #     item_date = datetime.datetime.strptime(item[time_index], '%Y%m%d%H%M%S').date() 
+        #     # print(item_date)
+        #     # 당일 봉만 포함 
+        #     if( item_date >= self.currentTime.date()) :
+        #         # print(item)
+        #         _today_min_list.append(item)
 
-        # 당일 최고가 계산 
-        _today_high_price = max([ item[high_price_index] for item in _today_min_list], default = 99999999 )
+        # # 당일 최고가 계산 
+        # _today_high_price = max([ item[high_price_index] for item in _today_min_list], default = 99999999 )
 
-        # 당일 최고 거래량 계산 
-        _today_high_amount = max([ item[amount_index] for item in _today_min_list], default = 9999999999 )
+        # # 당일 최고 거래량 계산 
+        # _today_high_amount = max([ item[amount_index] for item in _today_min_list], default = 9999999999 )
 
-        # 당일 시작가 계산 
-        _today_open_price = 0
-        if( len(_today_min_list) > 0 ):
-            _today_open_price = _today_min_list[-1][open_price_index]
+        # # 당일 시작가 계산 
+        # _today_open_price = 0
+        # if( len(_today_min_list) > 0 ):
+        #     _today_open_price = _today_min_list[-1][open_price_index]
 
         ##########################################################################################################
         # 매도 호가 잔량 확인해  살만큼 있는 경우 매수  
@@ -883,8 +883,7 @@ class KiwoomConditon(QObject):
 
             else:
                 if( 
-                    maedoHoga1 < _5min_avr  
-                    and maedoHoga1 > _20min_avr  
+                    maedoHoga1 > _20min_avr  
                     # and maedoHoga1 >  _today_open_price + ((_today_high_price - _today_open_price)/2)
                     ):
 
@@ -1277,9 +1276,9 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 8, minute = 40, second = 0 )
+        jang_choban_start_time = datetime.time( hour = 9, minute = 1, second = 0 )
         jang_choban_end_time = datetime.time( hour = 9, minute = 30 )
-        jang_jungban_start_time = datetime.time( hour = 14, minute = 30 )
+        jang_jungban_start_time = datetime.time( hour = 14, minute = 00 )
 
 
         current_time = self.currentTime.time()
@@ -1585,6 +1584,7 @@ class KiwoomConditon(QObject):
         #    print( util.whoami() +  maeuoga1 + " " + maesuHogaAmount1 + " " + maesuHoga2 + " " + maesuHogaAmount2 )
         totalAmount =  maesuHoga1 * maesuHogaAmount1 + maesuHoga2 * maesuHogaAmount2 + maesuHoga3 * maesuHogaAmount3
 
+        # 체결 강도 계산 
         if( "최대체결강도" not in current_jango ):
             current_jango['최대체결강도'] = 0
 
@@ -1596,8 +1596,10 @@ class KiwoomConditon(QObject):
             stop_loss = 99999999
         elif( max_chegyeol_gangdo < current_chegyeol_gagndo ):
             current_jango['최대체결강도'] = current_chegyeol_gagndo
-    
 
+        _today_open_price = current_jango.get('시가', None)
+        _today_high_price = current_jango.get('고가', None)
+        _today_amount = current_jango.get('거래량', None)
 
         ########################################################################################
         # 일봉 연산
@@ -1625,6 +1627,8 @@ class KiwoomConditon(QObject):
         min_low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
         min_high_price_index  =  kw_util.dict_jusik['TR:분봉'].index('고가')
         min_open_price_index  =  kw_util.dict_jusik['TR:분봉'].index('시가')
+        min_amout_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
+ 
         time_index  =  kw_util.dict_jusik['TR:분봉'].index('체결시간')
 
         updown_percentage = float(current_jango['등락율']) 
@@ -1635,6 +1639,7 @@ class KiwoomConditon(QObject):
         _yesterday_open_price = 0 
         _yesterday_close_price = 0 
         _yesterday_low_price = 0 
+        _yesterday_amount = 0
 
         if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
 
@@ -1647,11 +1652,6 @@ class KiwoomConditon(QObject):
             _10min_avr = ( sum([ item[min_current_price_index] for item in _9min_list]) + maesuHoga1) / 10
             _20min_avr = ( sum([ item[min_current_price_index] for item in _19min_list]) + maesuHoga1) / 20 
             _60min_avr = ( sum([ item[min_current_price_index] for item in _59min_list]) + maesuHoga1) / 60 
-
-            last_min_open_price = current_jango[key_minute_candle][1][min_open_price_index]
-            last_min_low_price = current_jango[key_minute_candle][1][min_low_price_index]
-            last_min_high_price = current_jango[key_minute_candle][1][min_high_price_index]
-            last_min_close_price = current_jango[key_minute_candle][1][min_current_price_index]
 
 
             ##########################################################################################################
@@ -1679,10 +1679,12 @@ class KiwoomConditon(QObject):
                 _yesterday_open_price = _yesterday_min_list[-1][min_open_price_index]
                 _yesterday_close_price = _yesterday_min_list[0][min_close_price_index]
                 _yesterday_low_price = min( [item[min_low_price_index] for item in _yesterday_min_list] )
+                _yesterday_amount += sum( item[min_amout_index] for item in _yesterday_min_list)
 
         first_bunhal_maesu_date_time = datetime.datetime.strptime( first_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
 
         if( expected_date >= first_bunhal_maesu_date_time):
+            # 스윙 종목 
             # 1일전 날짜가 첫 매수 날짜보다 크거나 같은 경우 1일전 저가로 
             stop_loss = _yesterday_low_price 
             # 스윙 종목으로 당일 등락율 너무 높은 경우 매도 
@@ -1690,6 +1692,15 @@ class KiwoomConditon(QObject):
                 stop_loss = 99999999
                 pass
             stop_plus = 99999999
+
+            # 음봉에 거래량이 마이너스면 손절 
+            if( _today_amount  < _yesterday_amount 
+                and _today_open_price < maesuHoga1 ):
+                stop_loss = 99999999
+            
+            if( self.current_condition_name == "장후반"):
+                pass
+
         else:
             # 당일 매수 종목 
             ##########################################################################################################
@@ -1704,7 +1715,7 @@ class KiwoomConditon(QObject):
             #     ) :
             #     stop_loss = 999999999
             if( self.current_condition_name == '장초반'):
-                if( maesuHoga1 > maeipga * 1.04 ):
+                if( maesuHoga1 > maeipga * 1.033 ):
                     stop_plus = 0
 
                 if( maesuHoga1 < maeipga * 0.97 ):
@@ -1730,23 +1741,6 @@ class KiwoomConditon(QObject):
                 #         stop_loss = 99999999 
                 #     else:
                 #         stop_plus = 0
-
-
-                _today_open_price = 99999999
-                for item in current_jango:
-                    if( '시가' in current_jango ):
-                        _today_open_price = int(current_jango['시가'])
-                        # print( '{}: {}'.format(jongmok_name , _today_open_price) )
-
-                # 전일 종가 밑으로 떨어지면
-                #  +, - 붙는 소수이므로 float 으로 먼저 처리 
-
-                # if(  updown_percentage < 0 
-                #     # or _today_open_price > maesuHoga1
-                #      ):
-                #     stop_loss = 99999999
-                #     pass
-
 
         ########################################################################################
 
@@ -2124,7 +2118,7 @@ class KiwoomConditon(QObject):
     # 편입, 이탈 종목이 실시간으로 들어옵니다.
     # strCode : 종목코드
     # strType : 편입(“I”), 이탈(“D”)
-    # strConditionName : 조건명
+    # streonditionName : 조건명
     # strConditionIndex : 조건명 인덱스
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
         print(util.whoami() + 'code: {}, 종목이름: {},  type: {}, conditionName: {}, conditionIndex: {}'
