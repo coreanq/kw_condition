@@ -1532,26 +1532,28 @@ class KiwoomConditon(QObject):
         first_bunhal_maesu_date_time = datetime.datetime.strptime( first_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
 
         if( expected_date >= first_bunhal_maesu_date_time):
-            # 스윙 종목 
-            # 1일전 날짜가 첫 매수 날짜보다 크거나 같은 경우 1일전 저가로 
+            ##########################################################################################################
+            # 분할 매수 스윙 종목  
+
+            # 1일전 저가 손절 
             stop_loss = _yesterday_low_price 
-            # 스윙 종목으로 당일 등락율 너무 높은 경우 매도 
-            if(  updown_percentage > 20 ):
-                stop_loss = 99999999
-                pass
             stop_plus = 99999999
 
-            # 음봉에 거래량이 마이너스면 손절 
-            if( _today_amount  < _yesterday_amount 
-                and _today_open_price < maesuHoga1 ):
-                stop_loss = 99999999
-            
+            # 장후반 음봉에 거래량이 마이너스면 손절 
             if( self.current_condition_name == "장후반"):
+                if( _today_amount  < _yesterday_amount 
+                    and _today_open_price < maesuHoga1 ):
+                    stop_loss = 99999999
+                pass
+
+            # 스윙 종목으로 당일 등락율 너무 높은 경우 익절 
+            if(  updown_percentage > 20 ):
+                stop_plus = 0
                 pass
 
         else:
-            # 당일 매수 종목 
             ##########################################################################################################
+            # 당일 매수 종목 
             last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
             time_span = datetime.timedelta( minutes = 6 )
             stop_plus = 9999999 
@@ -1563,32 +1565,17 @@ class KiwoomConditon(QObject):
             #     ) :
             #     stop_loss = 999999999
             if( self.current_condition_name == '장초반'):
-                if( maesuHoga1 > maeipga * 1.033 ):
+                if( maesuHoga1 > maeipga * 1.030 ):
                     stop_plus = 0
 
-                if( maesuHoga1 < maeipga * 0.97 ):
+                if( maesuHoga1 < maeipga * 0.98 ):
                     stop_loss = 99999999 
 
+            #  장초반 지난 경우 무조건 매도
             if( self.current_condition_name == '휴식'):
                 stop_loss = 99999999
                 pass
 
-
-            if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
-                    
-                last_min_open_price = current_jango[key_minute_candle][1][min_open_price_index]
-                last_min_low_price = current_jango[key_minute_candle][1][min_low_price_index]
-                last_min_high_price = current_jango[key_minute_candle][1][min_high_price_index]
-                last_min_close_price = current_jango[key_minute_candle][1][min_current_price_index]
-
-                # timecut 시간 이후 직전 1봉 저가 트레일링 스탑 
-                # if( 
-                #     last_bunhal_maesu_date_time + time_span < self.currentTime
-                #     and maesuHoga1 < last_min_low_price ):
-                #     if( maesuHoga1 < maeipga ):
-                #         stop_loss = 99999999 
-                #     else:
-                #         stop_plus = 0
 
         ########################################################################################
 
