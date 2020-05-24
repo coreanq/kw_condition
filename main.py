@@ -1489,6 +1489,13 @@ class KiwoomConditon(QObject):
         _yesterday_low_price = 0 
         _yesterday_amount = 0
 
+        last_min_open_price = 0
+        last_min_low_price = 0
+        last_min_high_price = 0
+        last_min_close_price = 0
+
+        maedo_type = "(손절타입오류임)"
+
         if( self.isMinCandleExist(current_jango) == True ):  # 분봉 정보 얻었는지 확인 
 
             _4min_list = current_jango[key_minute_candle][1:5]
@@ -1501,6 +1508,10 @@ class KiwoomConditon(QObject):
             _20min_avr = ( sum([ item[min_current_price_index] for item in _19min_list]) + maesuHoga1) / 20 
             _60min_avr = ( sum([ item[min_current_price_index] for item in _59min_list]) + maesuHoga1) / 60 
 
+            last_min_open_price = current_jango[key_minute_candle][1][min_open_price_index]
+            last_min_low_price = current_jango[key_minute_candle][1][min_low_price_index]
+            last_min_high_price = current_jango[key_minute_candle][1][min_high_price_index]
+            last_min_close_price = current_jango[key_minute_candle][1][min_current_price_index]
 
             ##########################################################################################################
             #  1일전 분봉 확인 
@@ -1537,18 +1548,22 @@ class KiwoomConditon(QObject):
 
             # 1일전 저가 손절 
             stop_loss = _yesterday_low_price 
+            maedo_type = "(후반기본손절수행)"
             stop_plus = 99999999
 
             # 장후반 음봉에 거래량이 마이너스면 손절 
             if( self.current_condition_name == "장후반"):
                 if( _today_amount  < _yesterday_amount 
-                    and _today_open_price < maesuHoga1 ):
+                    and maesuHoga1 < _today_open_price   
+                    ):
                     stop_loss = 99999999
+                    maedo_type = "(후반거래량손절임)"
                 pass
 
             # 스윙 종목으로 당일 등락율 너무 높은 경우 익절 
-            if(  updown_percentage > 20 ):
+            if(  updown_percentage > 27 ):
                 stop_plus = 0
+                maedo_type = "(후반등락률익절임)"
                 pass
 
         else:
@@ -1563,17 +1578,34 @@ class KiwoomConditon(QObject):
             #     last_bunhal_maesu_date_time + time_span < self.currentTime
             #     and maesuHoga1 < maeipga  
             #     ) :
-            #     stop_loss = 999999999
-            if( self.current_condition_name == '장초반'):
-                if( maesuHoga1 > maeipga * 1.030 ):
-                    stop_plus = 0
+            #     stop_loss = 99999999
 
-                if( maesuHoga1 < maeipga * 0.98 ):
+            # 수익중인 경우 직전 1봉 저가 트레일링 스탑 
+            if( 
+                maesuHoga1 < last_min_low_price ):
+
+                if( maesuHoga1 < maeipga * 1.01 ):
+                    stop_plus = 0
+                    maedo_type = "(초반직전저가익절)"
+                elif( 
+                    last_bunhal_maesu_date_time + time_span < self.currentTime ):
+                    # 매수 한지 ? 분이 지나고 수익이 나지 않으면 손절 
+                    stop_loss = 99999999
+                    maedo_type = "(초반직전저가손절)"
+
+            if( self.current_condition_name == '장초반'):
+                if( maesuHoga1 > maeipga * 1.04 ):
+                    stop_plus = 0
+                    maedo_type = "(초반익절한계도달)"
+
+                if( maesuHoga1 < maeipga * 0.99 ):
                     stop_loss = 99999999 
+                    maedo_type = "(초반손절한계도달)"
 
             #  장초반 지난 경우 무조건 매도
             if( self.current_condition_name == '휴식'):
                 stop_loss = 99999999
+                maedo_type = "(초반타임컷손절임)"
                 pass
 
 
@@ -1586,40 +1618,27 @@ class KiwoomConditon(QObject):
         # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
         isSijanga = False
         maedo_type = ''
-        sell_amount = 0
-
         sell_amount = jangosuryang
-        if( stop_loss == 0 ):
-            maedo_type = "(잔고오류)"
-            printData += maedo_type 
-            isSijanga = False
-            isSell = False
-        elif ( stop_loss == 88888888 ):
-            maedo_type = "(분할매도)"
-            printData += maedo_type 
-            isSijanga = False
-            isSell = True
-            if( jangosuryang > 1 ):
-                sell_amount = jangosuryang / 2
 
-            chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(sell_amount)
-            current_jango['분할매도이력'] = chegyeol_info
+        # if ( stop_loss == 88888888 ):
+        #     maedo_type = "(분할매도)"
+        #     printData += maedo_type 
+        #     isSijanga = False
+        #     isSell = True
+        #     if( jangosuryang > 1 ):
+        #         sell_amount = jangosuryang / 2
+
+        #     chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(sell_amount)
+        #     current_jango['분할매도이력'] = chegyeol_info
 
         # 20180410150510 팜스웰바이오 실시간 매수 호가가 0으로 나오는 경우 있음 
-        elif( stop_loss >= maesuHoga1 and maesuHoga1 > 0 ) :
-            maedo_type = "(손절이다)"
-            printData += maedo_type 
+        if( stop_loss >= maesuHoga1 and maesuHoga1 > 0 ) :
             isSijanga = True
             isSell = True
+            printData += maedo_type 
         elif( stop_plus < maesuHoga1 ) :
-            if( totalAmount >= TOTAL_BUY_AMOUNT):
-                maedo_type = "(익절이다)"
-                printData += maedo_type 
-                isSell = True 
-            else:
-                maedo_type = "(익절미달)"
-                printData += maedo_type 
-                isSell = True
+            isSell = True 
+            printData += maedo_type 
         
 
         printData +=    ' 손절가: {0:7}/'.format(str(stop_loss)) + \
@@ -1884,7 +1903,7 @@ class KiwoomConditon(QObject):
             # 첫매수에 대한 처리도 함
             maesu_count = len(bunhal_maesu_list)
             info.append(' 매수횟수: {0:>1} '.format(maesu_count + 1))
-            info.append(' {0} '.format('(단순매수)'))
+            info.append(' {0} '.format('(매수매수매수매수)'))
 
 
         #################################################################################################
