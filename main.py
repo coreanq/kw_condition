@@ -738,7 +738,33 @@ class KiwoomConditon(QObject):
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
             if( self.current_condition_name == '장초반'):
-                pass
+                if( 
+                    '체결횟수' in jongmok_info_dict
+                    and '조건유지시간' in jongmok_info_dict):
+
+                    # 매수 거래량 + 매도 거래량 -
+                    time_condition = jongmok_info_dict['조건유지시간']
+                    chegyeol_count = jongmok_info_dict['체결횟수']
+
+                    # 60초 동안 거래 속도를 봄 거래량 10미만 제외 
+                    if( time_condition > 60 ):
+                        chegyeol_speed = chegyeol_count / time_condition
+                    
+                        if( chegyeol_speed > 3 ):
+                            pass
+                        else:
+                            return_vals.append(False)
+
+                        print("\n\t{} {}/s".format(jongmok_name, chegyeol_speed))
+
+                        jongmok_info_dict['체결횟수'] = 0
+                        jongmok_info_dict['조건유지시간'] = 0
+                    else:
+                        return_vals.append(False)
+
+                    pass
+                else:
+                    return_vals.append(False)
             else:
                 pass
 
@@ -1124,9 +1150,16 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 9, minute = 0, second = 30 )
-        jang_choban_end_time = datetime.time( hour = 9, minute = 30 )
+        jang_choban_start_time = datetime.time( hour = 8, minute = 45, second = 30 )
+        jang_choban_end_time = datetime.time( hour = 14, minute = 30 )
         jang_jungban_start_time = datetime.time( hour = 14, minute = 00 )
+
+        # 조건 발생 유지 시간 
+        for index, item_dict in enumerate(self.conditionOccurList):
+            if( '조건유지시간' in item_dict ):
+                item_dict['조건유지시간'] = item_dict['조건유지시간'] + 1
+            else:
+                item_dict['조건유지시간'] = 0 
 
 
         current_time = self.currentTime.time()
@@ -1889,7 +1922,7 @@ class KiwoomConditon(QObject):
             maesu_count = len(bunhal_maesu_list)
             maedo_type = current_jango.get('매도중', '')
             if( maedo_type == ''):
-                maedo_type = '(수동매도)'
+                maedo_type = '(수동직접매도수행)'
             info.append('{0:>10}'.format(profit_percent))
             info.append('{0:>10}'.format(profit))
             info.append(' 매수횟수: {0:>1} '.format(maesu_count))
@@ -2024,6 +2057,15 @@ class KiwoomConditon(QObject):
         for index, item_dict in enumerate(self.conditionOccurList):
             if( item_dict['종목코드'] == jongmok_code ):
                 item_dict[col_name] = value
+                # 거래량이 +1 초과인 종목만 체결횟수로 침  + 는 매수체결
+                if( col_name == '거래량'
+                    and int(item_dict['거래량']) > 1 ):
+                    if( '체결횟수' in item_dict ):
+                        item_dict['체결횟수'] = item_dict['체결횟수'] + 1
+                    else:
+                        item_dict['체결횟수'] = 0 
+
+
 
         
     # 다음 codition list 를 감시 하기 위해 종목 섞기 
