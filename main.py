@@ -19,7 +19,7 @@ from mainwindow_ui import Ui_MainWindow
 AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
 JANG_CHOBAN_TIME = [ AUTO_TRADING_OPERATION_TIME[0][0][0] + 1, 59 ]  # 9시 1분부터
 
-TOTAL_BUY_AMOUNT = 50000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+TOTAL_BUY_AMOUNT = 40000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 50000 # 추가 매수 기본 단위  총 자본의 1/10 수준 유지 증거금 40% 적용(1/20)
 
@@ -735,36 +735,43 @@ class KiwoomConditon(QObject):
 
 
         ##########################################################################################################
+        # 체결속도 측정 
+        maesu_chegyeol_speed = 0
+        if( 
+            '매수체결횟수' in jongmok_info_dict
+            and '매도체결횟수' in jongmok_info_dict
+            and '조건유지시간' in jongmok_info_dict):
+
+            # 매수 거래량 + 매도 거래량 -
+            time_condition = jongmok_info_dict['조건유지시간']
+            maesu_chegyeol_count = jongmok_info_dict['매수체결횟수']
+            maedo_chegyeol_count = jongmok_info_dict['매도체결횟수']
+
+            # 30초 동안 거래 속도를 봄 거래량 10미만 제외 
+            if( time_condition > 30 ):
+                maesu_chegyeol_speed = maesu_chegyeol_count / time_condition
+                maedo_chegyeol_speed = maedo_chegyeol_count / time_condition
+                print("\t{} 매수: {}/s 매도: {}/s".format(jongmok_name, maesu_chegyeol_speed, maedo_chegyeol_speed))
+
+                jongmok_info_dict['매수체결횟수'] = 0
+                jongmok_info_dict['매도체결횟수'] = 0
+                jongmok_info_dict['조건유지시간'] = 0
+                jongmok_info_dict['매수체결속도'] = round(maesu_chegyeol_speed, 2)
+                jongmok_info_dict['매수체결속도'] = round(maedo_chegyeol_speed, 2)
+                if( jongmok_code in self.jangoInfo):
+                    self.jangoInfo[jongmok_code]['매수체결속도'] = round(maesu_chegyeol_speed, 2)
+                    self.jangoInfo[jongmok_code]['매도체결속도'] = round(maedo_chegyeol_speed, 2)
+
+
+        ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
             if( self.current_condition_name == '장초반'):
-                if( 
-                    '체결횟수' in jongmok_info_dict
-                    and '조건유지시간' in jongmok_info_dict):
-
-                    # 매수 거래량 + 매도 거래량 -
-                    time_condition = jongmok_info_dict['조건유지시간']
-                    chegyeol_count = jongmok_info_dict['체결횟수']
-
-                    # 60초 동안 거래 속도를 봄 거래량 10미만 제외 
-                    if( time_condition > 60 ):
-                        chegyeol_speed = chegyeol_count / time_condition
-                    
-                        if( chegyeol_speed > 3 ):
-                            pass
-                        else:
-                            return_vals.append(False)
-
-                        print("\n\t{} {}/s".format(jongmok_name, chegyeol_speed))
-
-                        jongmok_info_dict['체결횟수'] = 0
-                        jongmok_info_dict['조건유지시간'] = 0
-                    else:
-                        return_vals.append(False)
-
+                if( maesu_chegyeol_speed > 3 ):
                     pass
                 else:
                     return_vals.append(False)
+                    pass
             else:
                 pass
 
@@ -1150,8 +1157,8 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 8, minute = 45, second = 30 )
-        jang_choban_end_time = datetime.time( hour = 14, minute = 30 )
+        jang_choban_start_time = datetime.time( hour = 9, minute = 0, second = 10 )
+        jang_choban_end_time = datetime.time( hour = 14, minute = 00 )
         jang_jungban_start_time = datetime.time( hour = 14, minute = 00 )
 
         # 조건 발생 유지 시간 
@@ -1588,6 +1595,7 @@ class KiwoomConditon(QObject):
             if( self.current_condition_name == "장후반"):
                 if( _today_amount  < _yesterday_amount 
                     and maesuHoga1 < _today_open_price   
+                    and maesuHoga1 < _yesterday_close_price
                     ):
                     stop_loss = 99999999
                     maedo_type = "(후반거래량손절임)"
@@ -1603,37 +1611,36 @@ class KiwoomConditon(QObject):
             ##########################################################################################################
             # 당일 매수 종목 
             last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
-            time_span = datetime.timedelta( minutes = 6 )
+            # time_span = datetime.timedelta( minutes = 6 )
             stop_plus = 9999999 
 
-            # 매수 한지 ? 분이 지나고 수익이 나지 않으면  손절 
-            # if( 
-            #     last_bunhal_maesu_date_time + time_span < self.currentTime
-            #     and maesuHoga1 < maeipga  
-            #     ) :
-            #     stop_loss = 99999999
+            maesu_chegyeol_speed = current_jango.get('매수체결속도', 0)
+            maedo_chegyeol_speed = current_jango.get('매도체결속도', 0)
 
-            # 수익중인 경우 직전 1봉 저가 트레일링 스탑 
-            if( 
-                maesuHoga1 < last_min_low_price ):
+            if( self.current_condition_name == '장초반'
+                and maesu_chegyeol_speed < 3
+                and maesu_chegyeol_speed > 0):
+                # chegyeol_speed 는 초기값 
 
-                if( maesuHoga1 < maeipga * 1.01 ):
-                    stop_plus = 0
-                    maedo_type = "(초반직전저가익절)"
-                elif( 
-                    last_bunhal_maesu_date_time + time_span < self.currentTime ):
-                    # 매수 한지 ? 분이 지나고 수익이 나지 않으면 손절 
-                    stop_loss = 99999999
-                    maedo_type = "(초반직전저가손절)"
-
-            if( self.current_condition_name == '장초반'):
                 if( maesuHoga1 > maeipga * 1.04 ):
                     stop_plus = 0
                     maedo_type = "(초반익절한계도달)"
 
-                if( maesuHoga1 < maeipga * 0.99 ):
-                    stop_loss = 99999999 
-                    maedo_type = "(초반손절한계도달)"
+                # if( maesuHoga1 < maeipga * 0.99 ):
+                #     stop_loss = 99999999 
+                #     maedo_type = "(초반손절한계도달)"
+
+                # 수익중인 경우 직전 1봉 저가 트레일링 스탑 
+                if( maesuHoga1 < last_min_low_price ):
+
+                    if( maesuHoga1 < maeipga * 1.01 ):
+                        stop_plus = 0
+                        maedo_type = "(초반직전저가익절)"
+                    else: 
+                        # last_bunhal_maesu_date_time + time_span < self.currentTime ):
+                        # 매수 한지 ? 분이 지나고 수익이 나지 않으면 손절 
+                        stop_loss = 99999999
+                        maedo_type = "(초반직전저가손절)"
 
             #  장초반 지난 경우 무조건 매도
             if( self.current_condition_name == '휴식'):
@@ -1650,7 +1657,6 @@ class KiwoomConditon(QObject):
         # 손절 / 익절 계산 
         # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
         isSijanga = False
-        maedo_type = ''
         sell_amount = jangosuryang
 
         # if ( stop_loss == 88888888 ):
@@ -2058,12 +2064,18 @@ class KiwoomConditon(QObject):
             if( item_dict['종목코드'] == jongmok_code ):
                 item_dict[col_name] = value
                 # 거래량이 +1 초과인 종목만 체결횟수로 침  + 는 매수체결
-                if( col_name == '거래량'
-                    and int(item_dict['거래량']) > 1 ):
-                    if( '체결횟수' in item_dict ):
-                        item_dict['체결횟수'] = item_dict['체결횟수'] + 1
-                    else:
-                        item_dict['체결횟수'] = 0 
+                if( col_name == '거래량'):
+                    if( int(item_dict['거래량']) > 1):
+                        if( '매수체결횟수' in item_dict ):
+                            item_dict['매수체결횟수'] = item_dict['매수체결횟수'] + 1
+                        else:
+                            item_dict['매수체결횟수'] = 0 
+                        pass
+                    elif( int(item_dict['거래량']) < -1 ):
+                        if( '매도체결횟수' in item_dict ):
+                            item_dict['매도체결횟수'] = item_dict['매도체결횟수'] + 1
+                        else:
+                            item_dict['매도체결횟수'] = 0 
 
 
 
