@@ -19,13 +19,13 @@ from mainwindow_ui import Ui_MainWindow
 AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
 JANG_CHOBAN_TIME = [ AUTO_TRADING_OPERATION_TIME[0][0][0] + 1, 59 ]  # 9시 1분부터
 
-TOTAL_BUY_AMOUNT = 40000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+TOTAL_BUY_AMOUNT = 30000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
 MAESU_UNIT = 50000 # 추가 매수 기본 단위  총 자본의 1/10 수준 유지 증거금 40% 적용(1/20)
 
 BUNHAL_MAESU_LIMIT = 4 # 분할 매수 횟수 제한 
 
-MAX_STOCK_POSSESION_COUNT = 8 # 제외 종목 리스트 불포함한 최대 종목 보유 수매수 
+MAX_STOCK_POSSESION_COUNT = 20 # 제외 종목 리스트 불포함한 최대 종목 보유 수매수 
 
 BUNHAL_MAESU_PROHIBIT_DAYS = 1 # 최근 ? 내에서는 분할 매수 금지
 
@@ -1162,7 +1162,7 @@ class KiwoomConditon(QObject):
         self.currentTime = datetime.datetime.now()
 
         jang_choban_start_time = datetime.time( hour = 9, minute = 0, second = 10 )
-        jang_choban_end_time = datetime.time( hour = 14, minute = 00 )
+        jang_choban_end_time = datetime.time( hour = 13, minute = 58 )
         jang_jungban_start_time = datetime.time( hour = 14, minute = 00 )
 
         # 조건 발생 유지 시간 
