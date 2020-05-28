@@ -1509,25 +1509,13 @@ class KiwoomConditon(QObject):
         #     pass
 
 
-        ########################################################################################
-        # 분봉 연산
-        # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
-        min_current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
-        min_close_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
-        min_low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
-        min_high_price_index  =  kw_util.dict_jusik['TR:분봉'].index('고가')
-        min_open_price_index  =  kw_util.dict_jusik['TR:분봉'].index('시가')
-        min_amout_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
- 
-        time_index  =  kw_util.dict_jusik['TR:분봉'].index('체결시간')
 
         updown_percentage = float(current_jango['등락율']) 
 
-
         time_span = datetime.timedelta(days = 1)
+
         _yesterday_date = (self.currentTime - time_span).date()
         _today_date = (self.currentTime).date()
-
 
         _today_open_price = abs(int(current_jango['시가']))
         _today_close_price = abs(int(current_jango['현재가']))
@@ -1539,6 +1527,19 @@ class KiwoomConditon(QObject):
         _yesterday_amount = int( _today_amount / (abs(float(current_jango['전일거래량대비(비율)'])) / 100) )
 
         maedo_type = "(손절타입오류발생)"
+
+
+
+        ########################################################################################
+        # 분봉 연산
+        # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
+        # min_current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
+        # min_close_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
+        # min_low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
+        # min_high_price_index  =  kw_util.dict_jusik['TR:분봉'].index('고가')
+        # min_open_price_index  =  kw_util.dict_jusik['TR:분봉'].index('시가')
+        # min_amout_index = kw_util.dict_jusik['TR:분봉'].index('거래량')
+        # time_index  =  kw_util.dict_jusik['TR:분봉'].index('체결시간')
 
         # last_min_open_price = 0
         # last_min_low_price = 0
@@ -1648,18 +1649,6 @@ class KiwoomConditon(QObject):
                 if( maesuHoga2 > maeipga * 1.01 ):
                     stop_plus = 0
                     maedo_type = "(초반익절한계도달)"
-
-                # 수익중인 경우 직전 1봉 저가 트레일링 스탑 
-                # if( maesuHoga2 < last_min_low_price ):
-
-                #     if( maesuHoga2 < maeipga * 1.01 ):
-                #         stop_plus = 0
-                #         maedo_type = "(초반직전저가익절)"
-                #     else: 
-                #         # last_bunhal_maesu_date_time + time_span < self.currentTime ):
-                #         # 매수 한지 ? 분이 지나고 수익이 나지 않으면 손절 
-                #         stop_loss = 99999999
-                #         maedo_type = "(초반직전저가손절)"
 
             #  장초반 지난 경우 무조건 매도
             if( self.current_condition_name == '휴식'):
