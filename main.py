@@ -758,7 +758,7 @@ class KiwoomConditon(QObject):
                 jongmok_info_dict['매도체결횟수'] = 0
                 jongmok_info_dict['조건유지시간'] = 0
                 jongmok_info_dict['매수체결속도'] = round(maesu_chegyeol_speed, 2)
-                jongmok_info_dict['매수체결속도'] = round(maedo_chegyeol_speed, 2)
+                jongmok_info_dict['매도체결속도'] = round(maedo_chegyeol_speed, 2)
                 if( jongmok_code in self.jangoInfo):
                     self.jangoInfo[jongmok_code]['매수체결속도'] = round(maesu_chegyeol_speed, 2)
                     self.jangoInfo[jongmok_code]['매도체결속도'] = round(maedo_chegyeol_speed, 2)
