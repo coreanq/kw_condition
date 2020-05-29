@@ -752,7 +752,8 @@ class KiwoomConditon(QObject):
             if( time_condition > 30 ):
                 maesu_chegyeol_speed = maesu_chegyeol_count / time_condition
                 maedo_chegyeol_speed = maedo_chegyeol_count / time_condition
-                print("\t{} 매수: {}/s 매도: {}/s".format(jongmok_name, maesu_chegyeol_speed, maedo_chegyeol_speed))
+                print("\t{} 매수: {}/s 매도: {}/s".format(jongmok_name, 
+                            round(maesu_chegyeol_speed, 2) , round(maedo_chegyeol_speed, 2) ) )
 
                 jongmok_info_dict['매수체결횟수'] = 0
                 jongmok_info_dict['매도체결횟수'] = 0
@@ -768,9 +769,9 @@ class KiwoomConditon(QObject):
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
             if( self.current_condition_name == '장초반'):
-                if( maesu_chegyeol_speed > 2 
+                if( maesu_chegyeol_speed > 3 
                     and maesu_chegyeol_speed > maedo_chegyeol_speed ):
-                # if( maedo_chegyeol_speed > 2 
+                # if( maedo_chegyeol_speed > 3 
                 #     and maesu_chegyeol_speed < maedo_chegyeol_speed ):
                     pass
                 else:
@@ -1442,9 +1443,6 @@ class KiwoomConditon(QObject):
             return 
         current_jango = self.jangoInfo[jongmok_code]
 
-        key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT ) 
-        key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
-
         first_bunhal_maesu_time_str = current_jango['분할매수이력'][0].split(':')[0] #날짜:가격:수량 
         first_maeip_price = int(current_jango['분할매수이력'][0].split(':')[1]) #날짜:가격:수량 
 
@@ -1493,6 +1491,7 @@ class KiwoomConditon(QObject):
 
         ########################################################################################
         # 일봉 연산
+        # key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT ) 
         # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
         # if( self.isDayCandleExist(current_jango) == True ):  # 일봉 정보 얻었는지 확인 
         #     current_price_index = kw_util.dict_jusik['TR:일봉'].index('현재가')
@@ -1507,8 +1506,6 @@ class KiwoomConditon(QObject):
         #     _20day_avr = ( sum(_19day_list) + maesuHoga1) / 20
 
         #     pass
-
-
 
         updown_percentage = float(current_jango['등락율']) 
 
@@ -1526,13 +1523,13 @@ class KiwoomConditon(QObject):
         _yesterday_close_price = abs(_today_close_price - int(current_jango['전일대비'] ))
         _yesterday_amount = int( _today_amount / (abs(float(current_jango['전일거래량대비(비율)'])) / 100) )
 
-        maedo_type = "(손절타입오류발생)"
-
+        maedo_type = "(분할매수기본손절)"
 
 
         ########################################################################################
         # 분봉 연산
         # 1 봉이 직전 봉이므로 현재가를 포함한 평균가를 구함 
+        # key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
         # min_current_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
         # min_close_price_index = kw_util.dict_jusik['TR:분봉'].index('현재가')
         # min_low_price_index  =  kw_util.dict_jusik['TR:분봉'].index('저가')
@@ -1607,7 +1604,6 @@ class KiwoomConditon(QObject):
             ##########################################################################################################
             # 분할 매수 스윙 종목  
             stop_plus = 99999999
-            maedo_type = "(분할매수종목오류)"
 
             # 장후반 음봉에 거래량이 마이너스면 손절 
             if( self.current_condition_name == "장후반"):
@@ -1642,11 +1638,11 @@ class KiwoomConditon(QObject):
 
             if( self.current_condition_name == '장초반'):
                 # 첫 매수후 다음 측정까지 30초 걸리므로 바로 팔진 않음 
-                if( maesu_chegyeol_speed < maedo_chegyeol_speed ):
-                    stop_plus = 0
-                    maedo_type = "(매도체결속도증가)"
+                # if( maesu_chegyeol_speed < maedo_chegyeol_speed ):
+                #     stop_plus = 0
+                #     maedo_type = "(매도체결속도증가)"
 
-                if( maesuHoga2 > maeipga * 1.01 ):
+                if( maesuHoga2 > maeipga * 1.023 ):
                     stop_plus = 0
                     maedo_type = "(초반익절한계도달)"
 
@@ -1655,6 +1651,13 @@ class KiwoomConditon(QObject):
                 stop_loss = 99999999
                 maedo_type = "(초반타임컷손절임)"
                 pass
+
+            if( len(current_jango['분할매수이력']) >= 2 ):
+                if( maesuHoga2 > maeipga * 1.005 ):
+                    stop_plus = 0
+                    maedo_type = "(수동물타기익절임)"
+                pass
+
 
 
         ########################################################################################
@@ -1682,10 +1685,9 @@ class KiwoomConditon(QObject):
         if( stop_loss >= maesuHoga1 and maesuHoga1 > 0 ) :
             isSijanga = True
             isSell = True
-            printData += maedo_type 
         elif( stop_plus < maesuHoga1 ) :
             isSell = True 
-            printData += maedo_type 
+        printData += maedo_type 
         
 
         printData +=    ' 손절가: {0:7}/'.format(str(stop_loss)) + \
