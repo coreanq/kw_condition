@@ -457,11 +457,12 @@ class KiwoomConditon(QObject):
                 start_info = info
                 start_name = name
             else: 
-                print("stop condition " + name + ", screen_no: " + info[0] + ", number " + info[1] )
-                self.sendConditionStop( info[0], name, info[1]) 
+                print("stop condition " + name + ", screen_no: " + info[0] + ", nIndex " + '{}'.format(int(info[1]) ) )
+                self.sendConditionStop( info[0], name, int(info[1])  )
+                pass
 
-        print("start condition " + start_name + ", screen_no: " + start_info[0] + ", number " + start_info[1] )
-        self.sendCondition( start_info[0], start_name, start_info[1], 1) 
+        print("start condition " + start_name + ", screen_no: " + start_info[0] + ", nIndex " + '{}'.format(int(start_info[1])) )
+        self.sendCondition( start_info[0], start_name, int(start_info[1]) , 1) 
 
         pass
 
@@ -661,8 +662,8 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 전일 종가를 얻기 위한 기준가 정보 생성
-        # 기준가 정보가 공백 인 경우 있음 
-        gijunga = int(float(jongmok_info_dict['현재가']) / ( 1 + float(jongmok_info_dict['등락율']) / 100 ) )
+        gijunga = int(self.GetMasterLastPrice(jongmok_code))
+        # int(float(jongmok_info_dict['현재가']) / ( 1 + float(jongmok_info_dict['등락율']) / 100 ) )
         # print( '{} 기준가: {}'.format( jongmok_name,  gijunga ))
 
 
@@ -748,12 +749,19 @@ class KiwoomConditon(QObject):
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
             if( self.current_condition_name == '장초반'):
-                if( maesu_chegyeol_speed > 3 
-                    and maesu_chegyeol_speed > maedo_chegyeol_speed ):
-                    pass
-                else:
-                    return_vals.append(False)
-                    pass
+                # if( maesu_chegyeol_speed > 3 
+                #     and maesu_chegyeol_speed > maedo_chegyeol_speed ):
+                #     pass
+                # else:
+                #     return_vals.append(False)
+
+                # if( maedo_chegyeol_speed > 3 
+                #     and maesu_chegyeol_speed < maedo_chegyeol_speed ):
+                #     pass
+                # else:
+                #     return_vals.append(False)
+                # pass
+                pass
             else:
                 pass
 
@@ -1138,9 +1146,9 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 9, minute = 30, second = 0 )
-        jang_choban_end_time = datetime.time( hour = 14, minute = 0 )
-        jang_jungban_start_time = datetime.time( hour = 14, minute = 0 )
+        jang_choban_start_time = datetime.time( hour = 9, minute = 1, second = 0 )
+        jang_choban_end_time = datetime.time( hour = 14, minute = 25 )
+        jang_jungban_start_time = datetime.time( hour = 14, minute = 30 )
 
         # 조건 발생 유지 시간 
         for index, item_dict in enumerate(self.conditionOccurList):
@@ -1463,7 +1471,8 @@ class KiwoomConditon(QObject):
         _today_high_price = abs(int(current_jango['고가']) )
         _today_amount = abs(int(current_jango['누적거래량']))
 
-        _yesterday_close_price = abs(_today_close_price - int(current_jango['전일대비'] ))
+        # _yesterday_close_price = abs(_today_close_price - int(current_jango['전일대비'] ))
+        _yesterday_close_price = int(self.GetMasterLastPrice(jongmok_code))
         _yesterday_amount = int( _today_amount / (abs(float(current_jango['전일거래량대비(비율)'])) / 100) )
 
         maedo_type = "(분할매수기본손절)"
@@ -1525,10 +1534,10 @@ class KiwoomConditon(QObject):
                     pass
 
             #  장초반 지난 경우 무조건 매도
-            # if( self.current_condition_name == '휴식'):
-            #     stop_loss = 99999999
-            #     maedo_type = "(초반타임컷손절임)"
-            #     pass
+            if( self.current_condition_name == '휴식'):
+                stop_loss = 99999999
+                maedo_type = "(초반타임컷손절임)"
+                pass
 
 
         ########################################################################################
@@ -2266,6 +2275,13 @@ class KiwoomConditon(QObject):
     @pyqtSlot(str, result=str)
     def getMasterCodeName(self, strCode):
         return self.ocx.dynamicCall("GetMasterCodeName(QString)", strCode)
+
+    # 설명 종목코드의 전일가를 반환한다. 
+    # 입력값: strCode – 종목코드 
+    # 반환값: 전일가  
+    @pyqtSlot(str, result=str)
+    def GetMasterLastPrice(self, strCode):
+        return self.ocx.dynamicCall("GetMasterLastPrice(QString)", strCode)
 
     # 종목코드의 한다.
     # strCode – 종목코드
