@@ -644,6 +644,14 @@ class KiwoomConditon(QObject):
                 if( jongmok_code not in self.jangoInfo):
                     printLog += "(종목최대보유중)"
                     return_vals.append(False)
+            pass
+
+        day_trading_end_time = datetime.time( hour = 14, minute = 30 )
+
+        if( self.current_condition_name != '장후반' and  self.currentTime.time() > day_trading_end_time ):
+            printLog += "(데이트레이딩종료)"
+            return_vals.append(False)
+
         
 
         ##########################################################################################################
@@ -1147,8 +1155,8 @@ class KiwoomConditon(QObject):
         self.currentTime = datetime.datetime.now()
 
         jang_choban_start_time = datetime.time( hour = 9, minute = 1, second = 0 )
-        jang_choban_end_time = datetime.time( hour = 14, minute = 25 )
-        jang_jungban_start_time = datetime.time( hour = 14, minute = 30 )
+        jang_choban_end_time = datetime.time( hour = 15, minute = 10 )
+        jang_jungban_start_time = datetime.time( hour = 15, minute = 13 )
 
         # 조건 발생 유지 시간 
         for index, item_dict in enumerate(self.conditionOccurList):
@@ -1465,6 +1473,7 @@ class KiwoomConditon(QObject):
         _yesterday_date = (self.currentTime - time_span).date()
         _today_date = (self.currentTime).date()
 
+        _today_volume_power = abs(float(current_jango['체결강도']))
         _today_open_price = abs(int(current_jango['시가']))
         _today_close_price = abs(int(current_jango['현재가']))
         _today_low_price = abs(int(current_jango['저가']))
@@ -1484,7 +1493,13 @@ class KiwoomConditon(QObject):
             # 분할 매수 스윙 종목  
             stop_plus = 99999999
 
-            # 장후반 음봉에 거래량이 마이너스면 손절 
+            # 스윙 종목으로 당일 등락율 너무 높은 경우 익절 
+            if(  updown_percentage > 27 ):
+                stop_plus = 0
+                maedo_type = "(주가등락률익절임)"
+                pass
+
+            # 장후반 종목 정리 
             if( self.current_condition_name == "장후반"):
                 if( _today_amount  < _yesterday_amount ):
                     if( maesuHoga2 < _today_open_price ):
@@ -1497,11 +1512,11 @@ class KiwoomConditon(QObject):
                         maedo_type = "(양거래량전일종가)"
                     pass
 
-            # 스윙 종목으로 당일 등락율 너무 높은 경우 익절 
-            if(  updown_percentage > 27 ):
-                stop_plus = 0
-                maedo_type = "(후반등락률익절임)"
-                pass
+                if(  _today_volume_power < 100 ):
+                    stop_loss = 99999999
+                    maedo_type = "(후반체결강도손절)"
+                    pass
+
 
         else:
             ##########################################################################################################
@@ -1519,21 +1534,9 @@ class KiwoomConditon(QObject):
                     stop_plus = 0
                     maedo_type = "(초반익절한계도달)"
 
-            ##########################################################################################################
-            # 당일 매수 종목 장후반에 스윙 조건 부합하면 보유
-            if( self.current_condition_name == "장후반"):
-                if( _today_amount  < _yesterday_amount ):
-                    if( maesuHoga2 < _today_open_price ):
-                        stop_loss = 99999999
-                        maedo_type = "(음거래량당일음봉)"
-                    pass
-                else:
-                    if( maesuHoga2 < _yesterday_close_price ):
-                        stop_loss = 99999999
-                        maedo_type = "(양거래량전일종가)"
-                    pass
+            day_trading_end_time = datetime.time( hour = 15, minute = 18 )
 
-            #  장초반 지난 경우 무조건 매도
+            #  데이트레이딩 종료 
             if( self.current_condition_name == '휴식'):
                 stop_loss = 99999999
                 maedo_type = "(초반타임컷손절임)"
