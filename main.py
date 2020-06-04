@@ -646,6 +646,9 @@ class KiwoomConditon(QObject):
                     return_vals.append(False)
             pass
 
+
+        ##########################################################################################################
+        # 데이트레이딩 중지 
         day_trading_end_time = datetime.time( hour = 14, minute = 30 )
 
         if( self.current_condition_name != '장후반' and  self.currentTime.time() > day_trading_end_time ):
@@ -757,18 +760,6 @@ class KiwoomConditon(QObject):
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
             if( self.current_condition_name == '장초반'):
-                # if( maesu_chegyeol_speed > 3 
-                #     and maesu_chegyeol_speed > maedo_chegyeol_speed ):
-                #     pass
-                # else:
-                #     return_vals.append(False)
-
-                # if( maedo_chegyeol_speed > 3 
-                #     and maesu_chegyeol_speed < maedo_chegyeol_speed ):
-                #     pass
-                # else:
-                #     return_vals.append(False)
-                # pass
                 pass
             else:
                 pass
@@ -1500,7 +1491,7 @@ class KiwoomConditon(QObject):
                 pass
 
             # 장후반 종목 정리 
-            if( self.current_condition_name == "장후반"):
+            if( self.current_condition_name == "휴식"):
                 if( _today_amount  < _yesterday_amount ):
                     if( maesuHoga2 < _today_open_price ):
                         stop_loss = 99999999
@@ -1534,13 +1525,29 @@ class KiwoomConditon(QObject):
                     stop_plus = 0
                     maedo_type = "(초반익절한계도달)"
 
-            day_trading_end_time = datetime.time( hour = 15, minute = 18 )
+            # 장후반 종목 정리 
+            if( self.current_condition_name == "장후반"):
+                if( _today_amount  < _yesterday_amount ):
+                    if( maesuHoga2 < _today_open_price ):
+                        stop_loss = 99999999
+                        maedo_type = "(음거래량당일음봉)"
+                    pass
+                else:
+                    if( maesuHoga2 < _yesterday_close_price ):
+                        stop_loss = 99999999
+                        maedo_type = "(양거래량전일종가)"
+                    pass
+
+                if(  _today_volume_power < 100 ):
+                    stop_loss = 99999999
+                    maedo_type = "(후반체결강도손절)"
+                    pass
 
             #  데이트레이딩 종료 
-            if( self.current_condition_name == '휴식'):
-                stop_loss = 99999999
-                maedo_type = "(초반타임컷손절임)"
-                pass
+            # if( self.current_condition_name == '휴식'):
+            #     stop_loss = 99999999
+            #     maedo_type = "(초반타임컷손절임)"
+            #     pass
 
 
         ########################################################################################
