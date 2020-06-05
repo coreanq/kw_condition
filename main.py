@@ -1491,7 +1491,9 @@ class KiwoomConditon(QObject):
                 pass
 
             # 장후반 종목 정리 
-            if( self.current_condition_name == "휴식"):
+            stop_time =   datetime.time( hour = 14, minute = 0) 
+
+            if( self.current_condition_name == "휴식" and self.currentTime.time() > stop_time):
                 if( _today_amount  < _yesterday_amount ):
                     if( maesuHoga2 < _today_open_price ):
                         stop_loss = 99999999
