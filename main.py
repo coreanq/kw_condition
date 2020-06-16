@@ -1145,7 +1145,7 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 9, minute = 1, second = 0 )
+        jang_choban_start_time = datetime.time( hour = 9, minute = 0, second = 30 )
         jang_choban_end_time = datetime.time( hour = 15, minute = 10 )
         jang_jungban_start_time = datetime.time( hour = 15, minute = 13 )
 
@@ -1528,7 +1528,7 @@ class KiwoomConditon(QObject):
                     maedo_type = "(초반익절한계도달)"
 
             # 장후반 종목 정리 
-            if( self.current_condition_name == "장후반"):
+            if( self.current_condition_name == "휴식"):
                 if( _today_amount  < _yesterday_amount ):
                     if( maesuHoga2 < _today_open_price ):
                         stop_loss = 99999999
