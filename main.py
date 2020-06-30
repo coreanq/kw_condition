@@ -1515,17 +1515,20 @@ class KiwoomConditon(QObject):
             ##########################################################################################################
             # 당일 매수 종목 
             last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
-            # time_span = datetime.timedelta( minutes = 6 )
+            time_span = datetime.timedelta( minutes = 10 )
+
             stop_plus = 9999999 
+
 
             maesu_chegyeol_speed = current_jango.get('매수체결속도', 0)
             maedo_chegyeol_speed = current_jango.get('매도체결속도', 0)
 
+            bunhal_maedo_info_list = current_jango.get('분할매도이력', [])  
+            bunhal_maedo_count = len(bunhal_maedo_info_list)
+
             ##########################################################################################################
             if( self.current_condition_name == '장초반' and '매도중' not in current_jango):
 
-                bunhal_maedo_info_list = current_jango.get('분할매도이력', [])  
-                bunhal_maedo_count = len(bunhal_maedo_info_list)
                 bunhal_maedo_base_amount = 0
                 if( bunhal_maedo_count != 0 ):
                     bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
@@ -1564,6 +1567,23 @@ class KiwoomConditon(QObject):
                     chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
                     bunhal_maedo_info_list.append( chegyeol_info )
                     current_jango['분할매도이력'] = bunhal_maedo_info_list
+            
+            # 분할매도 진행중이면 본절 손절 적용  
+            if( bunhal_maedo_count != 0 and stop_plus != 0 ):
+                maedo_type = "(분할매도본전손절)"
+                stop_loss = maeipga
+
+            # 체결강도 낮아지면 매도 
+            if(  _today_volume_power < 100 ):
+                stop_loss = 99999999
+                maedo_type = "(초반체결강도손절)"
+                pass
+
+            # 분할 매도중 아니면 타임컷 적용 타임컷 적용시 너무 잦은 매수 매도 일어남 
+            # if( self.currentTime  > last_bunhal_maesu_date_time  +  time_span 
+            # and bunhal_maedo_count == 0 ):
+            #     stop_loss = 99999999
+            #     maedo_type = "(초반타임컷수행함)"
 
             # 장후반 종목 정리 
             if( self.current_condition_name == "휴식"):
@@ -1580,7 +1600,7 @@ class KiwoomConditon(QObject):
 
                 if(  _today_volume_power < 100 ):
                     stop_loss = 99999999
-                    maedo_type = "(후반체결강도손절)"
+                    maedo_type = "(휴식체결강도손절)"
                     pass
 
             #  데이트레이딩 종료 
