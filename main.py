@@ -769,7 +769,7 @@ class KiwoomConditon(QObject):
         else:
             ##########################################################################################################
             # 최근 매입가 대비 비교하여 추매 
-            if(  maedoHoga1 > last_maeip_price 
+            if(  maedoHoga1 > last_maeip_price * 1.005
                 ):
                 # print("{:<30}".format(jongmok_name)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                 pass            
@@ -1484,6 +1484,12 @@ class KiwoomConditon(QObject):
             # 분할 매수 스윙 종목  
             stop_plus = 99999999
 
+            bunhal_maesu_info_list = current_jango.get('분할매수이력', [])  
+            bunhal_maesu_count = len(bunhal_maesu_info_list)
+
+            # 분할 매수가 한번이라도 이루어진 경우 본전 손절로 변경 
+            if( bunhal_maesu_count != 0 ):
+                stop_loss = maeipga
             # 스윙 종목으로 당일 등락율 너무 높은 경우 익절 
             if(  updown_percentage > 27 ):
                 stop_plus = 0
@@ -1525,56 +1531,49 @@ class KiwoomConditon(QObject):
 
             bunhal_maedo_info_list = current_jango.get('분할매도이력', [])  
             bunhal_maedo_count = len(bunhal_maedo_info_list)
+            bunhal_maedo_base_amount = 0
 
             ##########################################################################################################
             if( self.current_condition_name == '장초반' and '매도중' not in current_jango):
 
-                bunhal_maedo_base_amount = 0
                 if( bunhal_maedo_count != 0 ):
                     bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
                 else:
-                    bunhal_maedo_base_amount  = int(jangosuryang/2) + 1
+                    bunhal_maedo_base_amount  = int(jangosuryang/2)
 
-                if( maesuHoga2 > maeipga * 1.013 and bunhal_maedo_count == 0 ):
+                if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
+                    bunhal_maedo_base_amount = jangosuryang
+
+                chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
+
+                if( maesuHoga2 > maeipga * 1.005 and bunhal_maedo_count == 0 ):
                     stop_plus = 0
                     maedo_type = "(첫번째분할매도임)"
-                    if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
-                        bunhal_maedo_base_amount = jangosuryang
-                    chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
                     bunhal_maedo_info_list.append( chegyeol_info )
                     current_jango['분할매도이력'] = bunhal_maedo_info_list
                 elif( maesuHoga2 > maeipga * 1.023 and bunhal_maedo_count == 1 ):
                     stop_plus = 0
                     maedo_type = "(두번째분할매도임)"
-                    if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
-                        bunhal_maedo_base_amount = jangosuryang
-                    chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
                     bunhal_maedo_info_list.append( chegyeol_info )
                     current_jango['분할매도이력'] = bunhal_maedo_info_list
                 elif( maesuHoga2 > maeipga * 1.033 and bunhal_maedo_count == 2 ):
                     stop_plus = 0
                     maedo_type = "(세번째분할매도임)"
-                    if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
-                        bunhal_maedo_base_amount = jangosuryang
-                    chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
                     bunhal_maedo_info_list.append( chegyeol_info )
                     current_jango['분할매도이력'] = bunhal_maedo_info_list
                 elif( maesuHoga2 > maeipga * 1.043 and bunhal_maedo_count == 3 ):
                     stop_plus = 0
                     maedo_type = "(네번째분할매도임)"
-                    if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
-                        bunhal_maedo_base_amount = jangosuryang
-                    chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
                     bunhal_maedo_info_list.append( chegyeol_info )
                     current_jango['분할매도이력'] = bunhal_maedo_info_list
-            
-            # 분할매도 진행중이면 본절 손절 적용  
+
+            # 분할매도 진행중이면 본전 손절 적용  
             if( bunhal_maedo_count != 0 and stop_plus != 0 ):
                 maedo_type = "(분할매도본전손절)"
                 stop_loss = maeipga
 
             # 체결강도 낮아지면 매도 
-            if(  _today_volume_power < 100 ):
+            if(  _today_volume_power < 109 ):
                 stop_loss = 99999999
                 maedo_type = "(초반체결강도손절)"
                 pass
@@ -1598,11 +1597,6 @@ class KiwoomConditon(QObject):
                         maedo_type = "(양거래량전일종가)"
                     pass
 
-                if(  _today_volume_power < 100 ):
-                    stop_loss = 99999999
-                    maedo_type = "(휴식체결강도손절)"
-                    pass
-
             #  데이트레이딩 종료 
             # if( self.current_condition_name == '휴식'):
             #     stop_loss = 99999999
@@ -1624,8 +1618,11 @@ class KiwoomConditon(QObject):
         bunhal_maedo_count = len(bunhal_maedo_info_list)
 
         if( bunhal_maedo_count != 0 ):
-            bunhal_maedo_base_amount = int( current_jango['분할매도이력'][-1].split(":")[2]  )
-            sell_amount = bunhal_maedo_base_amount
+            bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
+            if( jangosuryang < bunhal_maedo_base_amount * 2 ):
+                sell_amount = jangosuryang
+            else:
+                sell_amount = bunhal_maedo_base_amount
         else:
             sell_amount = jangosuryang
 
@@ -1681,6 +1678,9 @@ class KiwoomConditon(QObject):
 
             jongmok_code = self.getChejanData(kw_util.name_fid['종목코드'])[1:]
             boyou_suryang = int(self.getChejanData(kw_util.name_fid['보유수량']))
+            old_boyou_suryang = 0
+            if( jongmok_code in self.jangoInfo ):
+                old_boyou_suryang = self.jangoInfo[jongmok_code].get('보유수량', 0)
             jumun_ganeung_suryang = int(self.getChejanData(kw_util.name_fid['주문가능수량']))
             maeip_danga = int(self.getChejanData(kw_util.name_fid['매입단가']))
             jongmok_name= self.getChejanData(kw_util.name_fid['종목명']).strip()
@@ -1694,10 +1694,11 @@ class KiwoomConditon(QObject):
                 else:
                     # 미체결 수량이 없으므로 정보 삭제 
                     del ( self.michegyeolInfo[jongmok_code] )
-
             if( boyou_suryang == 0 ):
                 # 보유 수량이 0 인 경우 매도 수행한 것임  
                 self.jangoInfo.pop(jongmok_code)
+                if( jongmok_code in self.jangoInfoFromFile):
+                    self.jangoInfoFromFile.pop(jongmok_code)
                 self.removeConditionOccurList(jongmok_code)
             else:
                 # 보유 수량이 늘었다는 것은 매수수행했으며 이에 TR 요청에 대한 대기 시간 필요 
@@ -1719,15 +1720,22 @@ class KiwoomConditon(QObject):
                     self.jangoInfo[jongmok_code] = current_jango 
 
                 else:
-                    # 매수가 분할로 되는 경우에는 분할 매수 이력 추가 안함 
-                    last_chegyeol_info = self.jangoInfo[jongmok_code]['분할매수이력'][-1]
-                    last_price = int(last_chegyeol_info.split(':')[1])
-                    if( last_price != current_price ):
-                        chegyeol_info_list = self.jangoInfo[jongmok_code]['분할매수이력']  
-                        chegyeol_info_list.append( chegyeol_info )
-                        current_jango['분할매수이력'] = chegyeol_info_list
+                    if( boyou_suryang > old_boyou_suryang ):
+                        # 분할매수
+                        last_chegyeol_info = self.jangoInfo[jongmok_code]['분할매수이력'][-1]
+                        last_price = int(last_chegyeol_info.split(':')[1])
+                        if( last_price != current_price ):
+                            chegyeol_info_list = self.jangoInfo[jongmok_code]['분할매수이력']  
+                            chegyeol_info_list.append( chegyeol_info )
+                            current_jango['분할매수이력'] = chegyeol_info_list
 
-                    self.jangoInfo[jongmok_code].update(current_jango)
+                        self.jangoInfo[jongmok_code].update(current_jango)
+                        pass
+                    else:
+                        # 분할매도
+                        pass
+                    # 매수가 분할로 되는 경우에는 분할 매수 이력 추가 안함 
+
 
             self.makeJangoInfoFile()
             pass
@@ -1768,12 +1776,17 @@ class KiwoomConditon(QObject):
 
         current_jango = self.jangoInfo[jongmok_code]
 
-        # 분할매수 이력 데이터 파일로부터 읽어오고 파일로부터도 없으면 default 값 입력 
+        # 분할매수없는 경우 저장된 데이터 파일로부터 읽어오고 파일로부터도 없으면 default 값 입력 
         if( '분할매수이력' not in current_jango ):
             current_jango['분할매수이력'] = ['29991212091234:2:1']
             if( jongmok_code in self.jangoInfoFromFile):
-                if( '분할매수이력' in self.jangoInfoFromFile[jongmok_code] ):
-                    current_jango['분할매수이력'] = self.jangoInfoFromFile[jongmok_code].get('분할매수이력', [])
+                current_jango['분할매수이력'] = self.jangoInfoFromFile[jongmok_code].get('분할매수이력', [])
+
+        # 분할매도없는 경우 저장된 데이터 파일로부터 읽어옴
+        if( '분할매도이력' not in current_jango ):
+            current_jango['분할매도이력'] = []
+            if( jongmok_code in self.jangoInfoFromFile):
+                current_jango['분할매도이력'] = self.jangoInfoFromFile[jongmok_code].get('분할매도이력', [])
 
         # 총 매수 갯수 게산 
         bunhal_maesu_list = current_jango['분할매수이력']
