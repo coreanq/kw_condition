@@ -1487,9 +1487,10 @@ class KiwoomConditon(QObject):
             bunhal_maesu_info_list = current_jango.get('분할매수이력', [])  
             bunhal_maesu_count = len(bunhal_maesu_info_list)
 
-            # 분할 매수가 한번이라도 이루어진 경우 본전 손절로 변경 
-            if( bunhal_maesu_count != 0 ):
+            # 분할 매수가 두번 이상 이루어진 경우 본전 손절로 변경 
+            if( bunhal_maesu_count > 1 ):
                 stop_loss = maeipga
+                maedo_type = "(분할매수본전손절)"
             # 스윙 종목으로 당일 등락율 너무 높은 경우 익절 
             if(  updown_percentage > 27 ):
                 stop_plus = 0
@@ -1539,7 +1540,7 @@ class KiwoomConditon(QObject):
                 if( bunhal_maedo_count != 0 ):
                     bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
                 else:
-                    bunhal_maedo_base_amount  = int(jangosuryang/2)
+                    bunhal_maedo_base_amount  = int(round(jangosuryang/2)) 
 
                 if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
                     bunhal_maedo_base_amount = jangosuryang
@@ -1551,17 +1552,17 @@ class KiwoomConditon(QObject):
                     maedo_type = "(첫번째분할매도임)"
                     bunhal_maedo_info_list.append( chegyeol_info )
                     current_jango['분할매도이력'] = bunhal_maedo_info_list
-                elif( maesuHoga2 > maeipga * 1.023 and bunhal_maedo_count == 1 ):
+                elif( maesuHoga2 > maeipga * 1.043 and bunhal_maedo_count == 1 ):
                     stop_plus = 0
                     maedo_type = "(두번째분할매도임)"
                     bunhal_maedo_info_list.append( chegyeol_info )
                     current_jango['분할매도이력'] = bunhal_maedo_info_list
-                elif( maesuHoga2 > maeipga * 1.033 and bunhal_maedo_count == 2 ):
+                elif( maesuHoga2 > maeipga * 1.063 and bunhal_maedo_count == 2 ):
                     stop_plus = 0
                     maedo_type = "(세번째분할매도임)"
                     bunhal_maedo_info_list.append( chegyeol_info )
                     current_jango['분할매도이력'] = bunhal_maedo_info_list
-                elif( maesuHoga2 > maeipga * 1.043 and bunhal_maedo_count == 3 ):
+                elif( maesuHoga2 > maeipga * 1.083 and bunhal_maedo_count == 3 ):
                     stop_plus = 0
                     maedo_type = "(네번째분할매도임)"
                     bunhal_maedo_info_list.append( chegyeol_info )
@@ -1573,16 +1574,15 @@ class KiwoomConditon(QObject):
                 stop_loss = maeipga
 
             # 체결강도 낮아지면 매도 
-            if(  _today_volume_power < 109 ):
-                stop_loss = 99999999
-                maedo_type = "(초반체결강도손절)"
-                pass
+            # if(  _today_volume_power < 109 ):
+            #     stop_loss = 99999999
+            #     maedo_type = "(초반체결강도손절)"
+            #     pass
 
             # 분할 매도중 아니면 타임컷 적용 타임컷 적용시 너무 잦은 매수 매도 일어남 
-            # if( self.currentTime  > last_bunhal_maesu_date_time  +  time_span 
-            # and bunhal_maedo_count == 0 ):
-            #     stop_loss = 99999999
-            #     maedo_type = "(초반타임컷수행함)"
+            if( self.currentTime  > last_bunhal_maesu_date_time + time_span and bunhal_maedo_count == 0 ):
+                stop_loss = 99999999
+                maedo_type = "(초반타임컷수행함)"
 
             # 장후반 종목 정리 
             if( self.current_condition_name == "휴식"):
