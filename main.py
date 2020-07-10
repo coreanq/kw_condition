@@ -1540,7 +1540,7 @@ class KiwoomConditon(QObject):
                 if( bunhal_maedo_count != 0 ):
                     bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
                 else:
-                    bunhal_maedo_base_amount  = int(round(jangosuryang/2)) 
+                    bunhal_maedo_base_amount  = int(jangosuryang/2) 
 
                 if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
                     bunhal_maedo_base_amount = jangosuryang
@@ -1579,10 +1579,19 @@ class KiwoomConditon(QObject):
             #     maedo_type = "(초반체결강도손절)"
             #     pass
 
-            # 분할 매도중 아니면 타임컷 적용 타임컷 적용시 너무 잦은 매수 매도 일어남 
-            if( self.currentTime  > last_bunhal_maesu_date_time + time_span and bunhal_maedo_count == 0 ):
-                stop_loss = 99999999
-                maedo_type = "(초반타임컷수행함)"
+            # 분할 매도중 아니면 타임컷 적용
+            # 타임컷 적용시 너무 잦은 매수 매도 일어남 
+            # 장전체 시황이 안좋은 경우 타임컷 적용 
+
+            kospi_updown = 0 
+            if( '코스피' in self.yupjongInfo ):
+                kospi_updown = float(self.yupjongInfo['코스피'].get('등락율', 0.0) )
+            if( self.currentTime  > last_bunhal_maesu_date_time + time_span 
+                and bunhal_maedo_count == 0 
+                and kospi_updown > -1.0 
+                ):
+                stop_loss = maeipga
+                maedo_type = "(타임컷본전손절함)"
 
             # 장후반 종목 정리 
             if( self.current_condition_name == "휴식"):
@@ -1598,10 +1607,10 @@ class KiwoomConditon(QObject):
                     pass
 
             #  데이트레이딩 종료 
-            # if( self.current_condition_name == '휴식'):
-            #     stop_loss = 99999999
-            #     maedo_type = "(초반타임컷손절임)"
-            #     pass
+            if( self.current_condition_name == '휴식'):
+                stop_loss = 99999999
+                maedo_type = "(데이트레이딩종료)"
+                pass
 
 
         ########################################################################################
@@ -1617,9 +1626,11 @@ class KiwoomConditon(QObject):
         bunhal_maedo_info_list = current_jango.get('분할매도이력', [])  
         bunhal_maedo_count = len(bunhal_maedo_info_list)
 
-        if( bunhal_maedo_count != 0 ):
+        if( '분할매도임' in maedo_type ):
             bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
-            if( jangosuryang < bunhal_maedo_base_amount * 2 ):
+
+            if( jangosuryang < bunhal_maedo_base_amount * 2):
+                # 다음 분할매도 수행가능한 물량이 없는 경우 모두 매도 
                 sell_amount = jangosuryang
             else:
                 sell_amount = bunhal_maedo_base_amount
@@ -1656,7 +1667,8 @@ class KiwoomConditon(QObject):
                                         jongmok_code, sell_amount, maesuHoga2 , kw_util.dict_order["지정가"], "")
 
                 util.save_log(printData, '매도', 'log')
-                print("S " + jongmok_code + ' ' + str(result), sep= "")
+                print("S {} {} {} {}".format(
+                    jongmok_name, sell_amount, maedo_type, result),  sep= "")
             pass
         pass
 
@@ -1728,13 +1740,12 @@ class KiwoomConditon(QObject):
                             chegyeol_info_list = self.jangoInfo[jongmok_code]['분할매수이력']  
                             chegyeol_info_list.append( chegyeol_info )
                             current_jango['분할매수이력'] = chegyeol_info_list
-
-                        self.jangoInfo[jongmok_code].update(current_jango)
                         pass
                     else:
                         # 분할매도
                         pass
-                    # 매수가 분할로 되는 경우에는 분할 매수 이력 추가 안함 
+
+                    self.jangoInfo[jongmok_code].update(current_jango)
 
 
             self.makeJangoInfoFile()
