@@ -1582,13 +1582,12 @@ class KiwoomConditon(QObject):
             # 분할 매도중 아니면 타임컷 적용
             # 타임컷 적용시 너무 잦은 매수 매도 일어남 
             # 장전체 시황이 안좋은 경우 타임컷 적용 
-
             kospi_updown = 0 
             if( '코스피' in self.yupjongInfo ):
                 kospi_updown = float(self.yupjongInfo['코스피'].get('등락율', 0.0) )
             if( self.currentTime  > last_bunhal_maesu_date_time + time_span 
                 and bunhal_maedo_count == 0 
-                and kospi_updown > -1.0 
+                and kospi_updown < -1.0 
                 ):
                 stop_loss = maeipga
                 maedo_type = "(타임컷본전손절함)"
