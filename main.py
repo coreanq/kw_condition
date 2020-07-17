@@ -759,10 +759,13 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
-            if( self.current_condition_name == '장초반'):
-                pass
-            else:
-                pass
+            stop_time =   datetime.time( hour = 9, minute = 30) 
+            stop_end_time =   datetime.time( hour = 13, minute = 30) 
+            if( self.currentTime.time() > stop_time
+                and  self.currentTime.time() < stop_end_time
+                ):
+                printLog += '(매수시간미충족)'
+                return_vals.append(False)
 
         ##########################################################################################################
         # 추가 매수시만 적용되는 조건 
@@ -801,19 +804,7 @@ class KiwoomConditon(QObject):
                 pass
             else: 
                 #당일 추가 매수 종목 
-                if(  maedoHoga1 < last_maeip_price * 0.99
-                    ):
-                    # print("{:<30}".format(jongmok_name)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
-                    pass            
-                else:
-                    printLog += '(추매조건미충족)'
-                    return_vals.append(False)
-
-                temp = '({} {})'\
-                    .format( jongmok_name,  maedoHoga1 )
-                # print( util.cur_time_msec() , temp)
-                printLog += temp
-
+                pass
             pass
 
 
@@ -1178,7 +1169,7 @@ class KiwoomConditon(QObject):
 
         self.currentTime = datetime.datetime.now()
 
-        jang_choban_start_time = datetime.time( hour = 8, minute = 25, second = 30 )
+        jang_choban_start_time = datetime.time( hour = 8, minute = 0,  second = 30 )
         jang_choban_end_time = datetime.time( hour = 15, minute = 10 )
         jang_jungban_start_time = datetime.time( hour = 15, minute = 13 )
 
@@ -1580,7 +1571,13 @@ class KiwoomConditon(QObject):
 
                 chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
 
-                if( maesuHoga2 > maeipga * 1.013 and bunhal_maedo_count == 0 ):
+                first_bunhal_stoploss_percent = 1.015
+                very_choban_time =  datetime.time( hour = 9, minute = 20) 
+
+                if( self.currentTime.time() > very_choban_time ):
+                    first_bunhal_stoploss_percent = 1.015
+
+                if( maesuHoga2 > maeipga * first_bunhal_stoploss_percent and bunhal_maedo_count == 0 ):
                     stop_plus = 0
                     maedo_type = "(첫번째분할매도임)"
                     bunhal_maedo_info_list.append( chegyeol_info )
@@ -1622,27 +1619,18 @@ class KiwoomConditon(QObject):
             if( '코스피' in self.yupjongInfo ):
                 kospi_updown = float(self.yupjongInfo['코스피'].get('등락율', 0.0) )
 
-            # if( self.currentTime  > last_bunhal_maesu_date_time + time_span 
-            #     and bunhal_maedo_count == 0 
-            #     ):
-            #     stop_loss = maeipga
-            #     maedo_type = "(타임컷손절수행함)"
+            if( self.currentTime  > last_bunhal_maesu_date_time + time_span 
+                and bunhal_maedo_count == 0 
+                and kospi_updown < -1.0 
+                ):
+                stop_loss = maeipga
+                maedo_type = "(타임컷손절수행함)"
 
             # 장후반 종목 정리 
             if( self.current_condition_name == "휴식"):
-                if( _today_amount  < _yesterday_amount ):
-                    if( maesuHoga2 < _today_open_price ):
-                        stop_loss = 99999999
-                        maedo_type = "(음거래량당일음봉)"
-                    pass
-                elif( maesuHoga2 < _yesterday_close_price ):
-                    stop_loss = 99999999
-                    maedo_type = "(양거래량전일종가)"
-                    pass
-                else:
-                    stop_loss = 99999999
-                    maedo_type = "(데이트레이딩종료)"
-                    pass
+                stop_loss = 99999999
+                maedo_type = "(데이트레이딩종료)"
+                pass
 
 
         ########################################################################################
@@ -2104,9 +2092,11 @@ class KiwoomConditon(QObject):
     # 다음 codition list 를 감시 하기 위해 종목 섞기 
     def shuffleConditionOccurList(self):
         jongmok_info_dict = self.getConditionOccurList()
-        jongmok_code = jongmok_info_dict['종목코드']
-        self.removeConditionOccurList(jongmok_code)
-        self.conditionOccurList.append(jongmok_info_dict)
+
+        if( jongmok_info_dict != None ):
+            jongmok_code = jongmok_info_dict['종목코드']
+            self.removeConditionOccurList(jongmok_code)
+            self.conditionOccurList.append(jongmok_info_dict)
 
      # 실시간  주식 정보 요청 요청리스트 갱신  
      # WARNING: 실시간 요청도 TR 처럼 초당 횟수 제한이 있으므로 잘 사용해야함 
