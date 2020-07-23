@@ -21,7 +21,7 @@ JANG_CHOBAN_TIME = [ AUTO_TRADING_OPERATION_TIME[0][0][0] + 1, 59 ]  # 9시 1분
 
 TOTAL_BUY_AMOUNT = 30000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
-MAESU_UNIT = 50000 # 추가 매수 기본 단위  총 자본의 1/10 수준 유지 증거금 40% 적용(1/20)
+MAESU_UNIT = 1000000 # 추가 매수 기본 단위 
 
 BUNHAL_MAESU_LIMIT = 3 # 분할 매수 횟수 제한 
 
@@ -637,14 +637,13 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 최대 보유 할 수 있는 종목 보유수를 넘었는지 확인 
-        if( self.current_condition_name != '장초반'):
-            if( len(self.jangoInfo.keys()) < MAX_STOCK_POSSESION_COUNT + len(EXCEPTION_LIST) ):
-                pass
-            else:
-                if( jongmok_code not in self.jangoInfo):
-                    printLog += "(종목최대보유중)"
-                    return_vals.append(False)
+        if( len(self.jangoInfo.keys()) < MAX_STOCK_POSSESION_COUNT + len(EXCEPTION_LIST) ):
             pass
+        else:
+            if( jongmok_code not in self.jangoInfo):
+                printLog += "(종목최대보유중)"
+                return_vals.append(False)
+        pass
 
 
         ##########################################################################################################
@@ -691,6 +690,11 @@ class KiwoomConditon(QObject):
             return_vals.append(False)
 
 
+        if( jongmok_code in self.jangoInfo ):
+            if( '매도중' in self.jangoInfo[jongmok_code]):
+                printLog += '(매도중)'
+                return_vals.append(False)
+
         ##########################################################################################################
         # 매도 호가 잔량 확인해  살만큼 있는 경우 매수  
         # 매도 2호가까지 봄 
@@ -715,7 +719,7 @@ class KiwoomConditon(QObject):
         # 종목 등락율을 조건 적용 
         #  +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage < 25  and updown_percentage > 0):
+        if( updown_percentage < 22  and updown_percentage > 0):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -764,6 +768,7 @@ class KiwoomConditon(QObject):
             if( self.currentTime.time() > stop_time
                 and  self.currentTime.time() < stop_end_time
                 ):
+                print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
                 printLog += '(매수시간미충족)'
                 return_vals.append(False)
 
@@ -1376,15 +1381,14 @@ class KiwoomConditon(QObject):
                 .format(jongmok_code, realType, realData))
             pass
 
-    def calculateSuik(self, jongmok_code, current_price):
+    def calculateSuik(self, jongmok_code, current_price, amount):
         current_jango = self.jangoInfo[jongmok_code]
         maeip_price = abs(int(current_jango['매입가']))
-        boyou_suryang = int(current_jango['보유수량'])
 
         maeip_danga = maeip_price + maeip_price* 0.00015
         maedo_danga = current_price - current_price * 0.00015 - current_price * 0.0025
 
-        suik_price = round( (maedo_danga - maeip_danga) * boyou_suryang , 2)
+        suik_price = round( (maedo_danga - maeip_danga) * amount , 2)
         current_jango['수익'] = suik_price 
         current_jango['수익율'] = round( ( (maedo_danga - maeip_danga)  / maeip_danga ) * 100 , 2) 
         pass
@@ -1916,6 +1920,7 @@ class KiwoomConditon(QObject):
         # 첫 매수시는 잔고 정보가 없을 수 있으므로 
         current_jango = self.jangoInfo.get(jongmok_code, {})
         bunhal_maesu_list = current_jango.get('분할매수이력', [])
+        bunhal_maedo_list = current_jango.get('분할매도이력', [])
 
 
         #################################################################################################
@@ -1923,7 +1928,11 @@ class KiwoomConditon(QObject):
         if( maedo_maesu_gubun == '매도'): 
             # 체결가를 통해 수익율 필드 업데이트 
             current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
-            self.calculateSuik(jongmok_code, current_price)
+            amount = int(current_jango['보유수량'])
+            if( len(bunhal_maedo_list) != 0 ):
+                amount = int(bunhal_maedo_list[-1].split(":")[2])
+
+            self.calculateSuik(jongmok_code, current_price, amount)
 
             # 매도시 체결정보는 수익율 필드가 존재 
             profit = current_jango.get('수익', '0')
