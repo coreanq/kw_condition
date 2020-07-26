@@ -19,15 +19,13 @@ from mainwindow_ui import Ui_MainWindow
 AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
 JANG_CHOBAN_TIME = [ AUTO_TRADING_OPERATION_TIME[0][0][0] + 1, 59 ]  # 9시 1분부터
 
-TOTAL_BUY_AMOUNT = 30000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
+TOTAL_BUY_AMOUNT = 50000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
 
-MAESU_UNIT = 1000000 # 추가 매수 기본 단위 
+MAESU_UNIT = 100000 # 추가 매수 기본 단위 
 
 BUNHAL_MAESU_LIMIT = 3 # 분할 매수 횟수 제한 
 
 MAX_STOCK_POSSESION_COUNT = 8 # 제외 종목 리스트 불포함한 최대 종목 보유 수매수 
-
-BUNHAL_MAESU_PROHIBIT_DAYS = 1 # 최근 ? 내에서는 분할 매수 금지
 
 STOP_LOSS_CALCULATE_DAY = 1   # 최근 ? 일간 특정 가격 기준으로 손절 계산
 
@@ -787,11 +785,13 @@ class KiwoomConditon(QObject):
             last_bunhal_maesu_time_str = bunhal_maesu_info_list[-1].split(':')[0]  #날짜:가격:수량 
             last_maeip_price = int(bunhal_maesu_info_list[-1].split(':')[1]) #날짜:가격:수량 
 
-            first_bunhal_maesu_date_time = datetime.datetime.strptime( first_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
-            last_bunhal_maesu_date_time = datetime.datetime.strptime( last_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
+            first_bunhal_maesu_date = datetime.datetime.strptime( first_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
+            last_bunhal_maesu_date = datetime.datetime.strptime( last_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
 
 
-            if( _yesterday_date >= last_bunhal_maesu_date_time ):
+            if( _yesterday_date >= first_bunhal_maesu_date 
+                and _today_date > last_bunhal_maesu_date):
+                # 어제 이전부터 매수했고 금일 추가 매수 된적이 없는 경우 
                 #스윙종목
                 if(  maedoHoga1 > last_maeip_price * 1.005
                     ):
@@ -1471,7 +1471,7 @@ class KiwoomConditon(QObject):
         first_bunhal_maesu_time_str = bunhal_maesu_info_list[0].split(':')[0] #날짜:가격:수량 
         first_maeip_price = int(bunhal_maesu_info_list[0].split(':')[1]) #날짜:가격:수량 
 
-        last_maeip_date_time_str = bunhal_maesu_info_list[-1].split(':')[0]  #날짜:가격:수량 
+        last_bunhal_maesu_time_str = bunhal_maesu_info_list[-1].split(':')[0]  #날짜:가격:수량 
         last_maeip_price = int(bunhal_maesu_info_list[-1].split(':')[1]) #날짜:가격:수량 
 
         if( 
@@ -1560,7 +1560,7 @@ class KiwoomConditon(QObject):
         else:
             ##########################################################################################################
             # 당일 매수 종목 
-            last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
+            last_bunhal_maesu_date_time = datetime.datetime.strptime(last_bunhal_maesu_time_str, "%Y%m%d%H%M%S") 
             stop_plus = 9999999 
             bunhal_maedo_base_amount = 0
 
@@ -1569,6 +1569,7 @@ class KiwoomConditon(QObject):
 
                 if( bunhal_maesu_count >= 2 ):
                     stop_loss = maeipga * 1.003
+                    maedo_type = "(분할매수본전손절)"
                     if( maesuHoga2 > maeipga * 1.043 ):
                         stop_plus = 0
                         maedo_type = "(최대치로매도수행)"
@@ -1614,14 +1615,8 @@ class KiwoomConditon(QObject):
             if( maesuHoga2 < maeipga * 0.98 ):
                 stop_loss =  99999999
                 maedo_type = "(손절한도매도수행)"
-            # 체결강도 낮아지면 매도 
-            # if(  _today_volume_power < 109 ):
-            #     stop_loss = 99999999
-            #     maedo_type = "(초반체결강도손절)"
-            #     pass
 
-            # 분할 매도중 아니면 타임컷 적용
-            # 타임컷 적용시 너무 잦은 매수 매도 일어남 
+            # 기본 타임컷 적용 
             # 장전체 시황이 안좋은 경우 빠른 타임컷 적용 
             kospi_updown = 0 
             kosdaq_updown = 0 
@@ -1942,8 +1937,8 @@ class KiwoomConditon(QObject):
             info.append(' 매수횟수: {0:>1} '.format(maesu_count + 1))
             info.append(' {0} '.format('(매수매수매수매수)'))
 
-        if( jongmok_code in self.maesuProhibitCodeList):
-            self.maesuProhibitCodeList.remove(jongmok_code)
+            if( jongmok_code in self.maesuProhibitCodeList):
+                self.maesuProhibitCodeList.remove(jongmok_code)
         pass
 
         #################################################################################################
@@ -2497,7 +2492,7 @@ if __name__ == "__main__":
     def test_business_day():
         base_time = datetime.datetime.strptime('20190920090011', '%Y%m%d%H%M%S')
 
-        target_day = util.date_by_adding_business_days(base_time, BUNHAL_MAESU_PROHIBIT_DAYS )
+        target_day = util.date_by_adding_business_days(base_time, 1 )
         print(target_day)
 
 
