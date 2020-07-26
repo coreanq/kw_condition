@@ -107,7 +107,7 @@ class KiwoomConditon(QObject):
         self.timerSystem = QTimer()
         self.lineCmdText = ''
 
-        self.prohibitCodeList = [] # 최근 ? 일동안 거래 되었던 종목 거래 금지 list 
+        self.maesuProhibitCodeList = [] # 종목 거래 금지 list 
 
         self.yupjongInfo = {'코스피': {}, '코스닥': {} } # { 'yupjong_code': { '현재가': 222, ...} }
         self.michegyeolInfo = {}
@@ -659,15 +659,10 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 최근 매수가/분할 매수 횟수  정보 생성
         bunhal_maesu_list =  []
-        last_maeip_price = 99999999
         maesu_count = 0 
 
         if( jongmok_code in self.jangoInfo):
             bunhal_maesu_list = self.jangoInfo[jongmok_code].get('분할매수이력', [])
-
-            chegyeol_info = bunhal_maesu_list[-1]
-            last_maeip_price = int(chegyeol_info.split(':')[1]) #날짜:가격:수량 
-
             maesu_count = len(bunhal_maesu_list)
 
         ##########################################################################################################
@@ -675,10 +670,6 @@ class KiwoomConditon(QObject):
         gijunga = int(self.GetMasterLastPrice(jongmok_code))
         # int(float(jongmok_info_dict['현재가']) / ( 1 + float(jongmok_info_dict['등락율']) / 100 ) )
         # print( '{} 기준가: {}'.format( jongmok_name,  gijunga ))
-
-
-        # 0번의 경우 현재봉을 뜻하며, TR 요청을 계속 하게 되는 경우 정확해짐  --> 실시간 체결가로 확인 
-        # 현재봉의 경우 매번 요청하지 않으면 데이터가 정확하지 않음 
 
 
         ##########################################################################################################
@@ -709,7 +700,7 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 기존에 이미 매도 발생하거나, 
         # 최근 ? 일내 매수 종목이어서 추가 매수를 막기 위함인 경우 
-        if( self.prohibitCodeList.count(jongmok_code) == 0 ):
+        if( self.maesuProhibitCodeList.count(jongmok_code) == 0 ):
             pass
         else:
             printLog += '(거래금지종목)'
@@ -719,7 +710,7 @@ class KiwoomConditon(QObject):
         # 종목 등락율을 조건 적용 
         #  +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage < 22  and updown_percentage > 0):
+        if( updown_percentage < 24  and updown_percentage > 0):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -768,7 +759,7 @@ class KiwoomConditon(QObject):
             if( self.currentTime.time() > stop_time
                 and  self.currentTime.time() < stop_end_time
                 ):
-                print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
+                # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
                 printLog += '(매수시간미충족)'
                 return_vals.append(False)
 
@@ -783,16 +774,24 @@ class KiwoomConditon(QObject):
 
             current_jango  = self.jangoInfo[jongmok_code]
 
-            first_bunhal_maesu_time_str = current_jango['분할매수이력'][0].split(':')[0] #날짜:가격:수량 
-            first_maeip_price = int(current_jango['분할매수이력'][0].split(':')[1]) #날짜:가격:수량 
+            bunhal_maedo_info_list = current_jango.get('분할매도이력', [])  
+            bunhal_maesu_info_list = current_jango.get('분할매수이력', [])  
+            maeipga = int(current_jango['매입가'])
 
-            last_maeip_date_time_str = current_jango['분할매수이력'][-1].split(':')[0]  #날짜:가격:수량 
-            last_maeip_price = int(current_jango['분할매수이력'][-1].split(':')[1]) #날짜:가격:수량 
+            bunhal_maedo_count = len(bunhal_maedo_info_list)
+            bunhal_maesu_count = len(bunhal_maesu_info_list)
+
+            first_bunhal_maesu_time_str = bunhal_maesu_info_list[0].split(':')[0] #날짜:가격:수량 
+            first_maeip_price = int(bunhal_maesu_info_list[0].split(':')[1]) #날짜:가격:수량 
+
+            last_bunhal_maesu_time_str = bunhal_maesu_info_list[-1].split(':')[0]  #날짜:가격:수량 
+            last_maeip_price = int(bunhal_maesu_info_list[-1].split(':')[1]) #날짜:가격:수량 
 
             first_bunhal_maesu_date_time = datetime.datetime.strptime( first_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
+            last_bunhal_maesu_date_time = datetime.datetime.strptime( last_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
 
 
-            if( _yesterday_date >= first_bunhal_maesu_date_time):
+            if( _yesterday_date >= last_bunhal_maesu_date_time ):
                 #스윙종목
                 if(  maedoHoga1 > last_maeip_price * 1.005
                     ):
@@ -809,7 +808,16 @@ class KiwoomConditon(QObject):
                 pass
             else: 
                 #당일 추가 매수 종목 
-                pass
+                first_bunhal_stoploss_percent = 1.015
+
+                if( maedoHoga2 > maeipga * first_bunhal_stoploss_percent 
+                    and bunhal_maesu_count == 1 
+                    ):
+                    pass
+                else:
+                    printLog += '(추매조건미충족)'
+                    return_vals.append(False)
+                    pass
             pass
 
 
@@ -830,17 +838,11 @@ class KiwoomConditon(QObject):
                         first_chegyeol_time_str = bunhal_maesu_list[0].split(':')[0] # 날짜:가격:수량
 
                     if( first_chegyeol_time_str != ''):
-                        base_time = datetime.datetime.strptime("20180127010101", "%Y%m%d%H%M%S") 
-                        base2_time = datetime.datetime.strptime("20180319010101", "%Y%m%d%H%M%S") 
+                        base_time = datetime.datetime.strptime("20180319010101", "%Y%m%d%H%M%S") 
 
                         first_maesu_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
                         total_price = MAESU_TOTAL_PRICE[maesu_count] 
-                        if( base2_time > first_maesu_time and base_time  < first_maesu_time ):
-                            # 500000
-                            qty = int(total_price / maedoHoga1 )  / 3 + 1 #  약간 오버하게 삼 
-                            pass
-                        elif( base2_time < first_maesu_time ):
-                            # 1500000
+                        if( base_time < first_maesu_time ):
                             qty = int(total_price / maedoHoga1 )  + 1 #  약간 오버하게 삼 
                             pass
                         else:
@@ -854,10 +856,13 @@ class KiwoomConditon(QObject):
 
 
             result = ""
+
             result = self.sendOrder("buy_" + jongmok_code, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
                                 qty, maedoHoga2 , kw_util.dict_order["지정가"], "")
 
+            self.maesuProhibitCodeList.append(jongmok_code)
+            
             print("B " + str(result) , sep="")
             printLog = '**** [매수수량: {0}, 매수가: {1}, 매수횟수: {2}] ****'.format(
                 qty,
@@ -1360,7 +1365,7 @@ class KiwoomConditon(QObject):
                 result = self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ) 
                 if( jongmok_code == '001'):
                     self.yupjongInfo['코스피'][col_name] = result.strip()
-                elif( jongmok_code == '100'):
+                elif( jongmok_code == '101'):
                     self.yupjongInfo['코스닥'][col_name] = result.strip()
             pass 
         
@@ -1454,11 +1459,20 @@ class KiwoomConditon(QObject):
             return 
         current_jango = self.jangoInfo[jongmok_code]
 
-        first_bunhal_maesu_time_str = current_jango['분할매수이력'][0].split(':')[0] #날짜:가격:수량 
-        first_maeip_price = int(current_jango['분할매수이력'][0].split(':')[1]) #날짜:가격:수량 
+        maesu_chegyeol_speed = current_jango.get('매수체결속도', 0)
+        maedo_chegyeol_speed = current_jango.get('매도체결속도', 0)
 
-        last_maeip_date_time_str = current_jango['분할매수이력'][-1].split(':')[0]  #날짜:가격:수량 
-        last_maeip_price = int(current_jango['분할매수이력'][-1].split(':')[1]) #날짜:가격:수량 
+        bunhal_maedo_info_list = current_jango.get('분할매도이력', [])  
+        bunhal_maesu_info_list = current_jango.get('분할매수이력', [])  
+
+        bunhal_maedo_count = len(bunhal_maedo_info_list)
+        bunhal_maesu_count = len(bunhal_maesu_info_list)
+
+        first_bunhal_maesu_time_str = bunhal_maesu_info_list[0].split(':')[0] #날짜:가격:수량 
+        first_maeip_price = int(bunhal_maesu_info_list[0].split(':')[1]) #날짜:가격:수량 
+
+        last_maeip_date_time_str = bunhal_maesu_info_list[-1].split(':')[0]  #날짜:가격:수량 
+        last_maeip_price = int(bunhal_maesu_info_list[-1].split(':')[1]) #날짜:가격:수량 
 
         if( 
             '손절가' not in current_jango or 
@@ -1512,9 +1526,6 @@ class KiwoomConditon(QObject):
             # 분할 매수 스윙 종목  
             stop_plus = 99999999
 
-            bunhal_maesu_info_list = current_jango.get('분할매수이력', [])  
-            bunhal_maesu_count = len(bunhal_maesu_info_list)
-
             # 분할 매수가 두번 이상 이루어진 경우 본전 손절로 변경 
             if( bunhal_maesu_count > 1 ):
                 stop_loss = maeipga
@@ -1550,57 +1561,50 @@ class KiwoomConditon(QObject):
             ##########################################################################################################
             # 당일 매수 종목 
             last_bunhal_maesu_date_time = datetime.datetime.strptime(last_maeip_date_time_str, "%Y%m%d%H%M%S") 
-            time_span = datetime.timedelta( minutes = 4 )
-
             stop_plus = 9999999 
-
-
-            maesu_chegyeol_speed = current_jango.get('매수체결속도', 0)
-            maedo_chegyeol_speed = current_jango.get('매도체결속도', 0)
-
-            bunhal_maedo_info_list = current_jango.get('분할매도이력', [])  
-            bunhal_maedo_count = len(bunhal_maedo_info_list)
             bunhal_maedo_base_amount = 0
 
             ##########################################################################################################
             if( self.current_condition_name == '장초반' and '매도중' not in current_jango):
 
-                if( bunhal_maedo_count != 0 ):
-                    bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
-                else:
-                    bunhal_maedo_base_amount  = int(jangosuryang/2) 
+                if( bunhal_maesu_count >= 2 ):
+                    stop_loss = maeipga * 1.003
+                    if( maesuHoga2 > maeipga * 1.043 ):
+                        stop_plus = 0
+                        maedo_type = "(최대치로매도수행)"
 
-                if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
-                    bunhal_maedo_base_amount = jangosuryang
 
-                chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
+                # if( bunhal_maedo_count != 0 ):
+                #     bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
+                # else:
+                #     bunhal_maedo_base_amount  = int(jangosuryang/2) 
 
-                first_bunhal_stoploss_percent = 1.015
-                very_choban_time =  datetime.time( hour = 9, minute = 20) 
+                # if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
+                #     bunhal_maedo_base_amount = jangosuryang
 
-                if( self.currentTime.time() > very_choban_time ):
-                    first_bunhal_stoploss_percent = 1.015
+                # chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
 
-                if( maesuHoga2 > maeipga * first_bunhal_stoploss_percent and bunhal_maedo_count == 0 ):
-                    stop_plus = 0
-                    maedo_type = "(첫번째분할매도임)"
-                    bunhal_maedo_info_list.append( chegyeol_info )
-                    current_jango['분할매도이력'] = bunhal_maedo_info_list
-                elif( maesuHoga2 > maeipga * 1.043 and bunhal_maedo_count == 1 ):
-                    stop_plus = 0
-                    maedo_type = "(두번째분할매도임)"
-                    bunhal_maedo_info_list.append( chegyeol_info )
-                    current_jango['분할매도이력'] = bunhal_maedo_info_list
-                elif( maesuHoga2 > maeipga * 1.063 and bunhal_maedo_count == 2 ):
-                    stop_plus = 0
-                    maedo_type = "(세번째분할매도임)"
-                    bunhal_maedo_info_list.append( chegyeol_info )
-                    current_jango['분할매도이력'] = bunhal_maedo_info_list
-                elif( maesuHoga2 > maeipga * 1.083 and bunhal_maedo_count == 3 ):
-                    stop_plus = 0
-                    maedo_type = "(네번째분할매도임)"
-                    bunhal_maedo_info_list.append( chegyeol_info )
-                    current_jango['분할매도이력'] = bunhal_maedo_info_list
+                # first_bunhal_stoploss_percent = 1.015
+                # if( maesuHoga2 > maeipga * first_bunhal_stoploss_percent and bunhal_maedo_count == 0 ):
+                #     stop_plus = 0
+                #     maedo_type = "(첫번째분할매도임)"
+                #     bunhal_maedo_info_list.append( chegyeol_info )
+                #     current_jango['분할매도이력'] = bunhal_maedo_info_list
+                # if( maesuHoga2 > maeipga * 1.043 and bunhal_maedo_count == 0 ):
+                #     stop_plus = 0
+                #     maedo_type = "(두번째분할매도임)"
+                #     bunhal_maedo_info_list.append( chegyeol_info )
+                #     current_jango['분할매도이력'] = bunhal_maedo_info_list
+                # elif( maesuHoga2 > maeipga * 1.063 and bunhal_maedo_count == 1 ):
+                #     stop_plus = 0
+                #     maedo_type = "(세번째분할매도임)"
+                #     bunhal_maedo_info_list.append( chegyeol_info )
+                #     current_jango['분할매도이력'] = bunhal_maedo_info_list
+                # elif( maesuHoga2 > maeipga * 1.083 and bunhal_maedo_count == 2 ):
+                #     stop_plus = 0
+                #     maedo_type = "(네번째분할매도임)"
+                #     bunhal_maedo_info_list.append( chegyeol_info )
+                #     current_jango['분할매도이력'] = bunhal_maedo_info_list
 
             # 분할매도 진행중이면 본전 손절 적용  
             if( bunhal_maedo_count != 0 and stop_plus != 0 ):
@@ -1618,15 +1622,22 @@ class KiwoomConditon(QObject):
 
             # 분할 매도중 아니면 타임컷 적용
             # 타임컷 적용시 너무 잦은 매수 매도 일어남 
-            # 장전체 시황이 안좋은 경우 타임컷 적용 
+            # 장전체 시황이 안좋은 경우 빠른 타임컷 적용 
             kospi_updown = 0 
+            kosdaq_updown = 0 
+            time_span = datetime.timedelta( minutes = 4 )
             if( '코스피' in self.yupjongInfo ):
                 kospi_updown = float(self.yupjongInfo['코스피'].get('등락율', 0.0) )
+            if( '코스닥' in self.yupjongInfo ):
+                kosdaq_updown = float(self.yupjongInfo['코스닥'].get('등락율', 0.0) )
 
-            if( self.currentTime  > last_bunhal_maesu_date_time + time_span 
-                and bunhal_maedo_count == 0 
-                and kospi_updown < -1.0 
-                ):
+            if( kospi_updown < -1.0 ):
+                time_span = datetime.timedelta( minutes = 2 )
+
+            if( kosdaq_updown < -1.0 ):
+                time_span = datetime.timedelta( minutes = 2 )
+
+            if( self.currentTime  > last_bunhal_maesu_date_time + time_span ):
                 stop_loss = maeipga
                 maedo_type = "(타임컷손절수행함)"
 
@@ -1646,9 +1657,6 @@ class KiwoomConditon(QObject):
         # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
         isSijanga = False
         sell_amount = 0
-
-        bunhal_maedo_info_list = current_jango.get('분할매도이력', [])  
-        bunhal_maedo_count = len(bunhal_maedo_info_list)
 
         if( '분할매도임' in maedo_type ):
             bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
@@ -1833,14 +1841,6 @@ class KiwoomConditon(QObject):
 
         maeip_price = current_jango['매입가']
 
-        last_chegyeol_info = bunhal_maesu_list[-1]
-        last_maeip_price = int(last_chegyeol_info.split(':')[1]) #날짜:가격:수량
-        last_maeip_time = last_chegyeol_info.split(':')[0]
-
-        if( last_maeip_price == 0 ):
-            # 분할매수 정보 누락되어 기본으로 세팅시를 위한 대비 
-            last_maeip_price = 99999999
-
         # 기본 손절가 측정 
         gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent + SLIPPAGE) / 100) , 2 )
 
@@ -1849,21 +1849,6 @@ class KiwoomConditon(QObject):
         ###############################################################################################
         current_jango['손절가'] =  gibon_stoploss
         current_jango['이익실현가'] = round( maeip_price * (1 + ((stop_plus_percent + SLIPPAGE)/100) ) , 2)
-
-        # ? 일 동안 추가 매수 금지 조치
-        base_time = datetime.datetime.strptime(last_maeip_time, '%Y%m%d%H%M%S')
-
-        # 일기준으로만 하기 위해 시분초 정보 제거 
-        from_date = copy.deepcopy(base_time)
-        target_date = util.date_by_adding_business_days(from_date, BUNHAL_MAESU_PROHIBIT_DAYS )
-
-        saved_date = datetime.date(year = target_date.year,month = target_date.month, day = target_date.day)
-
-        current_date = datetime.date(year = self.currentTime.year, month = self.currentTime.month, day = self.currentTime.day )
-
-        if(  saved_date > current_date):
-            if( jongmok_code not in self.prohibitCodeList):
-                self.prohibitCodeList.append(jongmok_code)
 
         self.jangoInfo[jongmok_code].update(current_jango)
         pass
@@ -1928,11 +1913,9 @@ class KiwoomConditon(QObject):
         if( maedo_maesu_gubun == '매도'): 
             # 체결가를 통해 수익율 필드 업데이트 
             current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
-            amount = int(current_jango['보유수량'])
-            if( len(bunhal_maedo_list) != 0 ):
-                amount = int(bunhal_maedo_list[-1].split(":")[2])
+            current_maedo_amount = int(self.getChejanData(kw_util.name_fid['주문수량']).strip())
 
-            self.calculateSuik(jongmok_code, current_price, amount)
+            self.calculateSuik(jongmok_code, current_price, current_maedo_amount)
 
             # 매도시 체결정보는 수익율 필드가 존재 
             profit = current_jango.get('수익', '0')
@@ -1949,9 +1932,6 @@ class KiwoomConditon(QObject):
             if( '매도중' in current_jango ):
                 del current_jango['매도중']
 
-            if( jongmok_code in self.prohibitCodeList):
-                self.prohibitCodeList.remove(jongmok_code)
-            pass
         elif( maedo_maesu_gubun == '매수') :  
             # 매수시 체결정보는 수익율 / 수익 필드가  
             info.append('{0:>10}'.format('0'))
@@ -1962,6 +1942,9 @@ class KiwoomConditon(QObject):
             info.append(' 매수횟수: {0:>1} '.format(maesu_count + 1))
             info.append(' {0} '.format('(매수매수매수매수)'))
 
+        if( jongmok_code in self.maesuProhibitCodeList):
+            self.maesuProhibitCodeList.remove(jongmok_code)
+        pass
 
         #################################################################################################
         # kiwoom api 체결 정보 필드 
