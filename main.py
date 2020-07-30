@@ -735,9 +735,13 @@ class KiwoomConditon(QObject):
                 maesu_chegyeol_speed = round(maesu_chegyeol_count / time_condition, 2)
                 maedo_chegyeol_speed = round(maedo_chegyeol_count / time_condition, 2)
 
-                if( maesu_chegyeol_speed > 3 ):
+                if( maesu_chegyeol_speed > 3 
+                    and maesu_chegyeol_count > maedo_chegyeol_speed * 1.5 ):
                     print("\t{} 매수: {}/s 매도: {}/s".format(jongmok_name, 
                                 maesu_chegyeol_speed , maedo_chegyeol_speed ) )
+                else:
+                    printLog += '(체결속도미충족)'
+                    return_vals.append(False)
 
                 jongmok_info_dict['매수체결횟수'] = 0
                 jongmok_info_dict['매도체결횟수'] = 0
@@ -747,19 +751,27 @@ class KiwoomConditon(QObject):
                 if( jongmok_code in self.jangoInfo):
                     self.jangoInfo[jongmok_code]['매수체결속도'] = maesu_chegyeol_speed
                     self.jangoInfo[jongmok_code]['매도체결속도'] = maedo_chegyeol_speed
+            else:
+                printLog += '(체결속도미충족)'
+                return_vals.append(False)
+
+        else:
+            printLog += '(체결속도미충족)'
+            return_vals.append(False)
 
 
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
-            stop_time =   datetime.time( hour = 9, minute = 30) 
-            stop_end_time =   datetime.time( hour = 13, minute = 30) 
-            if( self.currentTime.time() > stop_time
-                and  self.currentTime.time() < stop_end_time
-                ):
-                # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
-                printLog += '(매수시간미충족)'
-                return_vals.append(False)
+            # stop_time =   datetime.time( hour = 9, minute = 30) 
+            # stop_end_time =   datetime.time( hour = 13, minute = 30) 
+            # if( self.currentTime.time() > stop_time
+            #     and  self.currentTime.time() < stop_end_time
+            #     ):
+            #     # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
+            #     printLog += '(매수시간미충족)'
+            #     return_vals.append(False)
+            pass
 
         ##########################################################################################################
         # 추가 매수시만 적용되는 조건 
@@ -807,17 +819,17 @@ class KiwoomConditon(QObject):
                 printLog += temp
                 pass
             else: 
-                #당일 추가 매수 종목 
+                # 당일 추가 매수 종목 
                 first_bunhal_stoploss_percent = 1.015
 
-                if( maedoHoga2 > maeipga * first_bunhal_stoploss_percent 
+                if( maedoHoga1 > maeipga * first_bunhal_stoploss_percent 
                     and bunhal_maesu_count == 1 
                     ):
                     pass
                 else:
                     printLog += '(추매조건미충족)'
                     return_vals.append(False)
-                    pass
+                pass
             pass
 
 
@@ -859,12 +871,17 @@ class KiwoomConditon(QObject):
 
             result = self.sendOrder("buy_" + jongmok_code, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
-                                qty, maedoHoga2 , kw_util.dict_order["지정가"], "")
+                                qty, maedoHoga1 , kw_util.dict_order["지정가"], "")
 
             self.maesuProhibitCodeList.append(jongmok_code)
             
-            print("B " + str(result) , sep="")
-            printLog = '**** [매수수량: {0}, 매수가: {1}, 매수횟수: {2}] ****'.format(
+            print("B {} **** [매수수량: {}, 매수가: {}, 매수횟수: {}] ****'".format(
+                result,                 
+                qty,
+                maedoHoga1, 
+                maesu_count), sep="")
+
+            printLog = '**** [매수수량: {}, 매수가: {}, 매수횟수: {}] ****'.format(
                 qty,
                 maedoHoga1, 
                 maesu_count
@@ -1567,43 +1584,39 @@ class KiwoomConditon(QObject):
             ##########################################################################################################
             if( self.current_condition_name == '장초반' and '매도중' not in current_jango):
 
-                if( bunhal_maesu_count >= 2 ):
-                    stop_loss = maeipga * 1.003
+                if( bunhal_maesu_count > 1 ):
+                    stop_loss = maeipga 
                     maedo_type = "(분할매수본전손절)"
                     if( maesuHoga2 > maeipga * 1.043 ):
                         stop_plus = 0
                         maedo_type = "(최대치로매도수행)"
 
 
-                # if( bunhal_maedo_count != 0 ):
-                #     bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
-                # else:
-                #     bunhal_maedo_base_amount  = int(jangosuryang/2) 
+                if( bunhal_maedo_count != 0 ):
+                    bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
+                else:
+                    bunhal_maedo_base_amount  = int(jangosuryang/2) 
 
-                # if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
-                #     bunhal_maedo_base_amount = jangosuryang
+                if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
+                    bunhal_maedo_base_amount = jangosuryang
 
-                # chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
+                chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga2) + ":" + str(bunhal_maedo_base_amount)
 
-                # first_bunhal_stoploss_percent = 1.015
-                # if( maesuHoga2 > maeipga * first_bunhal_stoploss_percent and bunhal_maedo_count == 0 ):
-                #     stop_plus = 0
-                #     maedo_type = "(첫번째분할매도임)"
-                #     bunhal_maedo_info_list.append( chegyeol_info )
-                #     current_jango['분할매도이력'] = bunhal_maedo_info_list
-                # if( maesuHoga2 > maeipga * 1.043 and bunhal_maedo_count == 0 ):
+                first_bunhal_stoploss_percent = 1.015
+                if( maesuHoga1 > maeipga * first_bunhal_stoploss_percent and bunhal_maedo_count == 0 
+                    and bunhal_maesu_count > 1):
+                    stop_plus = 0
+                    maedo_type = "(첫번째분할매도임)"
+                    bunhal_maedo_info_list.append( chegyeol_info )
+                    current_jango['분할매도이력'] = bunhal_maedo_info_list
+                # elif( maesuHoga1 > maeipga * 1.063 and bunhal_maedo_count == 1 ):
                 #     stop_plus = 0
                 #     maedo_type = "(두번째분할매도임)"
                 #     bunhal_maedo_info_list.append( chegyeol_info )
                 #     current_jango['분할매도이력'] = bunhal_maedo_info_list
-                # elif( maesuHoga2 > maeipga * 1.063 and bunhal_maedo_count == 1 ):
+                # elif( maesuHoga1 > maeipga * 1.083 and bunhal_maedo_count == 2 ):
                 #     stop_plus = 0
                 #     maedo_type = "(세번째분할매도임)"
-                #     bunhal_maedo_info_list.append( chegyeol_info )
-                #     current_jango['분할매도이력'] = bunhal_maedo_info_list
-                # elif( maesuHoga2 > maeipga * 1.083 and bunhal_maedo_count == 2 ):
-                #     stop_plus = 0
-                #     maedo_type = "(네번째분할매도임)"
                 #     bunhal_maedo_info_list.append( chegyeol_info )
                 #     current_jango['분할매도이력'] = bunhal_maedo_info_list
 
@@ -1632,7 +1645,8 @@ class KiwoomConditon(QObject):
             if( kosdaq_updown < -1.0 ):
                 time_span = datetime.timedelta( minutes = 2 )
 
-            if( self.currentTime  > last_bunhal_maesu_date_time + time_span ):
+            if( self.currentTime  > last_bunhal_maesu_date_time + time_span
+                and bunhal_maesu_count == 1 ):
                 stop_loss = maeipga
                 maedo_type = "(타임컷손절수행함)"
 
