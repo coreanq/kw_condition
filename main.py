@@ -697,8 +697,7 @@ class KiwoomConditon(QObject):
             # return_vals.append(False)
 
         ##########################################################################################################
-        # 기존에 이미 매도 발생하거나, 
-        # 최근 ? 일내 매수 종목이어서 추가 매수를 막기 위함인 경우 
+        # 불필요한 추가 매수를 막기 위함인 경우 
         if( self.maesuProhibitCodeList.count(jongmok_code) == 0 ):
             pass
         else:
@@ -719,42 +718,45 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 체결속도 측정 
-        maesu_chegyeol_speed = 0
-        maedo_chegyeol_speed = 0
-        if( 
-            '매수체결횟수' in jongmok_info_dict
-            and '매도체결횟수' in jongmok_info_dict
-            and '조건유지시간' in jongmok_info_dict):
+        # maesu_chegyeol_speed = 0
+        # maedo_chegyeol_speed = 0
+        # if( 
+        #     '매수체결횟수' in jongmok_info_dict
+        #     and '매도체결횟수' in jongmok_info_dict
+        #     and '조건유지시간' in jongmok_info_dict):
 
-            # 매수 거래량 + 매도 거래량 -
-            time_condition = jongmok_info_dict['조건유지시간']
-            maesu_chegyeol_count = jongmok_info_dict['매수체결횟수']
-            maedo_chegyeol_count = jongmok_info_dict['매도체결횟수']
+        #     # 매수 거래량 + 매도 거래량 -
+        #     time_condition = jongmok_info_dict['조건유지시간']
+        #     maesu_chegyeol_count = jongmok_info_dict['매수체결횟수']
+        #     maedo_chegyeol_count = jongmok_info_dict['매도체결횟수']
 
-            # 30초 동안 거래 속도를 봄 거래량 10미만 제외 
-            if( time_condition > 30 ):
-                maesu_chegyeol_speed = round(maesu_chegyeol_count / time_condition, 2)
-                maedo_chegyeol_speed = round(maedo_chegyeol_count / time_condition, 2)
+        #     # 30초 동안 거래 속도를 봄 거래량 10미만 제외 
+        #     if( time_condition > 30 ):
+        #         maesu_chegyeol_speed = round(maesu_chegyeol_count / time_condition, 2)
+        #         maedo_chegyeol_speed = round(maedo_chegyeol_count / time_condition, 2)
 
-                if( maesu_chegyeol_speed > 3 
-                    and maesu_chegyeol_count > maedo_chegyeol_speed * 1.5 ):
-                    print("\t{} 매수: {}/s 매도: {}/s".format(jongmok_name, 
-                                maesu_chegyeol_speed , maedo_chegyeol_speed ) )
-                else:
-                    printLog += '(체결속도미충족)'
-                    return_vals.append(False)
+        #         if( maesu_chegyeol_speed > 3 
+        #             and maesu_chegyeol_count > maedo_chegyeol_speed * 1.5 ):
+        #             print("\t{} 매수: {}/s 매도: {}/s".format(jongmok_name, 
+        #                         maesu_chegyeol_speed , maedo_chegyeol_speed ) )
+        #         else:
+        #             printLog += '(체결속도미충족)'
+        #             return_vals.append(False)
 
-                jongmok_info_dict['매수체결횟수'] = 0
-                jongmok_info_dict['매도체결횟수'] = 0
-                jongmok_info_dict['조건유지시간'] = 0
-                jongmok_info_dict['매수체결속도'] = maesu_chegyeol_speed
-                jongmok_info_dict['매도체결속도'] = maedo_chegyeol_speed
-                if( jongmok_code in self.jangoInfo):
-                    self.jangoInfo[jongmok_code]['매수체결속도'] = maesu_chegyeol_speed
-                    self.jangoInfo[jongmok_code]['매도체결속도'] = maedo_chegyeol_speed
-            else:
-                printLog += '(체결속도미충족)'
-                return_vals.append(False)
+        #         jongmok_info_dict['매수체결횟수'] = 0
+        #         jongmok_info_dict['매도체결횟수'] = 0
+        #         jongmok_info_dict['조건유지시간'] = 0
+        #         jongmok_info_dict['매수체결속도'] = maesu_chegyeol_speed
+        #         jongmok_info_dict['매도체결속도'] = maedo_chegyeol_speed
+        #         if( jongmok_code in self.jangoInfo):
+        #             self.jangoInfo[jongmok_code]['매수체결속도'] = maesu_chegyeol_speed
+        #             self.jangoInfo[jongmok_code]['매도체결속도'] = maedo_chegyeol_speed
+        #     else:
+        #         printLog += '(체결속도미충족)'
+        #         return_vals.append(False)
+        # else:
+        #     printLog += '(체결속도미충족)'
+        #     return_vals.append(False)
 
 
         ##########################################################################################################
