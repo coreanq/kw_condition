@@ -767,7 +767,7 @@ class KiwoomConditon(QObject):
             start_time =   datetime.time( hour = 9, minute = REQUEST_MINUTE_CANDLE_TYPE * 2) 
             stop_time =   datetime.time( hour = 9, minute = 30) 
             stop_end_time =   datetime.time( hour = 13, minute = 30) 
-            if( self.currentTime.time() > start_time
+            if( self.currentTime.time() < start_time
                 ):
                 # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
                 printLog += '(매수시간미충족)'
