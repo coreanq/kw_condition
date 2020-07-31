@@ -1649,10 +1649,10 @@ class KiwoomConditon(QObject):
             if( kosdaq_updown < -1.0 ):
                 time_span = datetime.timedelta( minutes = 2 )
 
-            if( self.currentTime  > last_bunhal_maesu_date_time + time_span
-                and bunhal_maesu_count == 1 ):
-                stop_loss = maeipga
-                maedo_type = "(타임컷손절수행함)"
+            # if( self.currentTime  > last_bunhal_maesu_date_time + time_span
+            #     and bunhal_maesu_count == 1 ):
+            #     stop_loss = maeipga
+            #     maedo_type = "(타임컷손절수행함)"
 
             # 장후반 종목 정리 
             if( self.current_condition_name == "휴식"):
