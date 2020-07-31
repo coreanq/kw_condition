@@ -762,14 +762,16 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
-            # stop_time =   datetime.time( hour = 9, minute = 30) 
-            # stop_end_time =   datetime.time( hour = 13, minute = 30) 
-            # if( self.currentTime.time() > stop_time
-            #     and  self.currentTime.time() < stop_end_time
-            #     ):
-            #     # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
-            #     printLog += '(매수시간미충족)'
-            #     return_vals.append(False)
+            # 시간제약
+            # 장 시작시 첫봉은 동시호가 적용이므로 제외, 그 후 1봉은 봐야 되므로 그 시간 이후 매수 
+            start_time =   datetime.time( hour = 9, minute = REQUEST_MINUTE_CANDLE_TYPE * 2) 
+            stop_time =   datetime.time( hour = 9, minute = 30) 
+            stop_end_time =   datetime.time( hour = 13, minute = 30) 
+            if( self.currentTime.time() > start_time
+                ):
+                # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
+                printLog += '(매수시간미충족)'
+                return_vals.append(False)
             pass
 
         ##########################################################################################################
