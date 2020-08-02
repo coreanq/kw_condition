@@ -1599,37 +1599,37 @@ class KiwoomConditon(QObject):
                     #     stop_plus = 0
                     #     maedo_type = "(최대치로매도수행)"
 
-                    if( bunhal_maedo_count != 0 ):
-                        bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
-                    else:
-                        bunhal_maedo_base_amount  = int(jangosuryang/2) 
+                    # if( bunhal_maedo_count != 0 ):
+                    #     bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
+                    # else:
+                    #     bunhal_maedo_base_amount  = int(jangosuryang/2) 
 
-                    if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
-                        bunhal_maedo_base_amount = jangosuryang
+                    # if( jangosuryang < bunhal_maedo_base_amount or bunhal_maedo_base_amount == 0):
+                    #     bunhal_maedo_base_amount = jangosuryang
 
-                    chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga1) + ":" + str(bunhal_maedo_base_amount)
+                    # chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maesuHoga1) + ":" + str(bunhal_maedo_base_amount)
 
-                    first_bunhal_stoploss_percent = 1.023
-                    if( maesuHoga1 > maeipga * first_bunhal_stoploss_percent 
-                        and bunhal_maedo_count == 0 
-                        ):
-                        stop_plus = 0
-                        maedo_type = "(첫번째분할매도임)"
-                        bunhal_maedo_info_list.append( chegyeol_info )
-                        current_jango['분할매도이력'] = bunhal_maedo_info_list
+                    # first_bunhal_stoploss_percent = 1.023
+                    # if( maesuHoga1 > maeipga * first_bunhal_stoploss_percent 
+                    #     and bunhal_maedo_count == 0 
+                    #     ):
+                    #     stop_plus = 0
+                    #     maedo_type = "(첫번째분할매도임)"
+                    #     bunhal_maedo_info_list.append( chegyeol_info )
+                    #     current_jango['분할매도이력'] = bunhal_maedo_info_list
 
             # 분할매도 진행중이면 본전 손절 적용  
             if( bunhal_maedo_count != 0 and stop_plus != 0 ):
                 maedo_type = "(분할매도본전손절)"
                 stop_loss = maeipga
 
-            # 전저가 익절 손절 적용
+            # 추가 익절/ 손절 조건 적용
             if( jongmok_name in self.conditionStoplossList ):
                 if( maesuHoga1 > maeipga * 1.003):
-                    maedo_type = "(직전저가익절수행)"
+                    maedo_type = "(추가조건익절수행)"
                     stop_plus = 0
                 else:
-                    maedo_type = "(직전저가손절수행)"
+                    maedo_type = "(추가조건손절수행)"
                     stop_loss = 99999999
 
             ###################################################################################
