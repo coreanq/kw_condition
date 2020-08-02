@@ -452,9 +452,13 @@ class KiwoomConditon(QObject):
 
         for name, info in condition_name_screenNo_dict.items():
 
-            if name == self.current_condition_name:
+            if (name == self.current_condition_name ):
                 start_info = info
                 start_name = name
+            elif( name == "이탈"): 
+                print("start condition " + name + ", screen_no: " + info[0] + ", nIndex " + '{}'.format(int(info[1])) )
+                self.sendCondition( info[0], name, int(info[1]) , 1) 
+                pass
             else: 
                 print("stop condition " + name + ", screen_no: " + info[0] + ", nIndex " + '{}'.format(int(info[1]) ) )
                 self.sendConditionStop( info[0], name, int(info[1])  )
@@ -1651,10 +1655,10 @@ class KiwoomConditon(QObject):
             if( kosdaq_updown < -1.0 ):
                 time_span = datetime.timedelta( minutes = 2 )
 
-            # if( self.currentTime  > last_bunhal_maesu_date_time + time_span
-            #     and bunhal_maesu_count == 1 ):
-            #     stop_loss = maeipga
-            #     maedo_type = "(타임컷손절수행함)"
+            if( self.currentTime  > last_bunhal_maesu_date_time + time_span
+                and bunhal_maesu_count == 1 ):
+                stop_loss = maeipga
+                maedo_type = "(타임컷손절수행함)"
 
             # 장후반 종목 정리 
             if( self.current_condition_name == "휴식"):
@@ -2020,9 +2024,10 @@ class KiwoomConditon(QObject):
         # .format(scrNo, codeList, conditionName, index, next ))
         codes = codeList.split(';')[:-1]
         # 마지막 split 결과 None 이므로 삭제 
-        for code in codes:
-            print('condition occur list add code: {} '.format(code) + self.getMasterCodeName(code))
-            self.addConditionOccurList(code)
+        if( conditionName != '이탈' ):
+            for code in codes:
+                print('condition occur list add code: {} '.format(code) + self.getMasterCodeName(code))
+                self.addConditionOccurList(code)
 
     # 편입, 이탈 종목이 실시간으로 들어옵니다.
     # strCode : 종목코드
@@ -2032,14 +2037,14 @@ class KiwoomConditon(QObject):
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
 
         if( conditionName != '이탈' ):
-            print(util.whoami() + 'code: {}, 종목이름: {},  type: {}, conditionName: {}, conditionIndex: {}'
-                .format(code, self.getMasterCodeName(code), type, conditionName, conditionIndex ))
             if ( type == 'I' ):
                 self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
             else:
                 self.conditionRemoveList.append(code)
                 pass
         else:
+            print(util.whoami() + 'code: {}, 종목이름: {},  type: {}, conditionName: {}, conditionIndex: {}'
+                .format(code, self.getMasterCodeName(code), type, conditionName, conditionIndex ))
             if ( type == 'I' ):
                 if( code not in self.conditionStoplossList):
                     self.conditionStoplossList.append(code)
