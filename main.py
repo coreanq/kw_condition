@@ -778,6 +778,21 @@ class KiwoomConditon(QObject):
                 return_vals.append(False)
             pass
 
+            if( self.currentTime.time() > stop_time
+                and self.currentTime.time() < stop_end_time
+                ):
+                # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
+                printLog += '(매수시간미충족)'
+                return_vals.append(False)
+            pass
+
+            # 실시간 조건 리스트 종목에 걸린 경우
+            if( jongmok_code in self.conditionStoplossList ):
+                # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
+                printLog += '(매수조건미충족)'
+                return_vals.append(False)
+
+
         ##########################################################################################################
         # 추가 매수시만 적용되는 조건 
         else:
@@ -1624,7 +1639,7 @@ class KiwoomConditon(QObject):
                 stop_loss = maeipga
 
             # 추가 익절/ 손절 조건 적용
-            if( jongmok_name in self.conditionStoplossList ):
+            if( jongmok_code in self.conditionStoplossList ):
                 if( maesuHoga1 > maeipga * 1.003):
                     maedo_type = "(추가조건익절수행)"
                     stop_plus = 0
@@ -2037,14 +2052,14 @@ class KiwoomConditon(QObject):
     def _OnReceiveRealCondition(self, code, type, conditionName, conditionIndex):
 
         if( conditionName != '이탈' ):
+            print(util.whoami() + 'code: {}, 종목이름: {},  type: {}, conditionName: {}, conditionIndex: {}'
+                .format(code, self.getMasterCodeName(code), type, conditionName, conditionIndex ))
             if ( type == 'I' ):
                 self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
             else:
                 self.conditionRemoveList.append(code)
                 pass
         else:
-            print(util.whoami() + 'code: {}, 종목이름: {},  type: {}, conditionName: {}, conditionIndex: {}'
-                .format(code, self.getMasterCodeName(code), type, conditionName, conditionIndex ))
             if ( type == 'I' ):
                 if( code not in self.conditionStoplossList):
                     self.conditionStoplossList.append(code)
