@@ -825,7 +825,7 @@ class KiwoomConditon(QObject):
                 and _today_date > last_bunhal_maesu_date):
                 # 어제 이전부터 매수했고 금일 추가 매수 된적이 없는 경우 
                 #스윙종목
-                if(  maedoHoga1 > last_maeip_price * 1.005
+                if(  maedoHoga1 > last_maeip_price * 1.015
                     ):
                     # print("{:<30}".format(jongmok_name)  + "추매조건충족" +"  최근매수가:" + str(last_maeip_price) + ' 매도호가1:' + str(maedoHoga1) )
                     pass            
@@ -833,11 +833,6 @@ class KiwoomConditon(QObject):
                     printLog += '(추매조건미충족)'
                     return_vals.append(False)
 
-                temp = '({} {})'\
-                    .format( jongmok_name,  maedoHoga1 )
-                # print( util.cur_time_msec() , temp)
-                printLog += temp
-                pass
             else: 
                 # 당일 추가 매수 종목 
                 first_bunhal_stoploss_percent = 1.015
@@ -850,8 +845,13 @@ class KiwoomConditon(QObject):
                     printLog += '(추매조건미충족)'
                     return_vals.append(False)
                 pass
-            pass
 
+            temp = '({} {})' .format( 
+                    jongmok_name,  
+                    maedoHoga1 )
+            # print( util.cur_time_msec() , temp)
+            printLog += temp
+            pass
 
         ##########################################################################################################
         # 매수  
@@ -862,7 +862,7 @@ class KiwoomConditon(QObject):
             if( TEST_MODE == True ):
                 qty = 1 
             else:
-                # 매수 수량을 조절하기 위함 
+                # 기존 테스트 매수 수량을 조절하기 위함 
                 if( jongmok_code in self.jangoInfo):
 
                     first_chegyeol_time_str = ""
@@ -870,7 +870,7 @@ class KiwoomConditon(QObject):
                         first_chegyeol_time_str = bunhal_maesu_list[0].split(':')[0] # 날짜:가격:수량
 
                     if( first_chegyeol_time_str != ''):
-                        base_time = datetime.datetime.strptime("20180319010101", "%Y%m%d%H%M%S") 
+                        base_time = datetime.datetime.strptime("20200806010101", "%Y%m%d%H%M%S") 
 
                         first_maesu_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
                         total_price = MAESU_TOTAL_PRICE[maesu_count] 
@@ -878,7 +878,7 @@ class KiwoomConditon(QObject):
                             qty = int(total_price / maedoHoga1 )  + 1 #  약간 오버하게 삼 
                             pass
                         else:
-                            qty = int(total_price / maedoHoga1 / 30 ) + 1
+                            qty = int(100000 / maedoHoga1) + 1
                     else:
                         pass
                 else:
@@ -887,11 +887,10 @@ class KiwoomConditon(QObject):
                     qty = int(total_price / maedoHoga1 )  + 1
 
 
-            result = ""
-
+            #  매도호가 2로 매수 수행
             result = self.sendOrder("buy_" + jongmok_code, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
-                                qty, maedoHoga1 , kw_util.dict_order["지정가"], "")
+                                qty, maedoHoga2 , kw_util.dict_order["지정가"], "")
 
             self.maesuProhibitCodeList.append(jongmok_code)
             
@@ -1609,10 +1608,6 @@ class KiwoomConditon(QObject):
                 if( bunhal_maesu_count > 1 ):
                     stop_loss = maeipga 
                     maedo_type = "(분할매수본전손절)"
-
-                    # if( maesuHoga1 > maeipga * 1.043 ):
-                    #     stop_plus = 0
-                    #     maedo_type = "(최대치로매도수행)"
 
                     # if( bunhal_maedo_count != 0 ):
                     #     bunhal_maedo_base_amount = int(bunhal_maedo_info_list[-1].split(":")[2] )
