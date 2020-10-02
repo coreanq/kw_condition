@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import math
 '''    [화면번호]
         화면번호는 서버에 시세조회나 주문을 요청할때 이 요청을 구별하기 위한 키값으로 이해하시면 됩니다.
         0000(혹은 0)을 제외한 임의의 숫자를 사용하시면 되는데 갯수가 200개로 한정되어 있기 때문에 이 갯수를 넘지 않도록 관리하셔야 합니다.
@@ -65,7 +66,7 @@ dict_jusik = {
         '매매가능수량', '현재가' # '세금'
     ),
     "TR:업종분봉": (
-        "현재가", "거래량", "체결시간"
+        "현재가", "체결시간"
     ),
     "TR:분봉": (
         "현재가", "거래량", "체결시간", "시가", "고가", "저가"
@@ -78,40 +79,25 @@ dict_jusik = {
     ),
 
     "실시간-주식체결":(
-        # "체결시간",
+        "체결시간",
         "현재가",
-        "전일대비",
         "등락율",
-        # "(최우선)매도호가",
-        # "(최우선)매수호가",
+        "(최우선)매도호가",
+        "(최우선)매수호가",
         "거래량",   # 체결시 거래량 
         "누적거래량",
-        # "누적거래대금",
         "시가",
         "고가",
         "저가",
-        "체결강도",
-        #"시가총액(억)",
-        #"장구분"
+        # "체결강도",
         '전일거래량대비(비율)'
     ),
     "실시간-주식호가잔량": (
         '호가시간',
-        '매도호가1',
         '매도호가수량1',
-        '매수호가1',
-        '매수호가수량1',
-        '매도호가2',
         '매도호가수량2',
-        '매수호가2',
+        '매수호가수량1',
         '매수호가수량2',
-        '매도호가3',
-        '매도호가수량3',
-        '매수호가3',
-        '매수호가수량3',
-        # '누적거래량'
-        # '예상체결가',
-        # '예상체결수량',
         "매도호가총잔량", 
         "매수호가총잔량" 
     ),
@@ -120,6 +106,9 @@ dict_jusik = {
         '현재가',
         '등락율',
         '전일대비기호',
+        '시가',
+        '고가',
+        '저가'
     ),
     '실시간-장시작시간':(
         '장운영구문',
@@ -130,9 +119,10 @@ dict_jusik = {
 # fid 는 다 넣을 필요 없음
 type_fidset = {
     "주식시세": "10;11;12;27;28;13;14;16;17;18;25;26;29;30;31;32;311",
-    "주식체결": "20;10;11;12;27;28;15;13;14;16;17;18;25;26;29;30;31;32;228;311;290;691",
-    "주식호가잔량":"21;41;61;81;51;71;91",
-    '업종지수': "20;10;11;12;15;13;14;16;17;18;25;26",
+    # "주식체결": "20;10;11;12;27;28;15;13;14;16;17;18;25;26;29;30;31;32;228;311;290;691",
+    "주식체결": "20;10;12;27;28;15;13;16;17;18;30",
+    "주식호가잔량":"21;61;62;71;72;121;125",
+    '업종지수': "20;10;11;12;16;17;18;25;26",
     '장시작시간': "215;20;214"
 }
 name_fid = {
@@ -278,3 +268,42 @@ def parseErrorCode(code):
         "-500" : "종목코드 없음"
     }
     return ht[code] + " (%s)" % code if code in ht else code
+
+def hogaUnitCalc(price,jang):
+    hogaUnit = 1
+    if price < 1000:
+        hogaUnit = 1
+    elif price < 5000:
+        hogaUnit = 5
+    elif price < 10000:
+        hogaUnit = 10
+    elif price < 50000:
+        hogaUnit = 50
+    elif price < 100000 and jang == "kospi":
+        hogaUnit = 100
+    elif price < 500000 and jang == "kospi":
+        hogaUnit = 500
+    elif price >= 500000 and jang == "kospi":
+        hogaUnit = 1000
+    elif price >= 50000 and jang == "kosdaq":
+        hogaUnit = 100
+    
+    return hogaUnit
+
+def getHogaPrice(currentPrice, hogadifference, jang):
+    hogaPrice = currentPrice
+    hogaunit = hogaUnitCalc(hogaPrice, jang)
+    
+    for _ in range(abs(hogadifference)):
+        if hogadifference < 0: 
+            minusV = (hogaPrice - 1)
+            hogaunit = hogaUnitCalc(minusV, jang)
+            mot = minusV // hogaunit
+            hogaPrice = mot * hogaunit
+        elif hogadifference > 0:
+            hogaunit = hogaUnitCalc(hogaPrice, jang)
+            hogaPrice = hogaPrice+ hogaunit
+    
+    mot = math.ceil(hogaPrice // hogaunit)
+    hogaPrice = mot * hogaunit
+    return int(hogaPrice)
