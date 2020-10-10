@@ -4,6 +4,7 @@ import logging
 import openpyxl
 import resource_rc
 import util, kw_util
+import user_setting
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl, QEvent
@@ -19,42 +20,10 @@ import gspread
 scope = ['https://spreadsheets.google.com/feeds',
          'https://www.googleapis.com/auth/drive']
 credentials = ServiceAccountCredentials.from_json_keyfile_name(
-        'kiwoom_charles_auth.json', scope)
+        user_setting.GOOGLE_SPREAD_AUTH_JSON_FILE, scope)
 gc = gspread.authorize(credentials) 
 
 
-###################################################################################################
-# 사용자 정의 파라미터 
-###################################################################################################
-
-AUTO_TRADING_OPERATION_TIME = [ [ [9, 0], [15, 19] ] ]  # 매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
-
-MAESU_UNIT = 250000 # 매수 기본 단위 
-
-BUNHAL_MAESU_LIMIT = 3 # 분할 매수 횟수 제한 
-
-MAX_STOCK_POSSESION_COUNT = 3 # 제외 종목 리스트 불포함한 최대 종목 보유 수
-
-STOP_LOSS_CALCULATE_DAY = 1   # 최근 ? 일간 특정 가격 기준으로 손절 계산
-
-REQUEST_MINUTE_CANDLE_TYPE = 3  # 운영중 요청할 분봉 종류
-
-MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저장 분봉 갯수 
-
-MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 2,                   MAESU_UNIT * 1,                     MAESU_UNIT * 1,                     MAESU_UNIT * 1]
-# 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경
-# 추가 매수 어느 단계에서든지 손절금액은 확정적이여야 함 
-# 세금 수수료 별도 계산  
-BASIC_STOP_LOSS_PERCENT = -0.6
-STOP_PLUS_PER_MAESU_COUNT = [  10,                             10,                                 10,                                 10           ] 
-STOP_LOSS_PER_MAESU_COUNT = [  BASIC_STOP_LOSS_PERCENT,        BASIC_STOP_LOSS_PERCENT,            BASIC_STOP_LOSS_PERCENT,            BASIC_STOP_LOSS_PERCENT ]
-
-EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
-
-###################################################################################################
-###################################################################################################
-
-TEST_MODE = False    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼 
 
 TRADING_INFO_GETTING_TIME = [15, 45] # 트레이딩 정보를 저장하기 시작하는 시간
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
@@ -143,7 +112,7 @@ class KiwoomConditon(QObject):
             '매수호가1', '매수호가2', '매수호가3', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가총잔량',
             '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
             '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가',
-            '일{}봉'.format(MAX_SAVE_CANDLE_COUNT), '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)  ]
+            '일{}봉'.format(user_setting.MAX_SAVE_CANDLE_COUNT), '{}분{}봉'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE, user_setting.MAX_SAVE_CANDLE_COUNT)  ]
         
     def createState(self):
         # state defintion
@@ -349,7 +318,7 @@ class KiwoomConditon(QObject):
         # 기본 정보를 얻기 위해서는 장 시작전 미리 동작을 시켜야 하고 매수를 위한 시간은 정확히 9시를 맞춤 (동시호가 시간의 매도 호가로 인해 매수 됨을 막기 위함)
         ret_vals= []
         current_time = self.currentTime.time()
-        for start, stop in AUTO_TRADING_OPERATION_TIME:
+        for start, stop in user_setting.AUTO_TRADING_OPERATION_TIME:
             start_time =  datetime.time(
                             hour = start[0],
                             minute = start[1] )
@@ -432,6 +401,16 @@ class KiwoomConditon(QObject):
             with open(CHEGYEOL_INFO_FILE_PATH, 'r', encoding='utf8') as f:
                 file_contents = f.read()
                 self.chegyeolInfo = json.loads(file_contents)
+
+            # 한번 수익난 종목 매수 금지 
+            current_date = self.currentTime.date().strftime("%y%m%d")
+            if( current_date in self.chegyeolInfo):
+                for line_str in self.chegyeolInfo[current_date]:
+                    maedo_type = line_str.split("|")[3].strip()
+                    jongmok_code = line_str.split("|")[4].strip()
+                    if( '수동' in maedo_type ):
+                        if( jongmok_code not in self.maesuProhibitCodeList ):
+                            self.maesuProhibitCodeList.append(jongmok_code)
 
         if( os.path.isfile(JANGO_INFO_FILE_PATH) == True ):
             with open(JANGO_INFO_FILE_PATH, 'r', encoding='utf8') as f:
@@ -554,8 +533,8 @@ class KiwoomConditon(QObject):
         jongmok_name = jongmok_info_dict['종목명'] 
 
         ##########################################################################################################
-        # key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT)
-        # key_day_low_candle = '{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)
+        # key_day_candle = '일{}봉'.format(user_setting.MAX_SAVE_CANDLE_COUNT)
+        # key_day_low_candle = '{}일봉중저가'.format(user_setting.STOP_LOSS_CALCULATE_DAY)
 
 
         ##########################################################################################################
@@ -663,13 +642,18 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         # 제외 종목인지 확인 
-        if( jongmok_code in EXCEPTION_LIST ):
+        if( jongmok_code in user_setting.EXCEPTION_LIST ):
             printLog += "(제외종목)"
             return_vals.append(False)
 
         ##########################################################################################################
         # 최대 보유 할 수 있는 종목 보유수를 넘었는지 확인 
-        if( len(self.jangoInfo.keys()) < MAX_STOCK_POSSESION_COUNT + len(EXCEPTION_LIST) ):
+        jango_jongmok_code_list = self.jangoInfo.keys()
+
+        for exception_jongmok_code in user_setting.EXCEPTION_LIST :
+            if( exception_jongmok_code in jango_jongmok_code_list ):
+                jango_jongmok_code_list.remove(exception_jongmok_code)
+        if( len(jango_jongmok_code_list) < user_setting.MAX_STOCK_POSSESION_COUNT ):
             pass
         else:
             if( jongmok_code not in self.jangoInfo):
@@ -714,7 +698,7 @@ class KiwoomConditon(QObject):
 
         ##########################################################################################################
         #  추가 매수 횟수 제한   
-        if( maesu_count < BUNHAL_MAESU_LIMIT ):
+        if( maesu_count < user_setting.BUNHAL_MAESU_LIMIT ):
             pass
         else:
             printLog += '(분할매수한계)'
@@ -751,7 +735,7 @@ class KiwoomConditon(QObject):
         if( jongmok_code not in self.jangoInfo ):
             # 시간제약
             # 장 시작시 첫봉은 동시호가 적용이므로 제외, 그 후 1봉은 봐야 되므로 그 시간 이후 매수 
-            start_time =   datetime.time( hour = 9, minute = REQUEST_MINUTE_CANDLE_TYPE * 2) 
+            start_time =   datetime.time( hour = 9, minute = user_setting.REQUEST_MINUTE_CANDLE_TYPE * 2) 
             stop_time =   datetime.time( hour = 9, minute = 30) 
             stop_end_time =   datetime.time( hour = 13, minute = 30) 
             if( self.currentTime.time() < start_time
@@ -821,7 +805,17 @@ class KiwoomConditon(QObject):
 
             else: 
                 # 당일 추가 매수 종목 
-                return_vals.append(False)
+
+                first_bunhal_stoploss_percent = 1.03
+
+                if( current_price > last_maeip_price
+                    # and bunhal_maesu_count == 1 
+                    and current_price > last_maeip_price * first_bunhal_stoploss_percent
+                    ):
+                    pass
+                else:
+                    # printLog += '(추매조건미충족)'
+                    return_vals.append(False)
                 pass
 
             temp = '({} {})' .format( 
@@ -836,7 +830,7 @@ class KiwoomConditon(QObject):
         # 매도 호가가 0인경우 상한가임 
         if( return_vals.count(False) == 0 and current_price != 0  ):
             qty = 0
-            if( TEST_MODE == True ):
+            if( user_setting.TEST_MODE == True ):
                 qty = 1 
             else:
                 # 기존 테스트 매수 수량을 조절하기 위함 
@@ -850,7 +844,7 @@ class KiwoomConditon(QObject):
                         base_time = datetime.datetime.strptime("20200806010101", "%Y%m%d%H%M%S") 
 
                         first_maesu_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
-                        total_price = MAESU_TOTAL_PRICE[maesu_count] 
+                        total_price = user_setting.MAESU_TOTAL_PRICE[maesu_count] 
                         if( base_time < first_maesu_time ):
                             qty = int(total_price / current_price )  + 1 #  약간 오버하게 삼 
                             pass
@@ -860,7 +854,7 @@ class KiwoomConditon(QObject):
                         pass
                 else:
                     # 신규 매수 
-                    total_price = MAESU_TOTAL_PRICE[maesu_count] 
+                    total_price = user_setting.MAESU_TOTAL_PRICE[maesu_count] 
                     qty = int(total_price / current_price )  + 1
 
                     if( self.current_condition_name == '장후반'):
@@ -1039,7 +1033,7 @@ class KiwoomConditon(QObject):
             for item_name in kw_util.dict_jusik['TR:일봉']:
                 if( item_name == "저가"):
                     result = self.getCommData("opt10081", rQName, i, item_name)
-                    if( i != 0 and result != '' and i <= STOP_LOSS_CALCULATE_DAY):
+                    if( i != 0 and result != '' and i <= user_setting.STOP_LOSS_CALCULATE_DAY):
                         # 첫번째는 당일이므로 제외 
                         low_price_list.append( abs(int(result)  ) )
 
@@ -1049,19 +1043,15 @@ class KiwoomConditon(QObject):
                         # 첫번째는 당일이므로 제외 
                         total_current_price_list.append( abs(int(result)  ) )
 
-        jongmok_info_dict['{}일봉중저가'.format(STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
-        jongmok_info_dict['일{}봉'.format(MAX_SAVE_CANDLE_COUNT)] = total_current_price_list[0:MAX_SAVE_CANDLE_COUNT]
+        jongmok_info_dict['{}일봉중저가'.format(user_setting.STOP_LOSS_CALCULATE_DAY)] = min(low_price_list)
+        jongmok_info_dict['일{}봉'.format(user_setting.MAX_SAVE_CANDLE_COUNT)] = total_current_price_list[0:user_setting.MAX_SAVE_CANDLE_COUNT]
 
         return True
 
     # 주식 분봉 tr 요청 
     def requestOpt10080(self, jongmok_code):
      # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
-        candle_type_str = "5:5분"
-        if( REQUEST_MINUTE_CANDLE_TYPE == 5):
-            candle_type_str = "5:5분"
-        elif( REQUEST_MINUTE_CANDLE_TYPE == 3 ):
-            candle_type_str = "3:3분"
+        candle_type_str = "{}:{}분".format( user_setting.REQUEST_MINUTE_CANDLE_TYPE )
 
         self.setInputValue("종목코드", jongmok_code )
         self.setInputValue("틱범위", candle_type_str) 
@@ -1090,21 +1080,21 @@ class KiwoomConditon(QObject):
         total_current_price_list = []
 
         # 3분봉 기준 6.5 시간 * 20 = 130  
-        for i in range(min(repeatCnt, MAX_SAVE_CANDLE_COUNT)):
+        for i in range(min(repeatCnt, user_setting.MAX_SAVE_CANDLE_COUNT)):
             line = []
             for item_name in kw_util.dict_jusik['TR:분봉']:
                 result = self.getCommData("opt10080", rQName, i, item_name)
                 if( item_name == "체결시간" ):
                     # 20191104145500 형식 
                     if( i == 0 ):
-                        jongmok_info_dict['최근{}분봉체결시간'.format(REQUEST_MINUTE_CANDLE_TYPE)] = result.strip()
+                        jongmok_info_dict['최근{}분봉체결시간'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE)] = result.strip()
                     line.append( result.strip() )
                 else:
                     line.append( abs(int(result.strip()) ))
                     pass
             total_current_price_list.append( line )
 
-        key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+        key_minute_candle = '{}분{}봉'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE, user_setting.MAX_SAVE_CANDLE_COUNT)
         jongmok_info_dict[key_minute_candle] = total_current_price_list
 
         if( jongmok_code in self.jangoInfo ):
@@ -1138,7 +1128,7 @@ class KiwoomConditon(QObject):
 
         repeatCnt = self.getRepeatCnt("opt20005", rQName)
 
-        for i in range(min(repeatCnt, MAX_SAVE_CANDLE_COUNT)):
+        for i in range(min(repeatCnt, user_setting.MAX_SAVE_CANDLE_COUNT)):
             line = []
             for item_name in kw_util.dict_jusik['TR:업종분봉']:
                 result = self.getCommData("opt20005", rQName, i, item_name)
@@ -1440,17 +1430,17 @@ class KiwoomConditon(QObject):
         self.sigRealInfoArrived.emit(jongmok_code, real_data_type, result_list)
 
     def isMinCandleExist(self, current_jango):
-        key_minute_candle = '{}분{}봉'.format(REQUEST_MINUTE_CANDLE_TYPE, MAX_SAVE_CANDLE_COUNT)
+        key_minute_candle = '{}분{}봉'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE, user_setting.MAX_SAVE_CANDLE_COUNT)
         if( key_minute_candle in current_jango
-            and len( current_jango[key_minute_candle] ) == MAX_SAVE_CANDLE_COUNT ):  # 분봉 정보 얻었는지 확인 
+            and len( current_jango[key_minute_candle] ) == user_setting.MAX_SAVE_CANDLE_COUNT ):  # 분봉 정보 얻었는지 확인 
             return True
         else:
             return False
 
     def isDayCandleExist(self, current_jango):
-        key_day_candle = '일{}봉'.format(MAX_SAVE_CANDLE_COUNT ) 
+        key_day_candle = '일{}봉'.format(user_setting.MAX_SAVE_CANDLE_COUNT ) 
         if( key_day_candle in current_jango
-            # and len( current_jango[key_day_candle] ) == MAX_SAVE_CANDLE_COUNT 
+            # and len( current_jango[key_day_candle] ) == user_setting.MAX_SAVE_CANDLE_COUNT 
             ):  # 분봉 정보 얻었는지 확인 
             return True
         else:
@@ -1464,7 +1454,7 @@ class KiwoomConditon(QObject):
             return
         
         # 예외 처리 리스트이면 종료 
-        if( jongmok_code in EXCEPTION_LIST ):
+        if( jongmok_code in user_setting.EXCEPTION_LIST ):
             # print('-2', end = '')
             return
 
@@ -1806,8 +1796,8 @@ class KiwoomConditon(QObject):
         maesu_count = len(bunhal_maesu_list)
 
         # 손절/익절가 퍼센티지 계산 
-        stop_loss_percent = STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
-        stop_plus_percent = STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
+        stop_loss_percent = user_setting.STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
+        stop_plus_percent = user_setting.STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
 
         maeip_price = current_jango['매입가']
 
@@ -1893,6 +1883,8 @@ class KiwoomConditon(QObject):
             maesu_count = len(bunhal_maesu_list)
             maedo_type = current_jango.get('매도중', '')
             if( maedo_type == ''):
+                # 한번 수익난 종목 당일 매수 금지 
+                self.maesuProhibitCodeList.append(jongmok_code)
                 maedo_type = '(수동직접매도수행)'
             info.append('{0:>10}'.format(profit_percent))
             info.append('{0:>10}'.format(profit))
@@ -2120,7 +2112,7 @@ class KiwoomConditon(QObject):
             codeList.append('044180')
         else:
             for code in codeList:
-                if ( code not in EXCEPTION_LIST):
+                if ( code not in user_setting.EXCEPTION_LIST):
                     self.addConditionOccurList(code)
 
         # 실시간 정보 요청 "0" 은 이전거 제외 하고 새로 요청
@@ -2135,7 +2127,7 @@ class KiwoomConditon(QObject):
     def make_excel(self, file_path, data_dict):
         # 주의 구글 스프레드 시트는 100개의 요청 제한이 있으므로  
         # 당일 정보만 한번에 batch_update 로 한번에 넣도록 함 
-        wb = gc.open("kw3매매내역")
+        wb = gc.open(user_setting.GOOGLE_SPREAD_SHEET_NAME)
         sheets = wb.worksheets()
         sheet_names = [ sheet.title for sheet in sheets]
 
