@@ -18,31 +18,33 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 ## 참고 소스 
  - from https://github.com/sculove/QWebview-plus
 
-## 사용 예
+## 실행방법 
 ~~~~
  > python main.py 
 ~~~~
+
+## 사용방법
+1. 사용자가 설정한 조건식을 시간마다 활성화 시키기 위해서는 
+    - onTimerSystemTimeout 함수 참고
+1. 조건식에 만족하는 리스트의 매수할지 안할지 선택은? 
+    - determineBuyProcessStateEntered 함수 참고
+        - 위 함수는 매입 종목 + 조건식 만족하는 종목 수 만큼 루프를 돌며 한종목당 주기는 20msec 임  
+1. 매입 종목의 매도할지 안할지 선택은?
+    - processStopLoss 함수 참고
+        - 위 함수는 실시간 체결정보를 받을 때마다 매번 실행 됨 
+
 
 > main.py 내의  변수 설정 내용 
 
 > AUTO_TRADING_OPERATION_TIME = [ [ [8, 50], [15, 19] ] ]  # 8시 50분에 동작해서 15시 19분에 자동 매수/매도 정지/  매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
 
-> CONDITION_NAME = '수익성' #키움증권 HTS 에서 설정한 조건 검색 식 이름
-![alt tag](https://user-images.githubusercontent.com/15916783/66357917-cd9feb80-e9ab-11e9-8240-81292230b569.png)
-
-> TOTAL_BUY_AMOUNT = 10000000 #  매도 호가 1,2,3 총 수량이 TOTAL_BUY_AMOUNT 이상 안되면 매수금지  (슬리피지 최소화)
-
 > MAESU_UNIT = 100000 # 추가 매수 기본 단위 
 
 > BUNHAL_MAESU_LIMIT = 5 # 분할 매수 횟수 제한 
 
-> MAX_STOCK_POSSESION_COUNT = 10 # 제외 종목 리스트 불포함 
+> MAX_STOCK_POSSESION_COUNT = 3 # 제외 종목 리스트 불포함한 최대 종목 보유 수
 
-> STOP_PLUS_PERC = BUNHAL_MAESU_LIMIT * MAX_STOCK_POSSESION_COUNT * 2 # 1번 매수 기준 전체 금액의 2% 수익이 난 경우 
-
-> BUNHAL_MAESU_PROHIBIT_DAYS = 1 # 최근 ? 내에서는 분할 매수 금지
-
-> STOP_LOSS_CALCULATE_DAY = 5   # 최근 ? 일간 저가를 기준을 손절 계산
+> BASIC_STOP_LOSS_PERCENT = -0.6 # 종목 전체 적용되는 stoploss
 
 > EXCEPTION_LIST = [''] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
