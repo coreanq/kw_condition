@@ -25,7 +25,7 @@ gc = gspread.authorize(credentials)
 
 
 
-TRADING_INFO_GETTING_TIME = [15, 45] # 트레이딩 정보를 저장하기 시작하는 시간
+TRADING_INFO_GETTING_TIME = [15, 40] # 트레이딩 정보를 저장하기 시작하는 시간
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
 INTERESTED_STOCKS_FILE_PATH = "log" + os.path.sep +  "interested_stocks.json"
@@ -509,13 +509,13 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def processStoplossStateEntered(self):
         # print(util.whoami() )
-
         jongmok_list = copy.copy(list(self.jangoInfo.keys()))
 
         for jongmok_code in jongmok_list:
             self.processStopLoss(jongmok_code)
+            pass
 
-        QTimer.singleShot( 100, self.sigProcessStoploss)
+        QTimer.singleShot( 200, self.sigProcessStoploss)
         pass
 
     @pyqtSlot()
@@ -540,6 +540,7 @@ class KiwoomConditon(QObject):
         # 조건 발생 종목까지 봐야 하므로 종목이 많을 수 있고  많으면 100ms 너무 느림 조건  
         # 1초에 같은 종목 두번은 돌릴수 있어야 함 
         QTimer.singleShot(20, self.sigRequestEtcInfo)
+        pass
 
 
     @pyqtSlot()
@@ -551,8 +552,6 @@ class KiwoomConditon(QObject):
         for jongmok_code in self.conditionRemoveList:
             self.removeConditionOccurList(jongmok_code)
         self.conditionRemoveList.clear()
-
-        self.refreshRealRequest()
 
         jongmok_info_dict = self.getConditionOccurList()
 
@@ -642,6 +641,13 @@ class KiwoomConditon(QObject):
         else:
             jongmok_jang_type = 'kospi'
 
+        key_upjong_name = ''
+        if( jongmok_jang_type == 'kospi'):
+            key_upjong_name = '코스피'
+        else:
+            key_upjong_name = '코스닥'
+
+
         # 매도 호가기준 
         current_price = abs(int(jongmok_info_dict['(최우선)매도호가']))
         maesuHoga1 = abs(int(jongmok_info_dict['(최우선)매수호가']))
@@ -707,15 +713,9 @@ class KiwoomConditon(QObject):
         # 업종 추세가 좋지 않은 경우 매수 금지 장이 좋지 않은 경우 매수 금지 
 
         _upjong_20_candle_avr = 0
-
-        key_upjong_name = ''
-
-        if( jongmok_jang_type == 'kospi'):
-            key_upjong_name = '코스피'
-        else:
-            key_upjong_name = '코스닥'
-
         current_upjong_price = abs(round(float(self.upjongInfo[key_upjong_name]['현재가']), 2))
+        open_upjong_price = abs(round(float(self.upjongInfo[key_upjong_name]['시가']), 2))
+
         candle_list = self.upjongInfo[key_upjong_name]['분봉']
         price_list = [ abs(round( float(item.split(':')[0]), 2) ) for item in candle_list ]
         # 분봉데이터는 소숫점 둘째자리까지 표현되는데 * 100 한 값의 문자열임 
@@ -724,6 +724,11 @@ class KiwoomConditon(QObject):
         # if( _upjong_20_candle_avr > current_upjong_price
         #     and self.current_condition_name !='장후반'):
         #     printLog += '(업종추세하락)'
+        #     return_vals.append(False)
+
+        # if( open_upjong_price > current_upjong_price
+        #     and self.current_condition_name !='장후반'):
+        #     printLog += '(업종시가하향)'
         #     return_vals.append(False)
 
 
@@ -754,7 +759,7 @@ class KiwoomConditon(QObject):
         # 종목 등락율을 조건 적용 
         #  +, - 붙는 소수이므로 float 으로 먼저 처리 
         updown_percentage = float(jongmok_info_dict['등락율'] )
-        if( updown_percentage > 0 and updown_percentage < 26 ):
+        if( updown_percentage > 0 and updown_percentage < 25 ):
             pass
         else:
             printLog += '(종목등락율미충족: 등락율 {0})'.format(updown_percentage)
@@ -1441,7 +1446,7 @@ class KiwoomConditon(QObject):
         maeip_price = abs(int(current_jango['매입가']))
 
         maeip_danga = maeip_price + maeip_price* 0.00015
-        maedo_danga = current_price - current_price * 0.00015 - current_price * 0.0025
+        maedo_danga = current_price - current_price * 0.00015 - current_price * 0.0023
 
         suik_price = round( (maedo_danga - maeip_danga) * amount , 2)
         current_jango['수익'] = suik_price 
@@ -1619,11 +1624,10 @@ class KiwoomConditon(QObject):
         printData = jongmok_code + ' {0:20} '.format(jongmok_name) 
 
         # 손절 / 익절 계산 
-        # 정리나, 손절의 경우 시장가로 팔고 익절의 경우 보통가로 팜 
         isSijanga = False
-        sell_amount = 0
+        sell_amount = jangosuryang
 
-        # 20180410150510 팜스웰바이오 실시간 매수 호가가 0으로 나오는 경우 있음 
+        # 20180410150510 실시간 매수 호가가 0으로 나오는 경우 오류 처리
         if( stop_loss >= current_price and current_price > 0 ) :
             isSijanga = True
             isSell = True
@@ -1643,7 +1647,6 @@ class KiwoomConditon(QObject):
         order_num = current_jango.get('주문번호', '')
 
         if( isSell == True ):
-            # 키움 open api 에서는 시장가 정정 주문이 동작하지 않으므로 최대한 아래 값으로 넣는다. 
             low_price = current_price * 0.9
             low_price = kw_util.getHogaPrice(low_price, 0, jongmok_jang_type)
             result = self.sendOrder("sell_"  + jongmok_code, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["매도정정"], 
@@ -2037,6 +2040,8 @@ class KiwoomConditon(QObject):
                     .format(util.cur_time_msec(), self.getMasterCodeName(code) ))
                 self.conditionRemoveList.append(code)
                 pass
+
+            self.refreshRealRequest()
 
 
     def addConditionOccurList(self, jongmok_code):
