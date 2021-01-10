@@ -1216,29 +1216,19 @@ class KiwoomConditon(QObject):
     def onTimerSystemTimeout(self):
 
         self.currentTime = datetime.datetime.now()
-
-        jang_choban_start_time = datetime.time( hour = 8, minute = 0,  second = 30 )
-        jang_choban_end_time = datetime.time( hour = 15, minute = 10 )
-        jang_jungban_start_time = datetime.time( hour = 15, minute = 19 )
-
         current_time = self.currentTime.time()
 
         isConditionRefreshed = False
 
-        if( current_time > jang_choban_start_time and current_time < jang_choban_end_time ):
-            if( self.current_condition_name != '장초반' ):
-                isConditionRefreshed = True
-            self.current_condition_name = "장초반"
-        elif( current_time > jang_jungban_start_time ):
-            # if( self.current_condition_name != '장후반' ):
-            #     isConditionRefreshed = True
-            # self.current_condition_name = "장후반"
-            pass
-        else:
-            # if( self.current_condition_name != '휴식' ):
-            #     isConditionRefreshed = True
-            # self.current_condition_name = "휴식"
-            pass
+        for key, value in user_setting.CONDITION_INFO.items():
+            start_time = datetime.time( hour = value['start_time']['hour'], minute = value['start_time']['minute'], second = value['start_time']['second'] )
+            end_time = datetime.time( hour = value['end_time']['hour'], minute = value['end_time']['minute'], second = value['end_time']['second'] )
+
+            if( current_time > start_time and current_time < end_time ):
+                if( self.current_condition_name !=  key ):
+                    isConditionRefreshed = True
+                self.current_condition_name = key
+                break
 
         if(isConditionRefreshed == True):
             self.sigReselectCondition.emit()

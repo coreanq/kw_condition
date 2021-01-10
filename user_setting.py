@@ -2,7 +2,23 @@
 
 AUTO_TRADING_OPERATION_TIME = [ [ [9, 0], [15, 19] ] ]  # 매도호가 정보의 경우 동시호가 시간에도  올라오므로 주의
 
-MAESU_UNIT = 7500000 # 매수 기본 단위 
+# 조건검색식 적용시간
+CONDITION_INFO = {
+    "장초반": {
+        "start_time": {
+            "hour": 8, 
+            "minute": 5, 
+            "second": 0, 
+        },
+        "end_time": {
+            "hour": 15, 
+            "minute": 0, 
+            "second": 0, 
+        }
+    }
+}
+
+MAESU_UNIT = 5000000 # 매수 기본 단위 
 
 BUNHAL_MAESU_LIMIT = 3 # 분할 매수 횟수 제한 
 
@@ -14,7 +30,7 @@ REQUEST_MINUTE_CANDLE_TYPE = 3  # 운영중 요청할 분봉 종류
 
 MAX_SAVE_CANDLE_COUNT = (STOP_LOSS_CALCULATE_DAY +1) * 140 # 3분봉 기준 저장 분봉 갯수 
 
-MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 2,                   MAESU_UNIT * 1,                     MAESU_UNIT * 1,                     MAESU_UNIT * 1]
+MAESU_TOTAL_PRICE =         [ MAESU_UNIT * 1,                   MAESU_UNIT * 1,                     MAESU_UNIT * 1,                     MAESU_UNIT * 1]
 # 추가 매수 진행시 stoploss 및 stopplus 퍼센티지 변경
 # 추가 매수 어느 단계에서든지 손절금액은 확정적이여야 함 
 # 세금 수수료 별도 계산  
