@@ -44,5 +44,13 @@ EXCEPTION_LIST = ['035480'] # 장기 보유 종목 번호 리스트  ex) EXCEPTI
 TEST_MODE = False    # 주의 TEST_MODE 를 True 로 하면 1주 단위로 삼o 
 
 
+###################################################################################################
+# for slack  bot
+SLACK_BOT_ENABLED = True
+SLACK_BOT_TOKEN = ""
+SLACK_BOT_CHANNEL = ""
+
+###################################################################################################
+# for google spread
 GOOGLE_SPREAD_AUTH_JSON_FILE = 'kiwoom_charles_auth.json'
 GOOGLE_SPREAD_SHEET_NAME = 'kw3_trade'

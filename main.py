@@ -14,6 +14,12 @@ from PyQt5.QAxContainer import QAxWidget
 from mainwindow_ui import Ui_MainWindow
 
 
+# for slack bot
+from slacker import Slacker
+token = user_setting.SLACK_BOT_TOKEN
+slack = Slacker(token)
+
+# for google doc
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
 
@@ -903,7 +909,7 @@ class KiwoomConditon(QObject):
             current_price = kw_util.getHogaPrice(current_price, 1, jongmok_jang_type)
             result = self.sendOrder("buy_" + jongmok_code, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
-                                qty, current_price , kw_util.dict_order["지정가"], "")
+                                qty, current_price , kw_util.dict_order["지정가IOC"], "")
 
             self.maesuProhibitCodeList.append(jongmok_code)
 
@@ -918,7 +924,7 @@ class KiwoomConditon(QObject):
                 )  
             print( printLog )
 
-            util.save_log(printLog, '매수', folder = "log")
+            util.save_log(printLog, '매수요청', folder = "log")
             self.sigWaitTr.emit()
         else:
             # print(printLog)
@@ -1959,6 +1965,36 @@ class KiwoomConditon(QObject):
             pass
 
         self.chegyeolInfo[current_date].append('|'.join(info))
+
+        if( user_setting.SLACK_BOT_ENABLED == True ):
+            post_message = ''
+
+            if( maedo_maesu_gubun == "매수" ):
+                post_message = '매수종목:{},\t 단가:{},\t 수량:{},\t 총금액: {}'.format( 
+                    info[9],
+                    info[6],
+                    info[7],
+                    int(info[6]) * int(info[7])
+                )
+                pass
+            else:
+                post_message = '매도종목:{},\t 수익률: {},\t 수익금: {},\t 단가:{},\t 수량:{}'.format(
+                    info[9],
+                    info[0],
+                    info[1],
+                    info[6],
+                    info[7]
+                ) 
+            attachments_dict = dict()
+            # attachments_dict['pretext'] = "attachments 블록 전에 나타나는 text"
+            # attachments_dict['title'] = maedo_maesu_gubun
+            # attachments_dict['title_link'] = ""
+            # attachments_dict['fallback'] = "클라이언트에서 노티피케이션에 보이는 텍스트 입니다. attachment 블록에는 나타나지 않습니다"
+            # attachments_dict['text'] = ''
+            # attachments_dict['mrkdwn_in'] = ["text", "pretext"]  # 마크다운을 적용시킬 인자들을 선택합니다.
+            attachments = [attachments_dict]
+
+            slack.chat.post_message(channel=user_setting.SLACK_BOT_CHANNEL, text=post_message, attachments=attachments, as_user=True)
         util.save_log(printData, "*체결정보", folder= "log")
         pass
 
