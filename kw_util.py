@@ -27,6 +27,7 @@ sendGibonScreenNo = "104"
 send5minScreenNo = "105"
 sendHogaScreenNo = "106"
 sendAccountInfoScreenNo = '107'
+sendYesuGmInfoScreenNo = '108'
 
 
 
@@ -76,6 +77,9 @@ dict_jusik = {
     ),
     "TR:기본정보": (
         "상한가", "하한가", "기준가"
+    ),
+    'TR:계좌평가현황': (
+        '계좌명', '지점명', '예수금', 'D+2추정예수금', '유가잔고평가액', '예탁자산평가액', '총매입금액', '추정예탁자산'
     ),
 
     "실시간-주식체결":(
