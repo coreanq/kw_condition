@@ -5,6 +5,7 @@ import openpyxl
 import resource_rc
 import util, kw_util
 import user_setting
+import slacker_helper
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QObject, pyqtSlot, pyqtSignal, QUrl, QEvent
@@ -12,12 +13,6 @@ from PyQt5.QtCore import QStateMachine, QState, QTimer, QFinalState
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QAxContainer import QAxWidget
 from mainwindow_ui import Ui_MainWindow
-
-
-# for slack bot
-from slacker import Slacker
-token = user_setting.SLACK_BOT_TOKEN
-slack = Slacker(token)
 
 # for google doc
 from oauth2client.service_account import ServiceAccountCredentials
@@ -1450,7 +1445,7 @@ class KiwoomConditon(QObject):
                 .format(jongmok_code, realType, realData))
             pass
 
-        elif( realType == '주식우선호가' or realType == '업종등락'):
+        elif( realType == '주식우선호가' or realType == '업종등락' or realType =='주식예상체결' ):
             pass
 
         else:
@@ -2011,7 +2006,8 @@ class KiwoomConditon(QObject):
                     info[7]
                 ) 
 
-            slack.chat.post_message(channel=user_setting.SLACK_BOT_CHANNEL, text=post_message, as_user=True)
+            slacker_helper.post_message(channel=user_setting.SLACK_BOT_CHANNEL, text=post_message, as_user=True)
+
         util.save_log(printData, "*체결정보", folder= "log")
         pass
 
