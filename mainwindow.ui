@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>429</width>
-    <height>177</height>
+    <height>207</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,9 +18,9 @@
     <item row="0" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
-       <widget class="QPushButton" name="btnStart">
+       <widget class="QPushButton" name="btnRealInfoEnabled">
         <property name="text">
-         <string>시작</string>
+         <string>실시간 정보 Enabled</string>
         </property>
        </widget>
       </item>
@@ -91,7 +91,7 @@
      <x>0</x>
      <y>0</y>
      <width>429</width>
-     <height>21</height>
+     <height>26</height>
     </rect>
    </property>
   </widget>

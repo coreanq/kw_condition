@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created by: PyQt5 UI code generator 5.6
+# Created by: PyQt5 UI code generator 5.9.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -11,16 +11,16 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(429, 177)
+        MainWindow.resize(429, 207)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
         self.gridLayout.setObjectName("gridLayout")
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
-        self.btnStart = QtWidgets.QPushButton(self.centralwidget)
-        self.btnStart.setObjectName("btnStart")
-        self.horizontalLayout.addWidget(self.btnStart)
+        self.btnRealInfoEnabled = QtWidgets.QPushButton(self.centralwidget)
+        self.btnRealInfoEnabled.setObjectName("btnRealInfoEnabled")
+        self.horizontalLayout.addWidget(self.btnRealInfoEnabled)
         self.btnMakeExcel = QtWidgets.QPushButton(self.centralwidget)
         self.btnMakeExcel.setObjectName("btnMakeExcel")
         self.horizontalLayout.addWidget(self.btnMakeExcel)
@@ -54,7 +54,7 @@ class Ui_MainWindow(object):
         self.gridLayout.addLayout(self.horizontalLayout_4, 3, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 429, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 429, 26))
         self.menubar.setObjectName("menubar")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
@@ -67,7 +67,7 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "Automated st"))
-        self.btnStart.setText(_translate("MainWindow", "시작"))
+        self.btnRealInfoEnabled.setText(_translate("MainWindow", "실시간 정보 Enabled"))
         self.btnMakeExcel.setText(_translate("MainWindow", "체결 정보 엑셀 생성"))
         self.btnYupjong.setText(_translate("MainWindow", "정보요청(업종)"))
         self.btnCondition.setText(_translate("MainWindow", "조건진입리스트"))

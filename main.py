@@ -114,6 +114,8 @@ class KiwoomConditon(QObject):
         self.kospi_updown = 0 
         self.kosdaq_updown = 0 
 
+        self.realInfoEnabled = False
+
         # 잔고 정보 저장시 저장 제외될 키 값들 
         self.jango_remove_keys = [ 
             '매도호가1', '매도호가2', '매도호가3', '매도호가수량1', '매도호가수량2', '매도호가수량3','매도호가총잔량',
@@ -233,10 +235,14 @@ class KiwoomConditon(QObject):
         print(util.whoami())
         self.make_excel(CHEGYEOL_INFO_EXCEL_FILE_PATH, self.chegyeolInfo)
         pass
+
     @pyqtSlot()
-    def onBtnStartClicked(self):
+    def onBtnRealInfoEnabled(self):
         print(util.whoami())
-        self.sigInitOk.emit()
+        if( self.realInfoEnabled == False ):
+            self.realInfoEnabled = True
+        else:
+            self.realInfoEnabled = False
         
     @pyqtSlot()
     def onBtnJangoClicked(self):
@@ -1672,6 +1678,7 @@ class KiwoomConditon(QObject):
     '예수금': '0', '주문가능수량': '5', '종목명': '우리종금                                ', '손익율': '0.00', '당일실현손익(유가)': '0', '담보대출수량': '0', '924': '0', 
     '매입단가': '809', '신용구분': '00', '매도/매수구분': '2', '(최우선)매도호가': '+806', '신용이자': '0'}
     ''' 
+    # receiveChejanData 에서 말씀하신 951번 예수금데이터는 제공되지 않습니다. from 운영자
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
         # print(util.whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
         #         .format(gubun, itemCnt, fidList))
@@ -1690,7 +1697,6 @@ class KiwoomConditon(QObject):
             current_amount = abs(int(self.getChejanData(kw_util.name_fid['당일순매수수량'])))
             maesuHoga1 = abs(int(self.getChejanData(kw_util.name_fid['(최우선)매수호가'])))
             maedoHoga1 = abs(int(self.getChejanData(kw_util.name_fid['(최우선)매도호가'])))
-
 
             #미체결 수량이 있는 경우 잔고 정보 저장하지 않도록 함 
             if( jongmok_code in self.michegyeolInfo):
@@ -1751,6 +1757,7 @@ class KiwoomConditon(QObject):
             if( jongmok_code in self.jangoInfo ):
                 self.jangoInfo[jongmok_code].update(current_jango)
             self.makeJangoInfoFile()
+            self.refreshRealRequest()
             pass
 
         elif ( gubun == "0"):
@@ -1970,7 +1977,8 @@ class KiwoomConditon(QObject):
             post_message = ''
 
             if( maedo_maesu_gubun == "매수" ):
-                post_message = '매수종목:{},\t 단가:{},\t 수량:{},\t 총금액: {}'.format( 
+                post_message = "*{}* `{},\t 단가:{},\t 수량:{},\t 총금액: {}`".format( 
+                    maedo_maesu_gubun, 
                     info[9],
                     info[6],
                     info[7],
@@ -1978,23 +1986,16 @@ class KiwoomConditon(QObject):
                 )
                 pass
             else:
-                post_message = '매도종목:{},\t 수익률: {},\t 수익금: {},\t 단가:{},\t 수량:{}'.format(
+                post_message = "*{}* `{},\t 수익률: {},\t 수익금: {},\t 단가:{},\t 수량:{}`".format(
+                    maedo_maesu_gubun,
                     info[9],
                     info[0],
                     info[1],
                     info[6],
                     info[7]
                 ) 
-            attachments_dict = dict()
-            # attachments_dict['pretext'] = "attachments 블록 전에 나타나는 text"
-            # attachments_dict['title'] = maedo_maesu_gubun
-            # attachments_dict['title_link'] = ""
-            # attachments_dict['fallback'] = "클라이언트에서 노티피케이션에 보이는 텍스트 입니다. attachment 블록에는 나타나지 않습니다"
-            # attachments_dict['text'] = ''
-            # attachments_dict['mrkdwn_in'] = ["text", "pretext"]  # 마크다운을 적용시킬 인자들을 선택합니다.
-            attachments = [attachments_dict]
 
-            slack.chat.post_message(channel=user_setting.SLACK_BOT_CHANNEL, text=post_message, attachments=attachments, as_user=True)
+            slack.chat.post_message(channel=user_setting.SLACK_BOT_CHANNEL, text=post_message, as_user=True)
         util.save_log(printData, "*체결정보", folder= "log")
         pass
 
@@ -2152,26 +2153,21 @@ class KiwoomConditon(QObject):
         # print(util.whoami() )
         self.setRealRemove("ALL", "ALL")
         codeList  = []
+        jangoCodeList = []
 
-        # 보유 잔고 실시간 정보 얻기 위해 추가 
+        # 현재 보유 종목실시간 정보 요청 추가
         for code in self.jangoInfo.keys():
+            jangoCodeList.append(code)
             if( code not in codeList):
                 codeList.append(code)
 
+        # 조건 검색식으로 걸린종목  실시간 정보 요청 추가
         condition_list = self.getCodeListConditionOccurList()
         for code in condition_list: 
             if( code not in codeList):
                 codeList.append(code)
 
-        if( len(codeList) == 0 ):
-            # 종목 미보유로 실시간 체결 요청 할게 없는 경우 코스닥 코스피 실시간 체결가가 올라오지 않으므로 임시로 하나 등록  
-            codeList.append('044180')
-        else:
-            for code in codeList:
-                if ( code not in user_setting.EXCEPTION_LIST):
-                    self.addConditionOccurList(code)
-
-        # 실시간 정보 요청 "0" 은 이전거 제외 하고 새로 요청
+        # 실시간 정보 요청 
         if( len(codeList) ):
            #  WARNING: 주식 시세 실시간은 리턴되지 않음!
             # tmp = self.setRealReg(kw_util.sendRealRegSiseSrcNo, ';'.join(codeList), kw_util.type_fidset['주식시세'], "0")
@@ -2179,6 +2175,10 @@ class KiwoomConditon(QObject):
             tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
             tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
             tmp = self.setRealReg(kw_util.sendRealRegTradeStartScrNo, '', kw_util.type_fidset['장시작시간'], "0")
+            # tmp = self.setRealReg(kw_util.sendRealRegTradeSource, ';'.join(codeList), kw_util.type_fidset['주식거래원'], "0")
+        if( len(jangoCodeList) ):
+            tmp = self.setRealReg(kw_util.sendRealRegJangoNo, ';'.join(jangoCodeList), kw_util.type_fidset['잔고'], "0")
+
 
     def make_excel(self, file_path, data_dict):
         # 주의 구글 스프레드 시트는 100개의 요청 제한이 있으므로  
@@ -2607,7 +2607,7 @@ if __name__ == "__main__":
     form.installEventFilter( event_filter )
 
     ui.btnMakeExcel.clicked.connect(objKiwoom.onBtnMakeExcelClicked )
-    ui.btnStart.clicked.connect(objKiwoom.onBtnStartClicked)
+    ui.btnRealInfoEnabled.clicked.connect(objKiwoom.onBtnRealInfoEnabled)
 
     ui.btnYupjong.clicked.connect(objKiwoom.onBtnYupjongClicked)
     ui.btnJango.clicked.connect(objKiwoom.onBtnJangoClicked)
