@@ -459,6 +459,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami() )
         # 계좌 정보 조회 
         self.requestOpw00018(self.account_list[0], "0")
+        self.requestOpw00004(self.account_list[0])
         pass 
 
     @pyqtSlot()
@@ -1006,6 +1007,29 @@ class KiwoomConditon(QObject):
     def printYupjongInfo(self):
         print(json.dumps(self.upjongInfo, ensure_ascii= False, indent =2, sort_keys = True))
 
+    # 계좌평가현황요청
+    def requestOpw00004(self, account_num ):
+        self.setInputValue('계좌번호', account_num)
+        self.setInputValue('비밀번호', '') #  사용안함(공백)
+        self.setInputValue('상장폐지조회구분', '1')
+        self.setInputValue('비밀번호입력매체구분', '00')
+
+        ret = self.commRqData('{}_opw00004'.format(account_num), "opw00004", 0, kw_util.sendYesuGmInfoScreenNo) 
+        errorString = None
+        if( ret != 0 ):
+            errorString =   account_num + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            print(util.whoami() + errorString ) 
+            util.save_log(errorString, util.whoami(), folder = "log" )
+            return False
+        return True
+        pass
+
+    # 계좌평가현황 정보 생성
+    def makeOpw00004Info(self, rQName):
+        for item_name in kw_util.dict_jusik['TR:계좌평가현황']:
+            result = self.getCommData("opw00004", rQName, 0, item_name)
+            print( '{}: {}'.format( item_name, result ) )
+
     # 주식 잔고정보 요청 
     def requestOpw00018(self, account_num, sPrevNext):
         self.setInputValue('계좌번호', account_num)
@@ -1014,6 +1038,7 @@ class KiwoomConditon(QObject):
         self.setInputValue('조회구분', '1')
 
         # 연속 데이터 조회해야 하는 경우 
+        ret = 0
         if( sPrevNext == "2" ):
             ret = self.commRqData(account_num, "opw00018", 2, kw_util.sendAccountInfoScreenNo) 
         else:
@@ -1340,6 +1365,10 @@ class KiwoomConditon(QObject):
             else:
                 self.sigError.emit()
             pass
+
+        elif( trCode == 'opw00004'):
+            if( self.makeOpw00004Info(rQName) ):
+                pass
 
         #주식 기본 정보 요청 rQName 은 개별 종목 코드임
         elif( trCode == "opt10001"):
