@@ -84,6 +84,8 @@ class KiwoomConditon(QObject):
     sigRealInfoArrived = pyqtSignal(str, str, list)
     sigRemoveJongmokInfo = pyqtSignal(str) # 매도로 종목 정보 삭제 할시 쓰레드로 인해 삭제된 자료에 접근하는 것을 방지위해 만듬 
 
+    sigRequestRealInfo = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.ocx = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
@@ -140,6 +142,7 @@ class KiwoomConditon(QObject):
         initSystemState = QState(systemState)
         waitingTradeSystemState = QState(systemState)
         standbySystemState = QState(systemState)
+        beforeProcessStoplossState = QState(systemState)
         processStoplossState = QState(systemState)
         requestingJangoSystemState = QState(systemState)
         terminatingSystemState = QState(systemState)
@@ -162,7 +165,9 @@ class KiwoomConditon(QObject):
 
         standbySystemState.addTransition(self.sigTerminating,  terminatingSystemState )
         standbySystemState.addTransition(self.sigReselectCondition, waitingTradeSystemState)
-        standbySystemState.addTransition(self.sigStartProcess, processStoplossState )
+        standbySystemState.addTransition(self.sigRequestRealInfo, beforeProcessStoplossState )
+
+        beforeProcessStoplossState.addTransition(self.sigStartProcess, processStoplossState )
 
         processStoplossState.addTransition(self.sigProcessStoploss, processStoplossState)
         
@@ -178,6 +183,7 @@ class KiwoomConditon(QObject):
         waitingTradeSystemState.entered.connect(self.waitingTradeSystemStateEntered)
         requestingJangoSystemState.entered.connect(self.requestingJangoSystemStateEntered)
         standbySystemState.entered.connect(self.standbySystemStateEntered)
+        beforeProcessStoplossState.entered.connect(self.beforeProcessStoplessStateEntered)
         processStoplossState.entered.connect(self.processStoplossStateEntered)
         terminatingSystemState.entered.connect(self.terminatingSystemStateEntered)
     
@@ -514,8 +520,19 @@ class KiwoomConditon(QObject):
     def standbySystemStateEntered(self):
         print(util.whoami() )
         self.makeJangoInfoFile()
+
         # 연속으로 최대 5개 가능하므로 5개까지 기다림 
-        QTimer.singleShot( TR_TIME_LIMIT_MS * 5, self.sigStartProcess)
+        QTimer.singleShot( TR_TIME_LIMIT_MS * 5, self.sigRequestRealInfo)
+        pass
+
+    @pyqtSlot()
+    def beforeProcessStoplessStateEntered(self):
+        print(util.whoami() )
+        # 실시간검색시작
+        self.refreshRealRequest()
+
+        self.sigStartProcess.emit()
+
         pass
 
     @pyqtSlot()
@@ -1365,8 +1382,10 @@ class KiwoomConditon(QObject):
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmok_code, realType, realData):
-        # print(util.whoami() + 'jongmok_code: {}, {}, realType: {}'
-        #         .format(jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
+
+        if( self.realInfoEnabled == True):
+            print(util.whoami() + 'jongmok_code: {}, {}, realType: {}'
+                    .format(jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
 
         # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
         if( realType == "주식호가잔량"):
@@ -1381,13 +1400,7 @@ class KiwoomConditon(QObject):
             #     .format(jongmok_code, realType, realData))
             self.makeRealDataInfo(jongmok_code, '실시간-{}'.format(realType) ) 
             pass
-        
-        elif( realType == "주식시세"):
-            # 장종료 후에 나옴 
-            print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
-                .format(jongmok_code, realType, realData))
-            pass
-        
+
         elif( realType == "업종지수" ):
             # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
             #     .format(jongmok_code, realType, realData))
@@ -1422,9 +1435,6 @@ class KiwoomConditon(QObject):
                     upjong['분봉'].insert(0, '{}:{}'.format(current_price_str, '19990101{}'.format( current_chegyeol_time_str) ) )
                     upjong['분봉'] = upjong['분봉'][0:40]
                     # print(self.upjongInfo[key_name])
-
-            pass 
-
         
         elif( realType == '장시작시간'):
             # TODO: 장시작 30분전부터 실시간 정보가 올라오는데 이를 토대로 가변적으로 장시작시간을 가늠할수 있도록 기능 추가 필요 
@@ -1436,13 +1446,19 @@ class KiwoomConditon(QObject):
             elif( result == '4' ): # 장종료 후 5분뒤에 프로그램 종료 하게 함  
                 QTimer.singleShot(300000, self.sigStockComplete)
 
-            # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
-            #     .format(jongmok_code, realType, realData))
-        
             print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
                 .format(jongmok_code, realType, realData))
             pass
 
+        elif( realType == '주식우선호가' or realType == '업종등락'):
+            pass
+
+        else:
+            # 주식시세는 장종료 후에 나옴 
+            print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
+                .format(jongmok_code, realType, realData))
+
+            pass
     def calculateSuik(self, jongmok_code, current_price, amount):
         current_jango = self.jangoInfo[jongmok_code]
         maeip_price = abs(int(current_jango['매입가']))
@@ -2024,6 +2040,9 @@ class KiwoomConditon(QObject):
             for code in codes:
                 print('condition occur list add code: {} '.format(code) + self.getMasterCodeName(code))
                 self.addConditionOccurList(code)
+            # 주의: 여기에 실시간조건 refresh 를 넣지않는다 동작오류남
+            # self.refreshRealRequest()
+
 
     # 편입, 이탈 종목이 실시간으로 들어옵니다.
     # strCode : 종목코드
@@ -2153,11 +2172,9 @@ class KiwoomConditon(QObject):
         # print(util.whoami() )
         self.setRealRemove("ALL", "ALL")
         codeList  = []
-        jangoCodeList = []
 
         # 현재 보유 종목실시간 정보 요청 추가
         for code in self.jangoInfo.keys():
-            jangoCodeList.append(code)
             if( code not in codeList):
                 codeList.append(code)
 
@@ -2175,10 +2192,6 @@ class KiwoomConditon(QObject):
             tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
             tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
             tmp = self.setRealReg(kw_util.sendRealRegTradeStartScrNo, '', kw_util.type_fidset['장시작시간'], "0")
-            # tmp = self.setRealReg(kw_util.sendRealRegTradeSource, ';'.join(codeList), kw_util.type_fidset['주식거래원'], "0")
-        if( len(jangoCodeList) ):
-            tmp = self.setRealReg(kw_util.sendRealRegJangoNo, ';'.join(jangoCodeList), kw_util.type_fidset['잔고'], "0")
-
 
     def make_excel(self, file_path, data_dict):
         # 주의 구글 스프레드 시트는 100개의 요청 제한이 있으므로  

@@ -14,9 +14,6 @@ sendRealRegUpjongScrNo = '003'
 sendRealRegChegyeolScrNo = '004'
 sendRealRegTradeStartScrNo = '005'
 sendRealRegSiseSrcNo = "006"
-sendRealRegJangoNo = "007"
-sendRealRegTradeSource = "008"
-
 
 sendOrderScreenNo = "101"
 
@@ -121,6 +118,7 @@ dict_jusik = {
 }
 # fid 는 다 넣을 필요 없음
 # 거래원데이터는 실시간으로 제공되지 않는 데이터여서 해당 fid값을 SetRealReg에 추가하셔도 수신되지 않습니다. from 운영자
+# OpenAPI는 증거금이나 예수금, 잔고손익 을 실시간으로 제공하지 않습니다 from 운영자
 type_fidset = {
     "주식시세": "10;11;12;27;28;13;14;16;17;18;25;26;29;30;31;32;311",
     "잔고": "9201;9001;10;930;931;932;933;951;8019",
