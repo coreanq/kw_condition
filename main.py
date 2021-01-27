@@ -2035,7 +2035,7 @@ class KiwoomConditon(QObject):
                     info[7]
                 ) 
 
-            slacker_helper.post_message(channel=user_setting.SLACK_BOT_CHANNEL, text=post_message, as_user=True)
+            slacker_helper.post_message(post_message)
 
         util.save_log(printData, "*체결정보", folder= "log")
         pass
