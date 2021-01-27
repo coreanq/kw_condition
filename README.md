@@ -5,9 +5,7 @@
  - 추가 매수 기능 추가(추가 매수 수량 조절가능,  익절/손절 퍼센티지 조절 가능)
  - Google Spread 로 거래 내역 저장 기능 추가
  - slack 매수/매도 알림 추가  
- - 
- - <a href="https://www.youtube.com/watch?v=QnnO4kIj51c" target="_blank"><img src="http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg" 
-alt="키움증권 조건검색 사용 가이드" width="300" height="" border="10" /></a>
+ - [키움증권 조건검색 유튜브 가이드](https://www.youtube.com/watch?v=THCpQya4bXE&t=189s&ab_channel=%EC%B0%BD%EC%9B%90%EA%B0%9C%EB%AF%B8TV)
 
 ## 개발 환경  
  - Windows 64bit 권장
@@ -26,10 +24,10 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 
 ## 사용방법
 1. HTS 상에서 조건식 생성 
-1. user_setting.py 파일내에서 CONDITION_INFO 값을수정여 조건식 이름과 시작시간 설정 
+1. user_setting.py 파일내에서 CONDITION_INFO 값을수정여 조건식 이름과 시작 시간 설정 
 1. 조건식에 만족하는 리스트의 매수할지 안할지 선택은? 
     - determineBuyProcessStateEntered 함수 참고
-        - 위 함수는 이미 매입 종목 + 조건식 만족하는 종목 수 만큼 루프를 돌며 한종목당 주기는 20msec 임  
+        - 위 함수는 이미 매입 종목 + 조건식 만족하는 종목 수 만큼 루프를 돌며 한 종목당 주기는 20msec 임  
 1. 매입 종목의 매도할지 안할지 선택은?
     - processStopLoss 함수 참고
         - 위 함수는 실시간 체결정보를 받을 때마다 매번 실행 됨 
@@ -45,14 +43,14 @@ alt="키움증권 조건검색 사용 가이드" width="300" height="" border="1
 1. EXCEPTION_LIST = [''] # 장기 보유 종목 번호 리스트  ex) EXCEPTION_LIST = ['034220'] 
 
 
-### [slack bot 만들기](https://yganalyst.github.io/web/slackbot1/)
+### SLACK 알림 (참고: [slack bot 만들기](https://yganalyst.github.io/web/slackbot1/) )
 1. SLACK_BOT_ENABLED = True  # slack 알림사용할지 여부 
 1. SLACK_BOT_TOKEN = ""  # slack bot 접근 token 
 1. SLACK_BOT_CHANNEL = ""  # slack channel 
 
-### Google Spread 
-GOOGLE_SPREAD_AUTH_JSON_FILE = 'test.json'  # 접근을위 권한파일  
-GOOGLE_SPREAD_SHEET_NAME = '2월14일'   # 시트 이름
+### Google Spread (참고: [Python Google Spread 사용](http://hleecaster.com/python-google-drive-spreadsheet-api/) )
+1. GOOGLE_SPREAD_AUTH_JSON_FILE = 'test.json'  # 접근을위한 권한파일  
+1. GOOGLE_SPREAD_SHEET_NAME = '2월14일'   # 시트 이름
 
 ----
 ## StateMachine 정의 
