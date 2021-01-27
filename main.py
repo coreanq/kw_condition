@@ -97,7 +97,7 @@ class KiwoomConditon(QObject):
         self.jangoInfoFromFile = {} # TR 잔고 정보 요청 조회로는 얻을 수 없는 데이터를 파일로 저장하고 첫 실행시 로드함  
         self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '분할매수이력', '체결가' , '체결수량', '미체결수량'] ] }
         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
-        self.conditionRemoveList = [] # 조건 이탈이 발생한 모든 리스트 저장 
+
         self.conditionStoplossList = {'1분': [], '3분': [], '15분': [], '30분': [] }# 기존 조건 진입후 손절 조건을 판단하기 위함 
 
         self.kospiCodeList = () 
@@ -261,9 +261,8 @@ class KiwoomConditon(QObject):
     @pyqtSlot()
     def onBtnRunClicked(self):
         arg = self.lineCmdText
-        # if( arg ):
-        #     eval(arg)
-        self.sigRealInfoArrived.emit("124", "test", [1,2,3])
+        if( arg ):
+            eval(arg)
         pass
 
     @pyqtSlot()
@@ -503,7 +502,6 @@ class KiwoomConditon(QObject):
                     pass
 
         self.conditionOccurList.clear()
-        self.conditionRemoveList.clear()
 
         for count in range(len(start_info_list)):
             print("start condition " + start_name_list[count] + ", screen_no: " + start_info_list[count][0] + ", nIndex " + '{}'.format(int(start_info_list[count][1])) )
@@ -574,10 +572,6 @@ class KiwoomConditon(QObject):
         # print(util.whoami() )
 
         # 조건 발생 리스트 검색 
-        for jongmok_code in self.conditionRemoveList:
-            self.removeConditionOccurList(jongmok_code)
-        self.conditionRemoveList.clear()
-
         jongmok_info_dict = self.getConditionOccurList()
 
         if( jongmok_info_dict == None ):
@@ -1008,6 +1002,7 @@ class KiwoomConditon(QObject):
         print(json.dumps(self.upjongInfo, ensure_ascii= False, indent =2, sort_keys = True))
 
     # 계좌평가현황요청
+    @pyqtSlot(str, result = bool)
     def requestOpw00004(self, account_num ):
         self.setInputValue('계좌번호', account_num)
         self.setInputValue('비밀번호', '') #  사용안함(공백)
@@ -1031,6 +1026,7 @@ class KiwoomConditon(QObject):
             print( '{}: {}'.format( item_name, result ) )
 
     # 주식 잔고정보 요청 
+    @pyqtSlot(str, str, result = bool)
     def requestOpw00018(self, account_num, sPrevNext):
         self.setInputValue('계좌번호', account_num)
         self.setInputValue('비밀번호', '') #  사용안함(공백)
@@ -1084,6 +1080,7 @@ class KiwoomConditon(QObject):
         return True 
 
     # 주식 1일봉 요청 
+    @pyqtSlot(str, result = bool )
     def requestOpt10081(self, jongmok_code):
         # print(util.cur_time_msec() )
         datetime_str = datetime.datetime.now().strftime('%Y%m%d')
@@ -1134,6 +1131,7 @@ class KiwoomConditon(QObject):
         return True
 
     # 주식 분봉 tr 요청 
+    @pyqtSlot(str, result = bool)
     def requestOpt10080(self, jongmok_code):
      # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
         candle_type_str = "{}:{}분".format( user_setting.REQUEST_MINUTE_CANDLE_TYPE )
@@ -1189,6 +1187,7 @@ class KiwoomConditon(QObject):
         return True
 
     # 업종 분봉 tr 요청 
+    @pyqtSlot(str, result=bool)
     def requestOpt20005(self, yupjong_code):
         self.setInputValue("업종코드", yupjong_code )
         self.setInputValue("틱범위","3:5분") 
@@ -1233,6 +1232,7 @@ class KiwoomConditon(QObject):
 
 
     # 주식 기본 정보 요청  
+    @pyqtSlot(str, result = bool)
     def requestOpt10001(self, jongmok_code):
         # print(util.cur_time_msec() )
         self.setInputValue("종목코드", jongmok_code)
@@ -1358,7 +1358,7 @@ class KiwoomConditon(QObject):
             if( self.makeOpw00018Info(rQName) ):
                 # 연속 데이터 존재 하는 경우 재 조회 
                 if( prevNext  == "2" ) :
-                    self.requestOpw00018(self.account_list[0], prevNext)
+                    QTimer.singleShot(20, lambda: self.requestOpw00018(self.account_list[0], prevNext) )
                 else:
                     QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigRequestJangoComplete)
 
@@ -1797,7 +1797,7 @@ class KiwoomConditon(QObject):
             if( jongmok_code in self.jangoInfo ):
                 self.jangoInfo[jongmok_code].update(current_jango)
             self.makeJangoInfoFile()
-            self.refreshRealRequest()
+            QTimer.singleShot(10, lambda: self.refreshRealRequest() )
             pass
 
         elif ( gubun == "0"):
@@ -1817,6 +1817,8 @@ class KiwoomConditon(QObject):
                 # 매수 체결과 매도 체결 구분해야함 
                 self.makeChegyeolInfo(jongmok_code, fidList)
                 self.makeChegyeolInfoFile()
+                QTimer.singleShot(10, lambda: self.requestOpw00004( self.account_list[0]) )
+
                 pass
             elif ( jumun_sangtae == '접수'):
                 jumun_number = self.getChejanData(kw_util.name_fid['주문번호'])
@@ -1824,10 +1826,6 @@ class KiwoomConditon(QObject):
                 if( jongmok_code in self.jangoInfo ):
                     print("sell: {} ordernumber: {} 접수 ".format( self.getMasterCodeName(jongmok_code), jumun_number ) )
                     self.jangoInfo[jongmok_code]['주문번호'] = jumun_number
-
-
-
-            
             pass
 
 
@@ -2109,10 +2107,12 @@ class KiwoomConditon(QObject):
             else:
                 print('-{} {}'
                     .format(util.cur_time_msec(), self.getMasterCodeName(code) ))
-                self.conditionRemoveList.append(code)
+
+                # qt  message queue 에서 처리되게하여 data inconsistency 방지 
+                QTimer.singleShot(10, lambda: self.removeConditionOccurList(code) )
                 pass
 
-            self.refreshRealRequest()
+            QTimer.singleShot(10, lambda: self.refreshRealRequest() )
 
 
     def addConditionOccurList(self, jongmok_code):
@@ -2132,6 +2132,7 @@ class KiwoomConditon(QObject):
             self.sigConditionOccur.emit()
         pass
     
+    @pyqtSlot(str)
     def removeConditionOccurList(self, jongmok_code):
         for item_dict in self.conditionOccurList:
             if( item_dict['종목코드'] == jongmok_code ):
@@ -2554,6 +2555,9 @@ class KiwoomConditon(QObject):
         return kospi_kosdaq + ':' + yupjong
 
 if __name__ == "__main__":
+    def test_opw00004():
+        QTimer.singleShot(10, lambda: objKiwoom.requestOpw00004( objKiwoom.account_list[0]) )
+
     def test_buy():
         # 비정상 매수 (시장가에 단가 넣기 ) 우리종금 1주  
         # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
