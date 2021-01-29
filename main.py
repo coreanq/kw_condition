@@ -87,6 +87,7 @@ class KiwoomConditon(QObject):
         self.fsm = QStateMachine()
         self.account_list = []
         self.timerSystem = QTimer()
+        self.timerRealInfoRefresh = QTimer()
         self.lineCmdText = ''
 
         self.maesuProhibitCodeList = [] # 종목 거래 금지 list 
@@ -112,6 +113,8 @@ class KiwoomConditon(QObject):
         self.kosdaq_updown = 0 
 
         self.realInfoEnabled = False
+
+        self.d2Yesugm = user_setting.MAESU_UNIT
 
         # 잔고 정보 저장시 저장 제외될 키 값들 
         self.jango_remove_keys = [ 
@@ -339,6 +342,10 @@ class KiwoomConditon(QObject):
 
         self.timerSystem.setInterval(1000) 
         self.timerSystem.timeout.connect(self.onTimerSystemTimeout) 
+
+        self.timerRealInfoRefresh.setInterval(5000) 
+        self.timerRealInfoRefresh.timeout.connect(self.refreshRealRequest) 
+        self.timerRealInfoRefresh.setSingleShot(True)
 
         self.sigRealInfoArrived.connect(self.onRealInfoArrived)
 
@@ -903,8 +910,6 @@ class KiwoomConditon(QObject):
                         if( base_time < first_maesu_time ):
                             qty = int(total_price / current_price )  + 1 #  약간 오버하게 삼 
                             pass
-                        else:
-                            qty = int(100000 / current_price) + 1
                     else:
                         pass
                 else:
@@ -912,14 +917,12 @@ class KiwoomConditon(QObject):
                     total_price = user_setting.MAESU_TOTAL_PRICE[maesu_count] 
                     qty = int(total_price / current_price )  + 1
 
-                    if( self.current_condition_name == '장후반'):
-                        qty = qty/3
+            current_price = kw_util.getHogaPrice(current_price, 1, jongmok_jang_type)
 
             # result = self.sendOrder("buy_" + jongmok_code, kw_util.sendOrderScreenNo, 
             #                     objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
             #                     qty, 0 , kw_util.dict_order["시장가"], "")
 
-            current_price = kw_util.getHogaPrice(current_price, 1, jongmok_jang_type)
             result = self.sendOrder("buy_" + jongmok_code, kw_util.sendOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
                                 qty, current_price , kw_util.dict_order["지정가IOC"], "")
@@ -1023,7 +1026,9 @@ class KiwoomConditon(QObject):
     def makeOpw00004Info(self, rQName):
         for item_name in kw_util.dict_jusik['TR:계좌평가현황']:
             result = self.getCommData("opw00004", rQName, 0, item_name)
-            print( '{}: {}'.format( item_name, result ) )
+            if( item_name == 'D+2추정예수금'):
+                self.d2Yesugm = int(result)
+                print( '{}: {}'.format( item_name, result ) )
 
     # 주식 잔고정보 요청 
     @pyqtSlot(str, str, result = bool)
@@ -1797,7 +1802,6 @@ class KiwoomConditon(QObject):
             if( jongmok_code in self.jangoInfo ):
                 self.jangoInfo[jongmok_code].update(current_jango)
             self.makeJangoInfoFile()
-            QTimer.singleShot(10, lambda: self.refreshRealRequest() )
             pass
 
         elif ( gubun == "0"):
@@ -1818,6 +1822,7 @@ class KiwoomConditon(QObject):
                 self.makeChegyeolInfo(jongmok_code, fidList)
                 self.makeChegyeolInfoFile()
                 QTimer.singleShot(10, lambda: self.requestOpw00004( self.account_list[0]) )
+                self.timerRealInfoRefresh.start()
 
                 pass
             elif ( jumun_sangtae == '접수'):
@@ -2111,8 +2116,9 @@ class KiwoomConditon(QObject):
                 # qt  message queue 에서 처리되게하여 data inconsistency 방지 
                 QTimer.singleShot(10, lambda: self.removeConditionOccurList(code) )
                 pass
-
-            QTimer.singleShot(10, lambda: self.refreshRealRequest() )
+            
+            # 조건 반복 발생으로인한 overhead 를 줄이기 위함
+            self.timerRealInfoRefresh.start()
 
 
     def addConditionOccurList(self, jongmok_code):
@@ -2193,6 +2199,7 @@ class KiwoomConditon(QObject):
 
      # 실시간  주식 정보 요청 요청리스트 갱신  
      # WARNING: 실시간 요청도 TR 처럼 초당 횟수 제한이 있으므로 잘 사용해야함 
+    @pyqtSlot()
     def refreshRealRequest(self):
         # 버그로 모두 지우고 새로 등록하게 함 
         # print(util.whoami() )
@@ -2210,6 +2217,8 @@ class KiwoomConditon(QObject):
             if( code not in codeList):
                 codeList.append(code)
 
+        codeList.sort()
+        print( 'refresh {}'.format( codeList ))
         # 실시간 정보 요청 
         if( len(codeList) ):
            #  WARNING: 주식 시세 실시간은 리턴되지 않음!
