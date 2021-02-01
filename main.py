@@ -349,7 +349,7 @@ class KiwoomConditon(QObject):
         self.timerRealInfoRefresh.setSingleShot(True)
 
         self.timerD2YesugmRequest.setInterval(1000) 
-        self.timerD2YesugmRequest.timeout.connect(lambda: self.requestOpw00004(self.account_list[0]) ) 
+        self.timerD2YesugmRequest.timeout.connect(lambda: self.requestOpw00005(self.account_list[0]) ) 
         self.timerD2YesugmRequest.setSingleShot(True)
 
         self.sigRealInfoArrived.connect(self.onRealInfoArrived)
@@ -470,7 +470,7 @@ class KiwoomConditon(QObject):
         # print(util.whoami() )
         # 계좌 정보 조회 
         self.requestOpw00018(self.account_list[0], "0")
-        self.requestOpw00004(self.account_list[0])
+        self.requestOpw00005(self.account_list[0])
         pass 
 
     @pyqtSlot()
@@ -1031,9 +1031,33 @@ class KiwoomConditon(QObject):
     def makeOpw00004Info(self, rQName):
         for item_name in kw_util.dict_jusik['TR:계좌평가현황']:
             result = self.getCommData("opw00004", rQName, 0, item_name)
-            if( item_name == 'D+2추정예수금'):
+            print( '{}: {}'.format( item_name, result ) )
+
+    # 체결잔고요청
+    @pyqtSlot(str, result = bool)
+    def requestOpw00005(self, account_num ):
+        self.setInputValue('계좌번호', account_num)
+        self.setInputValue('비밀번호', '') #  사용안함(공백)
+        self.setInputValue('비밀번호입력매체구분', '00')
+
+        ret = self.commRqData('{}_opw00005'.format(account_num), "opw00005", 0, kw_util.sendChegyeolJangoInfoScreenNo) 
+
+        errorString = None
+        if( ret != 0 ):
+            errorString =   account_num + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            print(util.whoami() + errorString ) 
+            util.save_log(errorString, util.whoami(), folder = "log" )
+            return False
+        return True
+        pass
+
+    # 체결잔고요청정보 생성
+    def makeOpw00005Info(self, rQName):
+        for item_name in kw_util.dict_jusik['TR:체결잔고']:
+            result = self.getCommData("opw00005", rQName, 0, item_name)
+            if( item_name == '예수금D+2'):
                 self.d2Yesugm = int(result)
-                print( '{}: {}'.format( item_name, result ) )
+            print( '{}: {}'.format( item_name, result ) )
 
     # 주식 잔고정보 요청 
     @pyqtSlot(str, str, result = bool)
@@ -1378,6 +1402,9 @@ class KiwoomConditon(QObject):
 
         elif( trCode == 'opw00004'):
             if( self.makeOpw00004Info(rQName) ):
+                pass
+        elif( trCode == 'opw00005'):
+            if( self.makeOpw00005Info(rQName) ):
                 pass
 
         #주식 기본 정보 요청 rQName 은 개별 종목 코드임
@@ -2027,13 +2054,17 @@ class KiwoomConditon(QObject):
             post_message = ''
 
             if( maedo_maesu_gubun == "매수" ):
-                post_message = "*{}* `{},\t 단가:{},\t 수량:{},\t 총금액: {}`".format( 
-                    maedo_maesu_gubun, 
-                    info[9],
-                    info[6],
-                    info[7],
-                    int(info[6]) * int(info[7])
-                )
+                # info int 변환 오류  발생으로 로그 남김 
+                try: 
+                    post_message = "*{}* `{},\t 단가:{},\t 수량:{},\t 총금액: {}`".format( 
+                        maedo_maesu_gubun, 
+                        info[9],
+                        info[6],
+                        info[7],
+                        int(info[6]) * int(info[7])
+                    )
+                except ValueError as e:
+                    print("ERROR {} {}".format(e, info) )
                 pass
             else:
                 post_message = "*{}* `{},\t 수익률: {},\t 수익금: {},\t 단가:{},\t 수량:{}`".format(
@@ -2573,6 +2604,9 @@ class KiwoomConditon(QObject):
 if __name__ == "__main__":
     def test_opw00004():
         QTimer.singleShot(10, lambda: objKiwoom.requestOpw00004( objKiwoom.account_list[0]) )
+
+    def test_opw00005():
+        QTimer.singleShot(10, lambda: objKiwoom.requestOpw00005( objKiwoom.account_list[0]) )
 
     def test_buy():
         # 비정상 매수 (시장가에 단가 넣기 ) 우리종금 1주  

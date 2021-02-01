@@ -28,6 +28,7 @@ send5minScreenNo = "105"
 sendHogaScreenNo = "106"
 sendAccountInfoScreenNo = '107'
 sendYesuGmInfoScreenNo = '108'
+sendChegyeolJangoInfoScreenNo = '109'
 
 
 
@@ -93,6 +94,9 @@ dict_jusik = {
     ),
     'TR:계좌평가현황': (
         '예수금', 'D+2추정예수금', '유가잔고평가액', '예탁자산평가액', '총매입금액', '추정예탁자산'
+    ),
+    'TR:체결잔고': (
+        '예수금D+2', '출금가능금액', '20주문가능금액', '30주문가능금액', '40주문가능금액', '100주문가능금액'
     ),
 
     "실시간-주식체결":(
