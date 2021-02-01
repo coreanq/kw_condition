@@ -88,6 +88,7 @@ class KiwoomConditon(QObject):
         self.account_list = []
         self.timerSystem = QTimer()
         self.timerRealInfoRefresh = QTimer()
+        self.timerD2YesugmRequest = QTimer()
         self.lineCmdText = ''
 
         self.maesuProhibitCodeList = [] # 종목 거래 금지 list 
@@ -346,6 +347,10 @@ class KiwoomConditon(QObject):
         self.timerRealInfoRefresh.setInterval(5000) 
         self.timerRealInfoRefresh.timeout.connect(self.refreshRealRequest) 
         self.timerRealInfoRefresh.setSingleShot(True)
+
+        self.timerD2YesugmRequest.setInterval(1000) 
+        self.timerD2YesugmRequest.timeout.connect(lambda: self.requestOpw00004(self.account_list[0]) ) 
+        self.timerD2YesugmRequest.setSingleShot(True)
 
         self.sigRealInfoArrived.connect(self.onRealInfoArrived)
 
@@ -1821,7 +1826,9 @@ class KiwoomConditon(QObject):
                 # 매수 체결과 매도 체결 구분해야함 
                 self.makeChegyeolInfo(jongmok_code, fidList)
                 self.makeChegyeolInfoFile()
-                QTimer.singleShot(10, lambda: self.requestOpw00004( self.account_list[0]) )
+
+                # 체결정보의 경우 체결 조금씩 될때마다  도착하므로 single shot timer 사용해야함
+                self.timerD2YesugmRequest.start()
                 self.timerRealInfoRefresh.start()
 
                 pass
