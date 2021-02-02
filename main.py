@@ -1335,11 +1335,6 @@ class KiwoomConditon(QObject):
         self.commTerminate()
         QApplication.quit()
 
-    # 에러코드의 메시지를 출력한다.
-    @pyqtSlot(int, result=str)
-    def parseErrorCode(self, errCode):
-        return kw_util.parseErrorCode(errCode)
-
     # event
     # 통신 연결 상태 변경시 이벤트
     # nErrCode가 0이면 로그인 성공, 음수면 실패
@@ -2259,12 +2254,29 @@ class KiwoomConditon(QObject):
         print( 'refresh {}'.format( codeList ))
         # 실시간 정보 요청 
         if( len(codeList) ):
-           #  WARNING: 주식 시세 실시간은 리턴되지 않음!
+            # 주식 시세의 경우 장 종료 시점에 나옴 
             # tmp = self.setRealReg(kw_util.sendRealRegSiseSrcNo, ';'.join(codeList), kw_util.type_fidset['주식시세'], "0")
             tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
+            if( tmp < 0 ):
+                print("주식호가잔량: " + kw_util.parseErrorCode(tmp) )
+
             tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
+            if( tmp < 0 ):
+                print("주식체결: " + kw_util.parseErrorCode(tmp) )
+
+            # 주식종목정보 신청시 주식 당일 거래원 정보 올라옴 
+            tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식종목정보'], "0")
+            if( tmp < 0 ):
+                print("주식종목정보 : " + kw_util.parseErrorCode(tmp) )
+
             tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
-            tmp = self.setRealReg(kw_util.sendRealRegTradeStartScrNo, '', kw_util.type_fidset['장시작시간'], "0")
+            if( tmp < 0 ):
+                print("업종지수: " + kw_util.parseErrorCode(tmp) )
+
+            # TODO: 장시작시간 인자 오류 수정해야함 장시작시간은 알아서 호출됨 
+            # tmp = self.setRealReg(kw_util.sendRealRegTradeStartScrNo, '', kw_util.type_fidset['장시작시간'], "0")
+            # if( tmp < 0 ):
+            #     print("장시작시간: " + kw_util.parseErrorCode(tmp) )
 
     def make_excel(self, file_path, data_dict):
         # 주의 구글 스프레드 시트는 100개의 요청 제한이 있으므로  
