@@ -1505,6 +1505,12 @@ class KiwoomConditon(QObject):
             print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
                 .format(jongmok_code, realType, realData))
             pass
+        elif( realType == "주식당일거래원"): 
+            for col_name in kw_util.dict_jusik['실시간-{}'.format(realType)]:
+                jongmok_name = self.getMasterCodeName(jongmok_code)
+                result = self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ) 
+                print(util.whoami() + '{}[{}]-{}: {}'.format(jongmok_name,jongmok_code, col_name, result))
+            pass
 
         elif( realType == '주식우선호가' or realType == '업종등락' or realType =='주식예상체결' ):
             pass
