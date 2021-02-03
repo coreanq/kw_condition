@@ -115,7 +115,7 @@ class KiwoomConditon(QObject):
 
         self.realInfoEnabled = False
 
-        self.d2Yesugm = user_setting.MAESU_UNIT
+        self.marginInfo = {}
 
         # 잔고 정보 저장시 저장 제외될 키 값들 
         self.jango_remove_keys = [ 
@@ -802,6 +802,7 @@ class KiwoomConditon(QObject):
         ##########################################################################################################
         # 증거금 조건 적용
         margin_percent = int(jongmok_info_dict['증거금률'])
+        margin_key_name = '{}주문가능금액'
         ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
@@ -1059,8 +1060,7 @@ class KiwoomConditon(QObject):
     def makeOpw00005Info(self, rQName):
         for item_name in kw_util.dict_jusik['TR:체결잔고']:
             result = self.getCommData("opw00005", rQName, 0, item_name)
-            if( item_name == '예수금D+2'):
-                self.d2Yesugm = int(result)
+            self.marginInfo[item_name] = int(result)
             print( '{}: {}'.format( item_name, result ) )
 
     # 주식 잔고정보 요청 
