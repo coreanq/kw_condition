@@ -800,6 +800,9 @@ class KiwoomConditon(QObject):
         pass
 
         ##########################################################################################################
+        # 증거금 조건 적용
+        margin_percent = int(jongmok_info_dict['증거금률'])
+        ##########################################################################################################
         # 첫 매수시만 적용되는 조건 
         if( jongmok_code not in self.jangoInfo ):
             # 시간제약
@@ -914,9 +917,9 @@ class KiwoomConditon(QObject):
 
                         first_maesu_time = datetime.datetime.strptime(first_chegyeol_time_str, "%Y%m%d%H%M%S") 
                         total_price = user_setting.MAESU_TOTAL_PRICE[maesu_count] 
-                        if( base_time < first_maesu_time ):
-                            qty = int(total_price / current_price )  + 1 #  약간 오버하게 삼 
-                            pass
+                        qty = int(total_price / current_price ) 
+                        # if( base_time < first_maesu_time ):
+                        #     pass
                     else:
                         pass
                 else:
@@ -924,7 +927,6 @@ class KiwoomConditon(QObject):
                     total_price = user_setting.MAESU_TOTAL_PRICE[maesu_count] 
                     qty = int(total_price / current_price )  + 1
 
-            current_price = kw_util.getHogaPrice(current_price, 1, jongmok_jang_type)
 
             # result = self.sendOrder("buy_" + jongmok_code, kw_util.sendOrderScreenNo, 
             #                     objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
