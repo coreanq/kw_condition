@@ -681,6 +681,8 @@ class KiwoomConditon(QObject):
 
         # 매도 호가기준 
         current_price = abs(int(jongmok_info_dict['(최우선)매도호가']))
+        current_price = kw_util.getHogaPrice(current_price, 1, jongmok_jang_type)
+
         maesuHoga1 = abs(int(jongmok_info_dict['(최우선)매수호가']))
         open_price = abs(int(jongmok_info_dict['시가']))
         high_price = abs(int(jongmok_info_dict['고가']))
@@ -2105,7 +2107,7 @@ class KiwoomConditon(QObject):
         # 마지막 split 결과 None 이므로 삭제 
         if( '이탈' not in conditionName ):
             for code in codes:
-                print('condition occur list add code: {} '.format(code) + self.getMasterCodeName(code))
+                print('condition list add: {} '.format(code) + self.getMasterCodeName(code))
                 self.addConditionOccurList(code)
             # 주의: 여기에 실시간조건 refresh 를 넣지않는다 동작오류남
             # self.refreshRealRequest()
@@ -2145,12 +2147,12 @@ class KiwoomConditon(QObject):
 
         else:
             if ( type == 'I' ):
-                print('+{} {}'
-                    .format(util.cur_time_msec(), self.getMasterCodeName(code) ))
+                print('+{} {}[{}] {}'
+                    .format(util.cur_time_msec(), self.getMasterCodeName(code) , code , self.GetMasterStockState(code) ) )
                 self.addConditionOccurList(code) # 조건 발생한 경우 해당 내용 list 에 추가  
             else:
-                print('-{} {}'
-                    .format(util.cur_time_msec(), self.getMasterCodeName(code) ))
+                print('-{} {}[{}] {}'
+                    .format(util.cur_time_msec(), self.getMasterCodeName(code) , code, self.GetMasterStockState(code) ) )
 
                 # qt  message queue 에서 처리되게하여 data inconsistency 방지 
                 QTimer.singleShot(10, lambda: self.removeConditionOccurList(code) )
@@ -2173,7 +2175,13 @@ class KiwoomConditon(QObject):
         if( ret_vals.count(True) ):
             pass
         else:
-            self.conditionOccurList.append( {'종목명': jongmok_name, '종목코드': jongmok_code} )
+            stock_state = self.GetMasterStockState( jongmok_code )
+            stock_state = stock_state.split("|")[0]
+            # 증거금 정보 추출 
+            stock_state = stock_state.replace("증거금", "")
+            stock_state = int(stock_state.replace("%", ""))
+            self.conditionOccurList.append( 
+                {'종목명': jongmok_name, '종목코드': jongmok_code, '증거금률': '{}'.format(stock_state)  } )
             self.sigConditionOccur.emit()
         pass
     
@@ -2271,6 +2279,7 @@ class KiwoomConditon(QObject):
                 print("주식체결: " + kw_util.parseErrorCode(tmp) )
 
             # 주식종목정보 신청시 주식 당일 거래원 정보 올라옴 
+            # 주식종목정보 실시간의 경우 올라오는 시간이  비주기적임 
             tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식종목정보'], "0")
             if( tmp < 0 ):
                 print("주식종목정보 : " + kw_util.parseErrorCode(tmp) )
@@ -2598,6 +2607,13 @@ class KiwoomConditon(QObject):
     @pyqtSlot(str, result=str)
     def GetMasterLastPrice(self, strCode):
         return self.ocx.dynamicCall("GetMasterLastPrice(QString)", strCode)
+
+    # 설명   입력한 종목의 증거금 비율, 거래정지, 관리종목, 감리종목, 투자융의종목, 담보대출, 액면분할, 신용가능 여부를 전달합니다.
+    # 입력값: strCode – 종목코드 
+    # 반환값: 종목 상태 | 구분자   
+    @pyqtSlot(str, result=str)
+    def GetMasterStockState(self, strCode):
+        return self.ocx.dynamicCall("GetMasterStockState(QString)", strCode)
 
     # 종목코드의 한다.
     # strCode – 종목코드
