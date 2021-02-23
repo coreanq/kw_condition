@@ -276,9 +276,10 @@ class KiwoomConditon(QObject):
 
         for item in items: 
             boyou = "보유" if item in self.jangoInfo else ""
-            log_string = "{} {} ({}-{})".format(
+            log_string = "{} {}[{}] ({}): {}".format(
                 item,  
                 self.getMasterCodeName(item), 
+                self.GetMasterStockState(item),
                 self.getMasterStockInfo(item),
                 boyou) 
 
@@ -323,6 +324,18 @@ class KiwoomConditon(QObject):
         # 조건 검색된 종목이 매도로 인해 삭제 되는거 방지 위해 다시 시도         
         # self.sigReselectCondition.emit()
         # self.removeConditionOccurList(jongmok_code)
+        pass
+
+    @pyqtSlot(str)
+    def addProhibitList(self, jongmok_code):
+        if( jongmok_code not in self.maesuProhibitCodeList):
+            self.maesuProhibitCodeList.append(jongmok_code)
+        pass
+
+    @pyqtSlot(str)
+    def removeProhibitList(self, jongmok_code):
+        if( jongmok_code in self.maesuProhibitCodeList):
+            self.maesuProhibitCodeList.remove(jongmok_code)
         pass
 
     def createConnection(self):
@@ -451,9 +464,6 @@ class KiwoomConditon(QObject):
                 for line_str in self.chegyeolInfo[current_date]:
                     maedo_type = line_str.split("|")[3].strip()
                     jongmok_code = line_str.split("|")[4].strip()
-                    # if( '손절' in maedo_type ):
-                    #     if( jongmok_code not in self.maesuProhibitCodeList ):
-                    #         self.maesuProhibitCodeList.append(jongmok_code)
 
         if( os.path.isfile(JANGO_INFO_FILE_PATH) == True ):
             with open(JANGO_INFO_FILE_PATH, 'r', encoding='utf8') as f:
@@ -933,11 +943,14 @@ class KiwoomConditon(QObject):
             #                     objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
             #                     qty, 0 , kw_util.dict_order["시장가"], "")
 
-            result = self.sendOrder("buy_" + jongmok_code, kw_util.sendOrderScreenNo, 
+            result = self.sendOrder("buy_" + jongmok_code, kw_util.sendBuyOrderScreenNo, 
                                 objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
                                 qty, current_price , kw_util.dict_order["지정가IOC"], "")
 
-            self.maesuProhibitCodeList.append(jongmok_code)
+            self.addProhibitList( jongmok_code )
+
+            # IOC 로 인해 취소 되는 경우 대비 
+            QTimer.singleShot(1000,  lambda: self.removeProhibitList(jongmok_code) )
 
             printLog = '{} **** [매수수량: {}, 매수가: {}, 매수호가 {}, 매도호가수량1: {}, 매도호가수량2: {}, 매수횟수: {}] ****'.format(
                 jongmok_name,
@@ -1513,7 +1526,7 @@ class KiwoomConditon(QObject):
             for col_name in kw_util.dict_jusik['실시간-{}'.format(realType)]:
                 jongmok_name = self.getMasterCodeName(jongmok_code)
                 result = self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ) 
-                print(util.whoami() + '{}[{}]-{}: {}'.format(jongmok_name,jongmok_code, col_name, result))
+                # print(util.whoami() + '{}[{}]-{}: {}'.format(jongmok_name,jongmok_code, col_name, result))
             pass
 
         elif( realType == '주식우선호가' or realType == '업종등락' or realType =='주식예상체결' ):
@@ -1521,8 +1534,9 @@ class KiwoomConditon(QObject):
 
         else:
             # 주식시세는 장종료 후에 나옴 
-            print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
-                .format(jongmok_code, realType, realData))
+            # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
+            #     .format(jongmok_code, realType, realData))
+            pass
 
             pass
     def calculateSuik(self, jongmok_code, current_price, amount):
@@ -1611,6 +1625,7 @@ class KiwoomConditon(QObject):
         # 익절시는 maesuHoga1 참고  (치고 올라가기 때문에  매수/매도 호가 괴리가 생기므로 매수호가 기준 )
         current_price = abs(int ( current_jango['현재가']))
         maesuHoga1 = abs(int ( current_jango['(최우선)매수호가']))
+        current_trade_power = abs(float(current_jango['체결강도']))
 
         # # 매수호가 기준 
         # if( jongmok_code in self.kospiCodeList ):
@@ -2646,17 +2661,17 @@ if __name__ == "__main__":
 
     def test_buy():
         # 비정상 매수 (시장가에 단가 넣기 ) 우리종금 1주  
-        # objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        # objKiwoom.sendOrder("buy", kw_util.sendBuyOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
         # "010050", 1, 900 , kw_util.dict_order["시장가"], "")
 
         # 정상 매수 - kd 건설 1주 
-        objKiwoom.sendOrder("buy", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
+        objKiwoom.sendOrder("buy", kw_util.sendBuyOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매수"], 
         "044180", 1, 0 , kw_util.dict_order["시장가"], "")
         pass
 
     def test_sell():
         #정상 매도 - kd 건설 1주 
-        objKiwoom.sendOrder("sell", kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
+        objKiwoom.sendOrder("sell", kw_util.sendSellOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["신규매도"], 
         "044180", 1, 0 , kw_util.dict_order["시장가"], "")
         pass
 

@@ -15,20 +15,21 @@ sendRealRegChegyeolScrNo = '004'
 sendRealRegTradeStartScrNo = '005'
 sendRealRegSiseSrcNo = "006"
 
-sendOrderScreenNo = "101"
+sendBuyOrderScreenNo = "101"
+sendSellOrderScreenNo = "102"
 
 sendOrderETFScreenNo = "201"
 sendOrderETFPairScreenNo = "202"
 
-sendReqYupjongKospiScreenNo = "102"
-sendReqYupjongKosdaqScreenNo = "103"
+sendReqYupjongKospiScreenNo = "112"
+sendReqYupjongKosdaqScreenNo = "113"
 
-sendGibonScreenNo = "104"
-send5minScreenNo = "105"
-sendHogaScreenNo = "106"
-sendAccountInfoScreenNo = '107'
-sendYesuGmInfoScreenNo = '108'
-sendChegyeolJangoInfoScreenNo = '109'
+sendGibonScreenNo = "124"
+send5minScreenNo = "125"
+sendHogaScreenNo = "126"
+sendAccountInfoScreenNo = '127'
+sendYesuGmInfoScreenNo = '128'
+sendChegyeolJangoInfoScreenNo = '129'
 
 
 
@@ -110,7 +111,7 @@ dict_jusik = {
         "시가",
         "고가",
         "저가",
-        # "체결강도",
+        "체결강도",
         '전일거래량대비(비율)'
     ),
     "실시간-주식호가잔량": (
@@ -135,19 +136,19 @@ dict_jusik = {
         '매도거래원1',
         '매도거래원수량1',
         '매도거래원별증감1',
-        '매도거래원코드1',
-        '매도거래원2',
-        '매도거래원수량2',
-        '매도거래원별증감2',
-        '매도거래원코드2',
+        # '매도거래원코드1',
+        # '매도거래원2',
+        # '매도거래원수량2',
+        # '매도거래원별증감2',
+        # '매도거래원코드2',
         '매수거래원1',
         '매수거래원수량1',
         '매수거래원별증감1',
-        '매수거래원코드1',
-        '매수거래원2',
-        '매수거래원수량2',
-        '매수거래원별증감2',
-        '매수거래원코드2',
+        # '매수거래원코드1',
+        # '매수거래원2',
+        # '매수거래원수량2',
+        # '매수거래원별증감2',
+        # '매수거래원코드2',
     ),
     '실시간-장시작시간':(
         '장운영구문',
