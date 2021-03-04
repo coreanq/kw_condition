@@ -94,7 +94,6 @@ class KiwoomConditon(QObject):
         self.maesuProhibitCodeList = [] # 종목 거래 금지 list 
 
         self.upjongInfo = {'코스피': {}, '코스닥': {} } # { 'yupjong_code': { '현재가': 222, ...} }
-        self.michegyeolInfo = {}
         self.jangoInfo = {} # { 'jongmok_code': { '이익실현가': 222, ...}}
         self.jangoInfoFromFile = {} # TR 잔고 정보 요청 조회로는 얻을 수 없는 데이터를 파일로 저장하고 첫 실행시 로드함  
         self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '분할매수이력', '체결가' , '체결수량', '미체결수량'] ] }
@@ -1789,19 +1788,12 @@ class KiwoomConditon(QObject):
                 old_boyou_suryang = self.jangoInfo[jongmok_code].get('보유수량', 0)
             jumun_ganeung_suryang = int(self.getChejanData(kw_util.name_fid['주문가능수량']))
             maeip_danga = int(self.getChejanData(kw_util.name_fid['매입단가']))
-            jongmok_name= self.getChejanData(kw_util.name_fid['종목명']).strip()
+            jongmok_name= self.getMasterCodeName(jongmok_code)
             current_price = abs(int(self.getChejanData(kw_util.name_fid['현재가'])))
             current_amount = abs(int(self.getChejanData(kw_util.name_fid['당일순매수수량'])))
             maesuHoga1 = abs(int(self.getChejanData(kw_util.name_fid['(최우선)매수호가'])))
             maedoHoga1 = abs(int(self.getChejanData(kw_util.name_fid['(최우선)매도호가'])))
-
-            #미체결 수량이 있는 경우 잔고 정보 저장하지 않도록 함 
-            if( jongmok_code in self.michegyeolInfo):
-                if( self.michegyeolInfo[jongmok_code]['미체결수량'] ):
-                    return 
-                else:
-                    # 미체결 수량이 없으므로 정보 삭제 
-                    del ( self.michegyeolInfo[jongmok_code] )
+            maemae_type = int( self.getChejanData(kw_util.name_fid['매도/매수구분']) )
 
             # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
             current_jango = {}
@@ -1811,6 +1803,14 @@ class KiwoomConditon(QObject):
             current_jango['종목번호'] = jongmok_code
             current_jango['종목명'] = jongmok_name.strip()
             current_jango['업종'] = self.getMasterStockInfo(jongmok_code)
+ 
+            printData = ''
+            if( maemae_type == 1 ):
+                printData = "{}: 매도 {} / {}".format( jongmok_name, jumun_ganeung_suryang, boyou_suryang)
+            else:
+                printData = "{}: 매수 {} / {}".format( jongmok_name, jumun_ganeung_suryang, boyou_suryang)
+
+            util.save_log(printData, "*잔고정보", folder= "log")
 
             # 매수  
             if( boyou_suryang > old_boyou_suryang ):
@@ -1829,8 +1829,8 @@ class KiwoomConditon(QObject):
                             chegyeol_info_list.append( chegyeol_info )
                             current_jango['분할매수이력'] = chegyeol_info_list
                         pass
-                if( jongmok_code in self.maesuProhibitCodeList):
-                    self.maesuProhibitCodeList.remove(jongmok_code)
+
+                self.removeProhibitList( jongmok_code )
             # 매도
             elif( boyou_suryang < old_boyou_suryang ):
                 if( boyou_suryang == 0 ):
@@ -1857,34 +1857,47 @@ class KiwoomConditon(QObject):
             pass
 
         elif ( gubun == "0"):
+            # 접수 또는 체결 
             jumun_sangtae =  self.getChejanData(kw_util.name_fid['주문상태'])
             jongmok_code = self.getChejanData(kw_util.name_fid['종목코드'])[1:]
+            jongmok_name= self.getMasterCodeName(jongmok_code)
             michegyeol_suryang = int(self.getChejanData(kw_util.name_fid['미체결수량']))
+            maemae_type = int( self.getChejanData(kw_util.name_fid['매도매수구분']) )
 
             # 주문 상태 
-            # 매수 시 접수(gubun-0) - 체결(gubun-0) - 잔고(gubun-1)     
+            # 매수 시 접수(gubun-0) - 체결(gubun-0) - 잔고(gubun-1)  바로 처리 되지 않는 경우?   접수 - 체결 - 잔고 - 체결 - 잔고 - 체결 - 잔고 
             # 매도 시 접수(gubun-0) - 잔고(gubun-1) - 체결(gubun-0) - 잔고(gubun-1)   순임 
-            # 미체결 수량 정보를 입력하여 잔고 정보 처리시 미체결 수량 있는 경우에 대한 처리를 하도록 함 
-            if( jongmok_code not in self.michegyeolInfo):
-                self.michegyeolInfo[jongmok_code] = {}
-            self.michegyeolInfo[jongmok_code]['미체결수량'] = michegyeol_suryang
+
+            printData = ''
+            if( maemae_type == 1 ):
+                printData = "{}: 매도 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
+            else:
+                printData = "{}: 매수 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
+
+            util.save_log(printData, "*미체결정보", folder= "log")
 
             if( jumun_sangtae == "체결"):
                 # 매수 체결과 매도 체결 구분해야함 
-                self.makeChegyeolInfo(jongmok_code, fidList)
-                self.makeChegyeolInfoFile()
 
-                # 체결정보의 경우 체결 조금씩 될때마다  도착하므로 single shot timer 사용해야함
-                self.timerD2YesugmRequest.start()
-                self.timerRealInfoRefresh.start()
+                # 미체결 수량이 0 이 아닌 경우 다시 체결 정보가 올라 오므로 0인경우만 처리하도록 함 
+                if( michegyeol_suryang == 0 ):
+                    self.makeChegyeolInfo(jongmok_code, fidList)
+                    self.makeChegyeolInfoFile()
+
+                    # 체결정보의 경우 체결 조금씩 될때마다 수행되므로 이를 감안 해야함
+                    self.timerD2YesugmRequest.start()
+                    self.timerRealInfoRefresh.start()
 
                 pass
             elif ( jumun_sangtae == '접수'):
                 jumun_number = self.getChejanData(kw_util.name_fid['주문번호'])
                 # 매도 접수인 경우 
                 if( jongmok_code in self.jangoInfo ):
-                    print("sell: {} ordernumber: {} 접수 ".format( self.getMasterCodeName(jongmok_code), jumun_number ) )
+                    print("sell: {} ordernumber: {} 접수 ".format( jongmok_name, jumun_number ) )
                     self.jangoInfo[jongmok_code]['주문번호'] = jumun_number
+            else:
+                # 확인 상태인 경우 
+                pass
             pass
 
 
@@ -1985,10 +1998,6 @@ class KiwoomConditon(QObject):
         printData = "" 
         info = [] 
 
-        # 미체결 수량이 0 이 아닌 경우 다시 체결 정보가 올라 오므로 0인경우 처리 안함 
-        michegyeol_suryung = int(self.getChejanData(kw_util.name_fid['미체결수량']).strip())
-        if( michegyeol_suryung != 0 ):
-            return
         nFid = kw_util.name_fid['매도매수구분']
         result = self.getChejanData(nFid).strip()
         maedo_maesu_gubun = '매도' if result == '1' else '매수'
@@ -2070,8 +2079,10 @@ class KiwoomConditon(QObject):
 
         self.chegyeolInfo[current_date].append('|'.join(info))
 
-        if( user_setting.SLACK_BOT_ENABLED == True ):
-            post_message = ''
+        # 한번에 체결되지 않는 경우 empty string 리턴되므로 처리해줘야 함 
+        if( user_setting.SLACK_BOT_ENABLED == True 
+            and info[6].strip() != "" and info[7].strip() != "" ):
+            post_message = 'error occur'
 
             if( maedo_maesu_gubun == "매수" ):
                 # info int 변환 오류  발생으로 로그 남김 
