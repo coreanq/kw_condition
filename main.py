@@ -938,7 +938,7 @@ class KiwoomConditon(QObject):
                     qty = int(total_price / current_price )  + 1
 
 
-            # result = self.sendOrder("buy_" + jongmok_code, kw_util.sendOrderScreenNo, 
+            # result = self.sendOrder("buy_" + jongmok_code, kw_util.sendBuyOrderScreenNo, 
             #                     objKiwoom.account_list[0], kw_util.dict_order["신규매수"], jongmok_code, 
             #                     qty, 0 , kw_util.dict_order["시장가"], "")
 
@@ -1752,11 +1752,9 @@ class KiwoomConditon(QObject):
 
             util.save_log(printData, '매도', folder='log')
             print("S {} 잔고수량: {}, 매도타입: {}, 주문번호:{},  {}".format(
-                jongmok_name, sell_amount, maedo_type, order_num, result),  sep= "")
+                jongmok_name, jangosuryang, maedo_type, order_num, result),  sep= "")
             pass
 
-
-        pass
 
     # 체결데이터를 받은 시점을 알려준다.
     # sGubun – 0:주문체결통보, 1:잔고통보, 3:특이신호
@@ -1783,9 +1781,6 @@ class KiwoomConditon(QObject):
 
             jongmok_code = self.getChejanData(kw_util.name_fid['종목코드'])[1:]
             boyou_suryang = int(self.getChejanData(kw_util.name_fid['보유수량']))
-            old_boyou_suryang = 0
-            if( jongmok_code in self.jangoInfo ):
-                old_boyou_suryang = self.jangoInfo[jongmok_code].get('보유수량', 0)
             jumun_ganeung_suryang = int(self.getChejanData(kw_util.name_fid['주문가능수량']))
             maeip_danga = int(self.getChejanData(kw_util.name_fid['매입단가']))
             jongmok_name= self.getMasterCodeName(jongmok_code)
@@ -1806,39 +1801,38 @@ class KiwoomConditon(QObject):
  
             printData = ''
             if( maemae_type == 1 ):
-                printData = "{}: 매도 {} / {}".format( jongmok_name, jumun_ganeung_suryang, boyou_suryang)
+                printData = "{}: 매도 주문가능수량:{} / 보유수량:{}".format( jongmok_name, jumun_ganeung_suryang, boyou_suryang)
             else:
-                printData = "{}: 매수 {} / {}".format( jongmok_name, jumun_ganeung_suryang, boyou_suryang)
+                printData = "{}: 매수 주문가능수량:{} / 보유수량:{}".format( jongmok_name, jumun_ganeung_suryang, boyou_suryang)
 
             util.save_log(printData, "*잔고정보", folder= "log")
 
             # 매수  
-            if( boyou_suryang > old_boyou_suryang ):
-                if( boyou_suryang > old_boyou_suryang ):
-                    chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maeip_danga) + ":" + str(current_amount)
-                    if( jongmok_code not in self.jangoInfo):
-                        # 첫매수
-                        current_jango['분할매수이력'] = [chegyeol_info] 
-                        self.jangoInfo[jongmok_code] = current_jango 
-                    else:
-                        # 분할매수
-                        last_chegyeol_info = self.jangoInfo[jongmok_code]['분할매수이력'][-1]
-                        last_price = int(last_chegyeol_info.split(':')[1])
-                        if( last_price != current_price ):
-                            chegyeol_info_list = self.jangoInfo[jongmok_code].get('분할매수이력', [])
-                            chegyeol_info_list.append( chegyeol_info )
-                            current_jango['분할매수이력'] = chegyeol_info_list
-                        pass
+            if( maemae_type == 2 ):
+                chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maeip_danga) + ":" + str(current_amount)
+                if( jongmok_code not in self.jangoInfo):
+                    # 첫매수
+                    current_jango['분할매수이력'] = [chegyeol_info] 
+                    self.jangoInfo[jongmok_code] = current_jango 
+                else:
+                    # 분할매수
+                    last_chegyeol_info = self.jangoInfo[jongmok_code]['분할매수이력'][-1]
+                    last_price = int(last_chegyeol_info.split(':')[1])
+                    if( last_price != current_price ):
+                        chegyeol_info_list = self.jangoInfo[jongmok_code].get('분할매수이력', [])
+                        chegyeol_info_list.append( chegyeol_info )
+                        current_jango['분할매수이력'] = chegyeol_info_list
+                    pass
 
                 self.removeProhibitList( jongmok_code )
             # 매도
-            elif( boyou_suryang < old_boyou_suryang ):
+            else:
                 if( boyou_suryang == 0 ):
                     # 보유 수량이 0 인 경우 완전 매도 수행한 것임  
                     self.sigRemoveJongmokInfo.emit(jongmok_code)
                 else:
                     # 분할매도
-                    current_amount = old_boyou_suryang - boyou_suryang
+                    current_amount = boyou_suryang - jumun_ganeung_suryang
                     chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(current_price) + ":" + str(current_amount)
 
                     chegyeol_info_list = self.jangoInfo[jongmok_code].get('분할매도이력', [])  
@@ -1848,8 +1842,7 @@ class KiwoomConditon(QObject):
 
                     if( '매도중' in self.jangoInfo[jongmok_code] ):
                         del self.jangoInfo[jongmok_code]['매도중']
-            else:
-                print('매도시 첫 잔고')
+
             # 매도로 다 팔아 버린 경우가 아니라면 
             if( jongmok_code in self.jangoInfo ):
                 self.jangoInfo[jongmok_code].update(current_jango)
@@ -1874,7 +1867,7 @@ class KiwoomConditon(QObject):
             else:
                 printData = "{}: 매수 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
 
-            util.save_log(printData, "*미체결정보", folder= "log")
+            util.save_log(printData, "*접수체결정보", folder= "log")
 
             if( jumun_sangtae == "체결"):
                 # 매수 체결과 매도 체결 구분해야함 
@@ -1896,7 +1889,7 @@ class KiwoomConditon(QObject):
                     print("sell: {} ordernumber: {} 접수 ".format( jongmok_name, jumun_number ) )
                     self.jangoInfo[jongmok_code]['주문번호'] = jumun_number
             else:
-                # 확인 상태인 경우 
+                # 기타 상태인 경우 취소, 확인?
                 pass
             pass
 
