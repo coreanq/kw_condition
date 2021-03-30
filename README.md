@@ -2,24 +2,33 @@
 # kw_condition
  - 키움 오픈 API + PyQt5 를 사용하여 console 형식으로 주식 매매를 자동으로 수행하는 프로그램
  - 키움증권의 조건 검색 기능을 이용하여 조건 검색에 해당하는 종목리스트를 얻어와 매매 수행
- - 추가 매수 기능 추가(추가 매수 수량 조절가능,  익절/손절 퍼센티지 조절 가능)
  - Google Spread 로 거래 내역 저장 기능 추가
  - slack 매수/매도 알림 추가  
  - [키움증권 조건검색 유튜브 가이드](https://www.youtube.com/watch?v=THCpQya4bXE&t=189s&ab_channel=%EC%B0%BD%EC%9B%90%EA%B0%9C%EB%AF%B8TV)
 
 ## 개발 환경  
- - Windows 64bit 권장
- - [키움증권 Open API+](https://www1.kiwoom.com/nkw.templateFrameSet.do?m=m1408000000)
- - [Python Anaconda 4.2.0 (python 3.7) 32bit](https://www.continuum.io/downloads#windows) 32bit 버전 필수 
- - [PyQt 5.9.2 32bit] in Python Anaconda 32bit 버전 필수 
- - [키움 오픈 API](https://download.kiwoom.com/web/openapi/kiwoom_openapi_plus_devguide_ver_1.5.pdf)
+ - Windows 10 
+ - [Python 3.8.8 32bit](https://www.python.org/ftp/python/3.8.8/python-3.8.8.exe) 설치
+ - [키움증권 Open API+](https://www1.kiwoom.com/nkw.templateFrameSet.do?m=m1408000000)  
+ - 파이썬 패키지 관리툴 poetry 로 패키지 자동 설치 ([가이드](https://blog.gyus.me/2020/introduce-poetry/))
+  
+ 
+
+ ## 개발 문서  
+ - [키움 오픈 API pdf 매뉴얼](https://download.kiwoom.com/web/openapi/kiwoom_openapi_plus_devguide_ver_1.5.pdf)
 
 ## 참고 소스 
  - from https://github.com/sculove/QWebview-plus
 
+
+## 종속 패키지 설치 
+~~~~
+> poetry install
+~~~~
+
 ## 실행방법 
 ~~~~
- > python main.py 
+ > poetry run python main.py 
 ~~~~
 
 ## 사용방법
