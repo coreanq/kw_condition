@@ -1,7 +1,6 @@
 # -*-coding: utf-8 -
 import sys, os, re, datetime, copy, json 
 import logging
-import openpyxl
 import resource_rc
 import util, kw_util
 import user_setting
@@ -2356,45 +2355,6 @@ class KiwoomConditon(QObject):
                 new_sheet.format(plus_range, { "backgroundColor": { "red": 1.0, "green": 1.0, "blue": 0}})
 
 
-        #  for openpyxl
-        # result = os.path.isfile(file_path)
-
-        # if( result == False):
-        #     wb = openpyxl.Workbook()
-        #     wb.save(file_path)
-
-        # # excel open 
-        # wb = openpyxl.load_workbook(file_path)
-
-        # sheet_names = wb.sheetnames
-        # # print(sheet_names)
-
-        # # 날짜별로 sheet name 저장  
-        # for date_str, value in sorted(data_dict.items()):
-        #     # sheet name 이 존재 안하면 sheet add
-        #     # sheet name 은 YYMM 형식 
-        #     sheet_name = date_str
-        #     new_sheet = None
-        #     if( sheet_name not in sheet_names):
-        #         new_sheet = wb.create_sheet(sheet_name)
-        #     else:
-        #         new_sheet = wb[sheet_name]
-
-        #     for row_index, line in enumerate(value):
-        #         items = [ item.strip() for item in line.split('|') ]
-
-        #         # 매도의 경우 정보 추가  
-        #         if( len(items) == 11 ):
-        #             items.append( items[9])  # 종목이름
-        #             items.append( items[10].split(':')[0][8:])  # 매수시간
-        #             items.append( items[10].split(':')[1])  # 매수가격 
-        #             items.append( items[8])  # 매도시간 
-        #             items.append( items[6])  # 매도가격 
-
-        #         for col_index, item in enumerate(items):
-        #             new_sheet.cell(row = row_index + 1, column= col_index + 1 ).value = item
-
-        # wb.save(file_path)
         print('excel save complete')
 
     # method 
