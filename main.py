@@ -737,6 +737,7 @@ class KiwoomConditon(QObject):
             if( jongmok_code not in self.jangoInfo):
                 printLog += "(종목최대보유중)"
                 return_vals.append(False)
+                pass
         pass
 
 
@@ -2285,7 +2286,7 @@ class KiwoomConditon(QObject):
                 codeList.append(code)
 
         codeList.sort()
-        print( 'refresh {}'.format( codeList ))
+        # print( 'refresh {}'.format( codeList ))
         # 실시간 정보 요청 
         if( len(codeList) ):
             # 주식 시세의 경우 장 종료 시점에 나옴 
@@ -2300,9 +2301,14 @@ class KiwoomConditon(QObject):
 
             # 주식종목정보 신청시 주식 당일 거래원 정보 올라옴 
             # 주식종목정보 실시간의 경우 올라오는 시간이  비주기적임 
-            tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식종목정보'], "0")
+            tmp = self.setRealReg(kw_util.sendRealRegSiseSrcNo, ';'.join(codeList), kw_util.type_fidset['주식종목정보'], "0")
             if( tmp < 0 ):
                 print("주식종목정보 : " + kw_util.parseErrorCode(tmp) )
+
+            # 주식 거래원 지원 안됨 
+            # tmp = self.setRealReg(kw_util.sendRealRegTradeSrcSrcNo, ';'.join(codeList), kw_util.type_fidset['주식거래원'], "0")
+            # if( tmp < 0 ):
+            #     print("주식종목정보 : " + kw_util.parseErrorCode(tmp) )
 
             tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
             if( tmp < 0 ):
