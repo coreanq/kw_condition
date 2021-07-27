@@ -114,6 +114,7 @@ class KiwoomConditon(QObject):
         self.realInfoEnabled = False
 
         self.marginInfo = {}
+        self.maesu_wait_list = {}
 
         # 잔고 정보 저장시 저장 제외될 키 값들 
         self.jango_remove_keys = [ 
@@ -689,7 +690,7 @@ class KiwoomConditon(QObject):
 
         # 매도 호가기준 
         current_price = abs(int(jongmok_info_dict['(최우선)매도호가']))
-        current_price = kw_util.getHogaPrice(current_price, 1, jongmok_jang_type)
+        current_price = kw_util.getHogaPrice(current_price, 0, jongmok_jang_type)
 
         maesuHoga1 = abs(int(jongmok_info_dict['(최우선)매수호가']))
         open_price = abs(int(jongmok_info_dict['시가']))
@@ -731,7 +732,7 @@ class KiwoomConditon(QObject):
         for exception_jongmok_code in user_setting.EXCEPTION_LIST :
             if( exception_jongmok_code in jango_jongmok_code_list ):
                 jango_jongmok_code_list.remove(exception_jongmok_code)
-        if( len(jango_jongmok_code_list) < user_setting.MAX_STOCK_POSSESION_COUNT ):
+        if( len(jango_jongmok_code_list) + len(self.maesu_wait_list) < user_setting.MAX_STOCK_POSSESION_COUNT ):
             pass
         else:
             if( jongmok_code not in self.jangoInfo):
@@ -787,6 +788,14 @@ class KiwoomConditon(QObject):
             if( '매도중' in self.jangoInfo[jongmok_code]):
                 printLog += '(매도중)'
                 return_vals.append(False)
+
+
+
+        ##########################################################################################################
+        #  매수 대기중인 경우 
+        if( jongmok_code in self.maesu_wait_list ):
+            printLog += '(매수대기중)'
+            return_vals.append(False)
 
 
         ##########################################################################################################
@@ -1522,10 +1531,20 @@ class KiwoomConditon(QObject):
                 .format(jongmok_code, realType, realData))
             pass
         elif( realType == "주식당일거래원"): 
+            jongmok_name = self.getMasterCodeName(jongmok_code)
+            line_str = [] 
             for col_name in kw_util.dict_jusik['실시간-{}'.format(realType)]:
-                jongmok_name = self.getMasterCodeName(jongmok_code)
                 result = self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ) 
-                # print(util.whoami() + '{}[{}]-{}: {}'.format(jongmok_name,jongmok_code, col_name, result))
+                line_str.append( '{}'.format( result ) )
+            
+            # print_str = ''
+            # if( '유비에스증권' in line_str ):
+            #     print_str = '{}: {}'.format(jongmok_name, line_str)
+            #     # print(print_str)
+            #     self.addProhibitList( jongmok_code )
+            #     if( jongmok_code not in self.maesuProhibitCodeList):
+            #         util.save_log(print_str, '거래원정보', folder='log')
+
             pass
 
         elif( realType == '주식우선호가' or realType == '업종등락' or realType =='주식예상체결' ):
@@ -1854,20 +1873,17 @@ class KiwoomConditon(QObject):
             jumun_sangtae =  self.getChejanData(kw_util.name_fid['주문상태'])
             jongmok_code = self.getChejanData(kw_util.name_fid['종목코드'])[1:]
             jongmok_name= self.getMasterCodeName(jongmok_code)
+            jumun_chegyeol_time = self.getChejanData( kw_util.name_fid['주문/체결시간'] )
             michegyeol_suryang = int(self.getChejanData(kw_util.name_fid['미체결수량']))
             maemae_type = int( self.getChejanData(kw_util.name_fid['매도매수구분']) )
+            jumun_qty = int(self.getChejanData(kw_util.name_fid['주문수량']))
+            jumun_price = int(self.getChejanData(kw_util.name_fid['주문가격']))
+
 
             # 주문 상태 
             # 매수 시 접수(gubun-0) - 체결(gubun-0) - 잔고(gubun-1)  바로 처리 되지 않는 경우?   접수 - 체결 - 잔고 - 체결 - 잔고 - 체결 - 잔고 
             # 매도 시 접수(gubun-0) - 잔고(gubun-1) - 체결(gubun-0) - 잔고(gubun-1)   순임 
 
-            printData = ''
-            if( maemae_type == 1 ):
-                printData = "{}: 매도 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
-            else:
-                printData = "{}: 매수 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
-
-            util.save_log(printData, "*접수체결정보", folder= "log")
 
             if( jumun_sangtae == "체결"):
                 # 매수 체결과 매도 체결 구분해야함 
@@ -1881,14 +1897,55 @@ class KiwoomConditon(QObject):
                     self.timerD2YesugmRequest.start()
                     self.timerRealInfoRefresh.start()
 
+                    # 매수주문 번호를 초기화 해서 즉시 매도 조건 걸리게 함 
+                    if( jongmok_code in self.maesu_wait_list ):
+                        del self.maesu_wait_list[jongmok_code]
+
+                printData = ''
+                if( maemae_type == 1 ):
+                    printData = "{}: 매도 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
+                else:
+                    printData = "{}: 매수 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
+
+                util.save_log(printData, "*체결정보", folder= "log")
+
                 pass
             elif ( jumun_sangtae == '접수'):
                 jumun_number = self.getChejanData(kw_util.name_fid['주문번호'])
-                # 매도 접수인 경우 
+                # 매도 접수인 경우
+                printData = '' 
                 if( jongmok_code in self.jangoInfo ):
-                    print("sell: {} ordernumber: {} 접수 ".format( jongmok_name, jumun_number ) )
-                    self.jangoInfo[jongmok_code]['주문번호'] = jumun_number
+                    prinData = "sell: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
+                    self.jangoInfo[jongmok_code]['매도주문번호'] = jumun_number
+                else:
+                    if( jongmok_code not in self.maesu_wait_list ):
+                        printData = "buy: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
+                        self.maesu_wait_list[jongmok_code] = {}
+                        self.maesu_wait_list[jongmok_code]['매수주문번호'] = jumun_number
+                        self.maesu_wait_list[jongmok_code]['매수접수시간'] = jumun_chegyeol_time
+                        self.maesu_wait_list[jongmok_code]['주문수량'] = jumun_qty
+                    else:
+                        # 매수 취소도 이쪽으로 옴 
+                        # 매수 취소 시 아래와 같이 2개의 요청이 옴 
+                        # 매수 취소 요청 접수: order buy: 켐온 ordernumber: 0040221, 매수 접수 시간 111243, 수량 44
+                        # 기존 매수 취소 접수: order buy: 켐온 ordernumber: 0039559, 매수 접수 시간 110742, 수량 44
+                        if( self.maesu_wait_list[jongmok_code]['매수주문번호'] == jumun_number):
+                            printData = "cancel buy: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
+                            del self.maesu_wait_list[jongmok_code]
+                        else:
+                            printData = "cancel request buy: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
+
+                util.save_log(printData, "*접수정보", folder= "log")
+
+
+            elif ( jumun_sangtae == '취소' or jumun_sangtae == '거부'):
+                # 매수주문 번호를 초기화 해서 즉시 매도 조건 걸리게 함 
+                if( jongmok_code in self.maesu_wait_list ):
+                    del self.maesu_wait_list[jongmok_code]
+                pass
             else:
+                printData = "{}, {}".format( jongmok_name, jumun_sangtae)
+                util.save_log(printData, "*접수정보", folder= "log")
                 # 기타 상태인 경우 취소, 확인?
                 pass
             pass
