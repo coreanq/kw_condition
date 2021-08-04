@@ -1714,8 +1714,8 @@ class KiwoomConditon(QObject):
             maedo_type = "(당일매수기본손절)"
 
 
-            # 본전 손절 적용 시간내로 안나오면 매도 
-            time_span = datetime.timedelta( seconds= 10 )
+            # time cut 적용 
+            time_span = datetime.timedelta( minutes = 1 )
 
 
         ########################################################################################
@@ -2268,31 +2268,18 @@ class KiwoomConditon(QObject):
 
     # 실시간 체결처리하기 위함
     def setRealData(self, real_data_type, item_dict, result_list):
-        jongmok_code = ""
 
-        if( '주식호가잔량' in real_data_type):
-            if( '종목번호' in item_dict):
-                jongmok_code = item_dict['종목번호']
-            if( '종목코드' in item_dict):
-                jongmok_code = item_dict['종목코드']
-
-            # 실시간 데이터 대입 
-            for index, col_name in enumerate(kw_util.dict_jusik[real_data_type]) :
-                item_dict[col_name] = result_list[index]
-            pass
-        elif( '주식체결' in real_data_type):
-            if( '종목번호' in item_dict):
-                jongmok_code = item_dict['종목번호']
-            if( '종목코드' in item_dict):
-                jongmok_code = item_dict['종목코드']
+        # 실시간 데이터 대입 
+        for index, col_name in enumerate(kw_util.dict_jusik[real_data_type]) :
+            item_dict[col_name] = result_list[index]
 
             current_price  = 0
             if( '현재가' in item_dict):
                 current_price = abs(int(item_dict['현재가']))
 
-            # 실시간 데이터 대입 
-            for index, col_name in enumerate(kw_util.dict_jusik[real_data_type]) :
-                item_dict[col_name] = result_list[index]
+            if( '매수체결량' not in item_dict ):
+                item_dict['매수체결량'] = 0  
+                item_dict['매도체결량'] = 0
 
         
     # 다음 codition list 를 감시 하기 위해 종목 섞기 
