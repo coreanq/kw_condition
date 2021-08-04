@@ -1324,6 +1324,26 @@ class KiwoomConditon(QObject):
         if(isConditionRefreshed == True):
             self.sigReselectCondition.emit()
 
+
+        for jongmok_code, value in self.maesu_wait_list.items() :
+            jumun_number = self.maesu_wait_list[jongmok_code]['매수주문번호']
+            jumun_time = self.maesu_wait_list[jongmok_code]['매수접수시간']
+            jumun_qty = self.maesu_wait_list[jongmok_code]['주문수량']
+
+            # 매수 대기 시간이 지나면 매수 취소 
+            time_span = datetime.timedelta(minutes= 1)
+            current_time = self.currentTime.time()
+            jumun_time = datetime.datetime.strptime(jumun_time, "%H%M%S")
+
+            if( current_time > (jumun_time + time_span).time() ):
+                printData = "매수주문 취소 요청 {}, 주문번호: {}, {}".format( self.getMasterCodeName(jongmok_code), jumun_number, jumun_time) 
+                result = self.sendOrder("buy_" + jongmok_code, kw_util.sendBuyOrderScreenNo, 
+                                    objKiwoom.account_list[0], kw_util.dict_order["매수취소"], jongmok_code, 
+                                    jumun_qty, 0 , kw_util.dict_order["지정가"], jumun_number)
+
+                util.save_log(printData, "*주문취소요청", folder= "log")
+
+
         if( self.getConnectState() != 1 ):
             util.save_log("Disconnected!", "시스템", folder = "log")
             self.sigDisconnected.emit() 
@@ -1883,6 +1903,13 @@ class KiwoomConditon(QObject):
                     if( jongmok_code in self.maesu_wait_list ):
                         del self.maesu_wait_list[jongmok_code]
 
+                    if( maemae_type == 1 ):
+                        # 매도인 경우 
+                        self.lastMaedoInfo[jongmok_code] = {}
+                        self.lastMaedoInfo[jongmok_code]["time"] = jumun_chegyeol_time
+                        self.lastMaedoInfo[jongmok_code]["price"] =  str(jumun_price)
+                        self.lastMaedoInfo[jongmok_code]["qty"] =  str(jumun_qty)
+
                 printData = ''
                 if( maemae_type == 1 ):
                     printData = "{}: 매도 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
@@ -2271,7 +2298,7 @@ class KiwoomConditon(QObject):
         # 실시간 데이터 대입 
         for index, col_name in enumerate(kw_util.dict_jusik[real_data_type]) :
             item_dict[col_name] = result_list[index]
-        
+
     # 다음 codition list 를 감시 하기 위해 종목 섞기 
     def shuffleConditionOccurList(self):
         jongmok_info_dict = self.getConditionOccurList()
