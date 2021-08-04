@@ -2268,19 +2268,9 @@ class KiwoomConditon(QObject):
 
     # 실시간 체결처리하기 위함
     def setRealData(self, real_data_type, item_dict, result_list):
-
         # 실시간 데이터 대입 
         for index, col_name in enumerate(kw_util.dict_jusik[real_data_type]) :
             item_dict[col_name] = result_list[index]
-
-            current_price  = 0
-            if( '현재가' in item_dict):
-                current_price = abs(int(item_dict['현재가']))
-
-            if( '매수체결량' not in item_dict ):
-                item_dict['매수체결량'] = 0  
-                item_dict['매도체결량'] = 0
-
         
     # 다음 codition list 를 감시 하기 위해 종목 섞기 
     def shuffleConditionOccurList(self):
