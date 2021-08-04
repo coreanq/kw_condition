@@ -115,6 +115,7 @@ class KiwoomConditon(QObject):
 
         self.marginInfo = {}
         self.maesu_wait_list = {}
+        self.lastMaedoInfo = {}
 
         # 잔고 정보 저장시 저장 제외될 키 값들 
         self.jango_remove_keys = [ 
@@ -790,6 +791,23 @@ class KiwoomConditon(QObject):
                 return_vals.append(False)
 
 
+        ##########################################################################################################
+        #  최근 매도 종목 매수 금지 
+
+        if( jongmok_code not in self.lastMaedoInfo ):
+            pass
+        else:
+            last_maedo_time_str = self.lastMaedoInfo[jongmok_code]["time"]
+            last_price = self.lastMaedoInfo[jongmok_code]["price"]
+            last_qty = self.lastMaedoInfo[jongmok_code]["qty"]
+
+            time_span = datetime.timedelta(minutes = 3)
+            current_time = self.currentTime.time()
+            last_maedo_time = datetime.datetime.strptime(last_maedo_time_str, "%H%M%S")
+            if( current_time < (last_maedo_time + time_span).time() ):
+                printLog += '(최근매도종목)'
+                return_vals.append(False)
+
 
         ##########################################################################################################
         #  매수 대기중인 경우 
@@ -826,23 +844,15 @@ class KiwoomConditon(QObject):
         if( jongmok_code not in self.jangoInfo ):
             # 시간제약
             # 장 시작시 첫봉은 동시호가 적용이므로 제외, 그 후 1봉은 봐야 되므로 그 시간 이후 매수 
-            start_time =   datetime.time( hour = 9, minute = user_setting.REQUEST_MINUTE_CANDLE_TYPE * 2) 
-            stop_time =   datetime.time( hour = 9, minute = 30) 
-            stop_end_time =   datetime.time( hour = 13, minute = 30) 
+            start_time =   datetime.time( hour = 9, minute = user_setting.REQUEST_MINUTE_CANDLE_TYPE ) 
+            stop_end_time =   datetime.time( hour = 12, minute = 0) 
             if( self.currentTime.time() < start_time
+                # or self.currentTime.time() > stop_end_time
                 ):
                 # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
                 printLog += '(매수시간미충족)'
                 return_vals.append(False)
-            pass
-
-            # if( self.currentTime.time() > stop_time
-            #     and self.currentTime.time() < stop_end_time
-            #     ):
-            #     # print("{} {} ".format(util.cur_time(),  jongmok_name), end= '')
-            #     printLog += '(매수시간미충족)'
-            #     return_vals.append(False)
-            # pass
+                pass
 
             # stoploss 용 실시간 조건 리스트 종목에 걸린 경우
             for jongmok_list in self.conditionStoplossList.values(): 
@@ -851,8 +861,6 @@ class KiwoomConditon(QObject):
                     printLog += '(매수조건미충족)'
                     return_vals.append(False)
                     break
-
-
 
 
         ##########################################################################################################
@@ -882,38 +890,13 @@ class KiwoomConditon(QObject):
             first_bunhal_maesu_date = datetime.datetime.strptime( first_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
             last_bunhal_maesu_date = datetime.datetime.strptime( last_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
 
-
-            if( _yesterday_date >= first_bunhal_maesu_date 
-                and _today_date > last_bunhal_maesu_date):
-                # 어제 이전부터 매수했고 금일 추가 매수 된적이 없는 경우 
-                #스윙종목
-                # if(  current_price > last_maeip_price * 1.015
-                #     ):
-                #     pass            
-                # else:
-                #     # printLog += '(추매조건미충족)'
-                return_vals.append(False)
-
-            else: 
-                # 당일 추가 매수 종목 
-
-                first_bunhal_stoploss_percent = 1.03
-
-                if( current_price > last_maeip_price
-                    # and bunhal_maesu_count == 1 
-                    and current_price > last_maeip_price * first_bunhal_stoploss_percent
-                    ):
-                    pass
-                else:
-                    # printLog += '(추매조건미충족)'
-                    return_vals.append(False)
-                pass
-
             temp = '({} {})' .format( 
                     jongmok_name,  
                     current_price )
             # print( util.cur_time_msec() , temp)
             printLog += temp
+
+            return_vals.append(False)
             pass
 
         ##########################################################################################################
@@ -1761,7 +1744,7 @@ class KiwoomConditon(QObject):
                         )
 
 
-        order_num = current_jango.get('주문번호', '')
+        order_num = current_jango.get('매도주문번호', '')
 
         if( isSell == True ):
             low_price = current_price * 0.9
@@ -1769,8 +1752,7 @@ class KiwoomConditon(QObject):
             result = self.sendOrder("sell_"  + jongmok_code, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["매도정정"], 
                                 jongmok_code, sell_amount, low_price , kw_util.dict_order["지정가"], order_num)
 
-            util.save_log(printData, '매도', folder='log')
-            print("S {} 잔고수량: {}, 매도타입: {}, 주문번호:{},  {}".format(
+            print("S {} 잔고수량: {}, 매도타입: {}, 매도 주문번호:{},  {}".format(
                 jongmok_name, jangosuryang, maedo_type, order_num, result),  sep= "")
             pass
 
