@@ -2440,20 +2440,21 @@ class KiwoomOpenApiPlus(QObject):
 
 
     def tryConnect(self):
-        self.commConnect();
-        # print( util.whoami() )
-
+        print( common_util.whoami() )
+        self.commConnect()
         pass
 
     def tryDisconnect(self):
-        print( util.whoami() )
+        print( common_util.whoami() )
+        self.commTerminate()
         pass
 
     def isConnected(self) -> bool:
-        print( util.whoami() )
-        return True
-
-
+        print( common_util.whoami() )
+        if( self.getConnectState() == 0 ):
+            return False
+        else:
+            return True
 
 
     # 종목코드의 한글명을 반환한다.
