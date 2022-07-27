@@ -25,7 +25,10 @@ class KiwoomOpenApiPlus(QObject):
 
     sigStateStop = Signal()
 
-    sigRealInfoArrived = Signal(str, str, list)
+    sigRequestTR = Signal()
+    sigTRWaitingComplete  = Signal()
+    
+    igRealInfoArrived = Signal(str, str, list)
 
     def __init__(self):
         super().__init__()
@@ -78,32 +81,54 @@ class KiwoomOpenApiPlus(QObject):
     def createState(self):
 
         # state defintion
-        mainState = QState(self.fsm)       
-        finalState = QFinalState(self.fsm)
+        main_state = QState(self.fsm)       
+        main_finalState = QFinalState(self.fsm)
+        self.fsm.setInitialState(main_state)
 
-        self.fsm.setInitialState(mainState)
-        
-        initState = QState(mainState)
-        disconnectedState = QState(mainState)
-        connectedState = QState(mainState)
+        main_init_state = QState(main_state)
+        disconnected_state = QState(main_state)
+        connected_state = QState(main_state)
         
         #transition defition
-        mainState.setInitialState(initState)
-        mainState.addTransition(self.sigStateStop, finalState)
-        initState.addTransition(self.sigInitOk, disconnectedState)
-        disconnectedState.addTransition(self.sigConnected, connectedState)
-        disconnectedState.addTransition(self.sigTryConnect, disconnectedState)
-        connectedState.addTransition(self.sigDisconnected, disconnectedState)
+        main_state.setInitialState(main_init_state)
+        main_state.addTransition(self.sigStateStop, main_finalState)
+        main_init_state.addTransition(self.sigInitOk, disconnected_state)
+        disconnected_state.addTransition(self.sigConnected, connected_state)
+        disconnected_state.addTransition(self.sigTryConnect, disconnected_state)
+        connected_state.addTransition(self.sigDisconnected, disconnected_state)
         
         # state entered slot connect
-        mainState.entered.connect(self.mainStateEntered)
+        main_state.entered.connect(self.main_state_entered)
+        main_init_state.entered.connect(self.main_init_entered)
+        disconnected_state.entered.connect(self.disconnected_entered)
+        connected_state.entered.connect(self.connected_entered)
 
-        initState.entered.connect(self.initStateEntered)
-        disconnectedState.entered.connect(self.disconnectedStateEntered)
-        connectedState.entered.connect(self.connectedStateEntered)
+        main_finalState.entered.connect(self.main_final_state_entered)
+
+        ###############################################################################################
+        # sub parallel state define (TR)
+        tr_sub_state = QState(QState.ParallelStates, self.fsm)       
+        tr_sub_final_state = QState(self.fsm)
+
+        tr_init_state = QState(tr_sub_state)
+        tr_standby = QState(tr_sub_state)
+        tr_waiting = QState(tr_sub_state)
+
+        tr_sub_state.setInitialState(tr_init_state)
+
+        tr_init_state.addTransition(self.sigConnected, tr_standby)
+        tr_standby.addTransition(self.sigRequestTR, tr_waiting)
+        tr_waiting.addTransition(self.sigTRWaitingComplete, tr_standby)
+
+        # state entered slot connect
+        tr_sub_state.entered.connect(self.tr_sub_state_entered)
+        tr_sub_final_state.entered.connect(self.tr_sub_final_state_entered)
+
+        tr_init_state.entered.connect(self.tr_init_state_entered)
+        tr_standby.entered.connect(self.tr_standby_entered)
+        tr_waiting.entered.connect(self.tr_waiting_entered)
 
         #fsm start
-        finalState.entered.connect(self.finalStateEntered)
         self.fsm.start()
 
 #         pass
@@ -209,33 +234,29 @@ class KiwoomOpenApiPlus(QObject):
         pass
 
     @Slot()
-    def mainStateEntered(self):
+    def main_state_entered(self):
         pass
 
     @Slot()
     def stockCompleteStateEntered(self):
-        print(util.whoami())
+        print(common_util.whoami())
         self.sigStateStop.emit()
         pass
 
     @Slot()
-    def initStateEntered(self):
+    def main_init_entered(self):
         print(common_util.whoami())
         self.sigInitOk.emit()
         pass
 
     @Slot()
-    def disconnectedStateEntered(self):
+    def disconnected_entered(self):
         print(common_util.whoami())
-        if( self.getConnectState() == 0 ):
-            self.commConnect()
-            QTimer.singleShot(90000, self.sigTryConnect)
-            pass
-        else:
+        if( self.getConnectState() == 1 ):
             self.sigConnected.emit()
             
     @Slot()
-    def connectedStateEntered(self):
+    def connected_entered(self):
         print(common_util.whoami())
         # get 계좌 정보
 
@@ -261,127 +282,32 @@ class KiwoomOpenApiPlus(QObject):
         self.kosdaqCodeList = tuple(result.split(';'))
         pass
 
+
     @Slot()
-    def systemStateEntered(self):
+    def tr_sub_state_entered(self):
+        print(common_util.whoami() )
         pass
 
     @Slot()
-    def initSystemStateEntered(self):
-        # 체결정보 로드 
-        if( os.path.isfile(CHEGYEOL_INFO_FILE_PATH) == True ):
-            with open(CHEGYEOL_INFO_FILE_PATH, 'r', encoding='utf8') as f:
-                file_contents = f.read()
-                self.chegyeolInfo = json.loads(file_contents)
-
-            # 한번 수익난 종목 매수 금지 
-            current_date = self.currentTime.date().strftime("%y%m%d")
-            if( current_date in self.chegyeolInfo):
-                for line_str in self.chegyeolInfo[current_date]:
-                    maedo_type = line_str.split("|")[3].strip()
-                    jongmok_code = line_str.split("|")[4].strip()
-
-        if( os.path.isfile(JANGO_INFO_FILE_PATH) == True ):
-            with open(JANGO_INFO_FILE_PATH, 'r', encoding='utf8') as f:
-                file_contents = f.read()
-                self.jangoInfoFromFile = json.loads(file_contents)
-
-        # get 조건 검색 리스트
-        self.getConditionLoad()
-        self.timerSystem.start()
+    def tr_sub_final_state_entered(self):
+        print(common_util.whoami() )
         pass
 
     @Slot()
-    def requestingJangoSystemStateEntered(self):
-        # print(util.whoami() )
-        # 계좌 정보 조회 
-        self.requestOpw00018(self.account_list[0], "0")
-        self.requestOpw00005(self.account_list[0])
-        pass 
-
-    @Slot()
-    def waitingTradeSystemStateEntered(self):
-        # 장시작 전에 조건이 시작하도록 함 
-        self.sigSelectCondition.emit()       
-
-        # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
-        # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
-        result = self.getConditionNameList()
-        searchPattern = r'(?P<index>[^\/:*?"<>|;]+)\^(?P<name>[^\/:*?"<>|;]+);'
-        fileSearchObj = re.compile(searchPattern, re.IGNORECASE)
-        findList = fileSearchObj.findall(result)
-        
-        tempDict = dict(findList)
-        print(tempDict)
-        
-
-        condition_name_screenNo_dict = {}
-        for number, condition in tempDict.items():
-            condition_name_screenNo_dict[condition] = [kw_util.sendConditionScreenNo + '{}'.format(int (number)), number]
-        
-        start_info_list = []
-        start_name_list = []
-
-
-        # 모든 리스트 종료 후 start 하도록 함
-        for name, info in condition_name_screenNo_dict.items():
-
-            if (name == self.current_condition_name ):
-                start_info_list.append(info)
-                start_name_list.append(name)
-            else: 
-                if( '이탈' in name ):
-                    start_info_list.append(info)
-                    start_name_list.append(name)
-                else:
-                    print("stop condition " + name + ", screen_no: " + info[0] + ", nIndex " + '{}'.format(int(info[1]) ) )
-                    self.sendConditionStop( info[0], name, int(info[1]) )
-                    self.disconnectRealData(info[0])
-                    pass
-
-        self.conditionOccurList.clear()
-
-        for count in range(len(start_info_list)):
-            print("start condition " + start_name_list[count] + ", screen_no: " + start_info_list[count][0] + ", nIndex " + '{}'.format(int(start_info_list[count][1])) )
-            self.sendCondition( start_info_list[count][0], start_name_list[count], int(start_info_list[count][1]) , 1) 
-
-        pass
-
-
-    @Slot()
-    def standbySystemStateEntered(self):
-        print(util.whoami() )
-        self.makeJangoInfoFile()
-
-        # 연속으로 최대 5개 가능하므로 5개까지 기다림 
-        QTimer.singleShot( TR_TIME_LIMIT_MS * 5, self.sigRequestRealInfo)
+    def tr_init_state_entered(self):
+        print(common_util.whoami() )
         pass
 
     @Slot()
-    def beforeProcessStoplessStateEntered(self):
-        print(util.whoami() )
-        # 실시간검색시작
-        self.refreshRealRequest()
-
-        self.sigStartProcess.emit()
-
+    def tr_standby_entered(self):
+        print(common_util.whoami() )
         pass
 
     @Slot()
-    def processStoplossStateEntered(self):
-        # print(util.whoami() )
-        jongmok_list = copy.copy(list(self.jangoInfo.keys()))
-
-        for jongmok_code in jongmok_list:
-            self.processStopLoss(jongmok_code)
-            pass
-
-        QTimer.singleShot( 200, self.sigProcessStoploss)
+    def tr_waiting_entered(self):
+        print(common_util.whoami() )
         pass
 
-    @Slot()
-    def terminatingSystemStateEntered(self):
-        print(util.whoami() )
-        pass
 
 
     @Slot()
@@ -792,7 +718,7 @@ class KiwoomOpenApiPlus(QObject):
         pass 
 
     @Slot()
-    def finalStateEntered(self):
+    def main_final_state_entered(self):
         print(common_util.whoami())
         common_util.save_log('', subject= '', folder='log')
         common_util.save_log('', subject= '', folder='log')
@@ -2222,31 +2148,35 @@ class KiwoomOpenApiPlus(QObject):
 #         print('excel save complete')
 
     # method 
-    # 로그인
-    # 0 - 성공, 음수값은 실패
-    # 단순 API 호출이 되었느냐 안되었느냐만 확인 가능 
+    # 수동 로그인설정인 경우 로그인창을 출력.
+    # 자동로그인 설정인 경우 로그인창에서 자동으로 로그인을 시도합니다.
     @Slot(result=int)
     def commConnect(self):
         return self.ocx.dynamicCall("CommConnect()")
 
-    # 로그인 상태 확인
-    # 0:미연결, 1:연결완료, 그외는 에러
+    # 서버와 현재 접속 상태를 알려줍니다.
+    # 리턴값 1:연결, 0:연결안됨
     @Slot(result=int)
     def getConnectState(self):
         return self.ocx.dynamicCall("GetConnectState()")
 
-    # 로그 아웃
+    # 프로그램 종료없이 서버와의 접속만 단절시키는 함수입니다.
+    # 함수 사용 후 사용자의 오해소지가 생기는 이유로 더 이상 사용할 수 없는 함수입니다
     @Slot()
     def commTerminate(self):
         self.ocx.dynamicCall("CommTerminate()")
 
-    # 로그인한 사용자 정보를 반환한다.
-    # “ACCOUNT_CNT” – 전체 계좌 개수를 반환한다.
-    # "ACCNO" – 전체 계좌를 반환한다. 계좌별 구분은 ‘;’이다.
-    # “USER_ID” - 사용자 ID를 반환한다.
-    # “USER_NAME” – 사용자명을 반환한다.
-    # “KEY_BSECGB” – 키보드보안 해지여부. 0:정상, 1:해지
-    # “FIREW_SECGB” – 방화벽 설정 여부. 0:미설정, 1:설정, 2:해지
+    # 로그인 후 사용할 수 있으며 인자값에 대응하는 정보를 얻을 수 있습니다.
+    #      
+    # 인자는 다음값을 사용할 수 있습니다.
+    #   
+    # "ACCOUNT_CNT" : 보유계좌 갯수를 반환합니다.
+    # "ACCLIST" 또는 "ACCNO" : 구분자 ';'로 연결된 보유계좌 목록을 반환합니다.
+    # "USER_ID" : 사용자 ID를 반환합니다.
+    # "USER_NAME" : 사용자 이름을 반환합니다.
+    # "GetServerGubun" : 접속서버 구분을 반환합니다.(1 : 모의투자, 나머지 : 실거래서버)
+    # "KEY_BSECGB" : 키보드 보안 해지여부를 반환합니다.(0 : 정상, 1 : 해지)
+    # "FIREW_SECGB" : 방화벽 설정여부를 반환합니다.(0 : 미설정, 1 : 설정, 2 : 해지)
     @Slot(str, result=str)
     def getLoginInfo(self, tag):
         return self.ocx.dynamicCall("GetLoginInfo(QString)", [tag])
@@ -2450,8 +2380,8 @@ class KiwoomOpenApiPlus(QObject):
         pass
 
     def isConnected(self) -> bool:
-        print( common_util.whoami() )
-        if( self.getConnectState() == 0 ):
+        # print( common_util.whoami() )
+        if( self.getConnectState() != 1 ):
             return False
         else:
             return True
@@ -2526,6 +2456,18 @@ if __name__ == "__main__":
     myApp = QApplication(sys.argv)
     kw_obj = KiwoomOpenApiPlus()
     kw_obj.tryConnect()
+
+    import time
+    loop_count = 0
+    while kw_obj.isConnected() == False:
+        loop_count = loop_count + 1
+        time.sleep(1)
+        QApplication.processEvents()
+        print(loop_count, end='')
+        if( loop_count > 60 ) :
+            print('connect failed!')
+            break
+
     print('done')
     sys.exit(myApp.exec_())
     pass
