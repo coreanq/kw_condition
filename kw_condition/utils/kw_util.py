@@ -1,40 +1,34 @@
 # -*- coding: utf-8 -*-
 import math
-'''    [화면번호]
-        화면번호는 서버에 시세조회나 주문을 요청할때 이 요청을 구별하기 위한 키값으로 이해하시면 됩니다.
-        0000(혹은 0)을 제외한 임의의 숫자를 사용하시면 되는데 갯수가 200개로 한정되어 있기 때문에 이 갯수를 넘지 않도록 관리하셔야 합니다.
-        만약 사용하는 화면번호가 200개를 넘는 경우 조회결과나 주문결과에 다른 데이터가 섞이거나 원하지 않는 결과를 나타날 수 있습니다.
+
+'''   
+Q : 화면번호는 어떤역할을 하는지요?
+
+A : 사용자 입장에서는 영웅문4의 화면번호와 동일한 맥락이라고 보시면 되겠습니다.
+    시스템적으로 화면번호는 데이터 송수신 및 실시간데이터의 키값으로 사용됩니다.
+    하나의 화면번호에 특정 종목의 실시간시세가 등록되어 수신되고 있는 상태에서
+    해당 화면번호를 다른 용도로 다시 사용하거나 종목을 바꾸어 데이터 요청에 사용하는 경우
+    해당 화면번호에 등록되어 있던 종목은 자동으로 실시간시세 해지가 됩니다.
+    
+    가령 화면번호 1111을 사용하여 이미 A종목의 실시간시세를 수신하고 있는 상태에서
+    1111 화면번호로 B종목의 시세데이터를 조회하는 경우 A종목의 실시간시세는 자동으로 해지되고
+    1111 화면번호로 B종목의 실시간시세가 등록되어 수신됩니다.
+
+    OpenAPI는 사용자가 화면번호를 임의로 지정할 수 있어서
+    어떤 화면번호에 어떤 데이터를 요청/수신 할지 관리하실 수 있습니다.
+    화면번호는 몇가지 규칙을 지켜주시면서 임의의 값으로 지정하여 사용하시면 됩니다.
+    1. 4자릿수 숫자 사용 "1111", "1234",,,
+    2. 프로그램내 화면번호 최대 사용갯수는 200개. 동일한 화면번호 재사용 가능
+    (영웅문4 에서 화면을 200개까지 열수 있는 개념으로 이해하시면 되겠습니다.)
+    3. 동일한 화면번호를 연속적으로 반복하여 사용하지 않도록 운영하시면 됩니다.
+    데이터 요청시, 주문전송시 화면번호를 생략할 수 없습니다.
+
 '''
-sendConditionScreenNo = "01"
 
 # 실시간 체결 화면번호
 # 실시간 잔고의 경우 체결시 콜백함수를 이용해야 하며 실시간 잔고로는 잔고 조회가 안됨  
-sendRealRegHogaScrNo = "002"
-sendRealRegUpjongScrNo = '003'
-sendRealRegChegyeolScrNo = '004'
-sendRealRegTradeStartScrNo = '005'
-sendRealRegSiseSrcNo = "006"
-sendRealRegTradeSrcSrcNo = "007"
 
-sendBuyOrderScreenNo = "101"
-sendSellOrderScreenNo = "102"
-
-sendOrderETFScreenNo = "201"
-sendOrderETFPairScreenNo = "202"
-
-sendReqYupjongKospiScreenNo = "112"
-sendReqYupjongKosdaqScreenNo = "113"
-
-sendGibonScreenNo = "124"
-send5minScreenNo = "125"
-sendHogaScreenNo = "126"
-sendAccountInfoScreenNo = '127'
-sendYesuGmInfoScreenNo = '128'
-sendChegyeolJangoInfoScreenNo = '129'
-
-
-
-dict_order = {
+send_order_value = {
     "신규매수" : 1,
     "신규매도" : 2,
     "매수취소" : 3,
@@ -71,7 +65,7 @@ dict_order = {
     5. 선물옵션합계
     6. 투자자별매매
 '''
-dict_jusik = {
+get_comm_data_info = {
     # 체결 정보는 파일에 저장됨
     "체결정보": (
         '수익율', '수익', '매수횟수', '주문타입', # 원래 없는 멤버

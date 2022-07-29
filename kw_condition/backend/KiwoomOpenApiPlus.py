@@ -8,15 +8,6 @@ from PySide2.QtAxContainer import QAxWidget
 
 from kw_condition.utils import common_util
 
-TRADING_INFO_GETTING_TIME = [15, 40] # 트레이딩 정보를 저장하기 시작하는 시간
-TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
-
-INTERESTED_STOCKS_FILE_PATH = "log" + os.path.sep +  "interested_stocks.json"
-CHEGYEOL_INFO_FILE_PATH = "log" + os.path.sep +  "chegyeol.json"
-JANGO_INFO_FILE_PATH =  "log" + os.path.sep + "jango.json"
-CHEGYEOL_INFO_EXCEL_FILE_PATH = "log" + os.path.sep +  "chegyeol.xlsx" 
-
-
 class KiwoomOpenApiPlus(QObject):
     sigInitOk = Signal()
     sigConnected = Signal()
@@ -28,8 +19,6 @@ class KiwoomOpenApiPlus(QObject):
     sigRequestTR = Signal()
     sigTRWaitingComplete  = Signal()
     
-    igRealInfoArrived = Signal(str, str, list)
-
     def __init__(self):
         super().__init__()
         self.ocx = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
@@ -41,10 +30,14 @@ class KiwoomOpenApiPlus(QObject):
 
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
+        self.code_by_names = {}
 
-        self.createState()
-        self.createConnection()
-#         self.currentTime = datetime.datetime.now()
+        self.request_tr_list = [] # [ {}, {},... ]
+        self.result_tr_list = {} # rqname: data
+
+        self.create_state()
+        self.create_connection()
+        # self.currentTime = datetime.datetime.now()
 #         self.current_condition_name = ''
 
 #         self.marginInfo = {}
@@ -59,7 +52,7 @@ class KiwoomOpenApiPlus(QObject):
 #             '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가',
 #             '일{}봉'.format(user_setting.MAX_SAVE_CANDLE_COUNT), '{}분{}봉'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE, user_setting.MAX_SAVE_CANDLE_COUNT)  ]
         
-    def createState(self):
+    def create_state(self):
 
         # state defintion
         main_state = QState(QState.ParallelStates, self.fsm)       
@@ -107,9 +100,35 @@ class KiwoomOpenApiPlus(QObject):
 
         #fsm start
         self.fsm.start()
-
         pass
 
+    def request_transaction(self) -> None:
+        ''' 
+        rqname 의 경우 unique 하여야 하며, 
+        get_transaction_result 사용시 rqname 을 통해서 한다. 
+        get_transaction_result 한 후 결과 값을 버퍼에서 지우도록 한다. 
+        '''
+
+        request = None
+        if( len(self.request_tr_list) != 0 ):
+            request = self.request_tr_list.pop(0)
+
+        print(self.request_tr_list)
+        pass
+
+    def add_transaction(self, rqname: str, trcode: str, screen_no: str, inputs: dict) -> None:
+        ''' 
+        rqname 의 경우 unique 하여야 하며, 
+        get_transaction_result 사용시 rqname 을 통해서 한다. 
+        get_transaction_result 한 후 결과 값을 버퍼에서 지우도록 한다. 
+        '''
+
+        self.request_tr_list.append( { 'rqname' : rqname, 'trcode' : trcode, 'screen_no' : screen_no, 'inputs': inputs } )
+        print(self.request_tr_list)
+        pass
+
+    def get_transaction_result(self, rqname: str):
+        pass
 
 #     @Slot(str, str, list)
 #     def onRealInfoArrived(self, jongmok_code, real_data_type, result_list ):
@@ -146,7 +165,7 @@ class KiwoomOpenApiPlus(QObject):
 #             self.maesuProhibitCodeList.remove(jongmok_code)
 #         pass
 
-    def createConnection(self):
+    def create_connection(self):
         self.ocx.connect( SIGNAL("OnEventConnect(int)"), self._OnEventConnect )
         self.ocx.connect( SIGNAL("OnReceiveMsg(str, str, str, str)"), self._OnReceiveMsg )
 
@@ -164,59 +183,19 @@ class KiwoomOpenApiPlus(QObject):
 
         # self.timerSystem.setInterval(1000) 
         # self.timerSystem.timeout.connect(self.onTimerSystemTimeout) 
-
-        # self.timerRealInfoRefresh.setInterval(5000) 
-        # self.timerRealInfoRefresh.timeout.connect(self.refreshRealRequest) 
-        # self.timerRealInfoRefresh.setSingleShot(True)
-
-        # self.timerD2YesugmRequest.setInterval(1000) 
-        # self.timerD2YesugmRequest.timeout.connect(lambda: self.requestOpw00005(self.account_list[0]) ) 
-        # self.timerD2YesugmRequest.setSingleShot(True)
-
-        # self.sigRealInfoArrived.connect(self.onRealInfoArrived)
-
-        # self.sigRemoveJongmokInfo.connect(self.onRemoveJongmokInfo)
   
-    def isTradeAvailable(self):
-        # 매수 가능 시간 체크 
-        # 기본 정보를 얻기 위해서는 장 시작전 미리 동작을 시켜야 하고 매수를 위한 시간은 정확히 9시를 맞춤 (동시호가 시간의 매도 호가로 인해 매수 됨을 막기 위함)
-        ret_vals= []
-        current_time = self.currentTime.time()
-        for start, stop in user_setting.AUTO_TRADING_OPERATION_TIME:
-            start_time =  datetime.time(
-                            hour = start[0],
-                            minute = start[1] )
-            stop_time =   datetime.time( 
-                            hour = stop[0],
-                            minute = stop[1] )
-            if( current_time >= start_time and current_time <= stop_time ):
-                ret_vals.append(True)
-            else:
-                ret_vals.append(False)
-                pass
-
-        # 하나라도 True 였으면 거래 가능시간임  
-        if( ret_vals.count(True) ):
-            return True
-        else:
-            return False
-        pass
-
     @Slot()
     def base_state_entered(self):
-        print(common_util.whoami())
+        # print(common_util.whoami())
         pass
 
     @Slot()
     def sub_state_entered(self):
-        print(common_util.whoami())
+        # print(common_util.whoami())
         pass
 
-    @Slot()
-    def stockCompleteStateEntered(self):
-        print(common_util.whoami())
-        self.sigStateStop.emit()
-        pass
+    ##########################################################
+
 
     @Slot()
     def init_entered(self):
@@ -255,18 +234,21 @@ class KiwoomOpenApiPlus(QObject):
         self.kospiCodeList = tuple(result.split(';'))
         result = self.getCodeListByMarket('10')
         self.kosdaqCodeList = tuple(result.split(';'))
-        pass
 
+        # for code in self.kospiCodeList:
+        #     print(self.getMasterCodeName(code) )
+
+        # names = [self.getMasterCodeName(code) for code in self.kospiCodeList]
+        # names.append( [self.getMasterCodeName(code) for code in self.kosdaqCodeList] )
+
+        # self.code_by_names = dict( zip( names, [*self.kospiCodeList, *self.kosdaqCodeList ] ) )
+        pass
 
     @Slot()
     def sub_state_entered(self):
-        print(common_util.whoami() )
+        # print(common_util.whoami() )
         pass
 
-    @Slot()
-    def tr_sub_final_state_entered(self):
-        print(common_util.whoami() )
-        pass
 
     @Slot()
     def tr_init_entered(self):
@@ -276,6 +258,12 @@ class KiwoomOpenApiPlus(QObject):
     @Slot()
     def tr_standby_entered(self):
         print(common_util.whoami() )
+
+        if( len(self.request_tr_list) != 0):
+
+            self.sigRequestTR.emit()
+            pass
+
         pass
 
     @Slot()
@@ -2050,50 +2038,6 @@ class KiwoomOpenApiPlus(QObject):
 #             # tmp = self.setRealReg(kw_util.sendRealRegTradeStartScrNo, '', kw_util.type_fidset['장시작시간'], "0")
 #             # if( tmp < 0 ):
 #             #     print("장시작시간: " + kw_util.parseErrorCode(tmp) )
-
-#     def make_excel(self, file_path, data_dict):
-#         # 주의 구글 스프레드 시트는 100개의 요청 제한이 있으므로  
-#         # 당일 정보만 한번에 batch_update 로 한번에 넣도록 함 
-#         wb = gc.open(user_setting.GOOGLE_SPREAD_SHEET_NAME)
-#         sheets = wb.worksheets()
-#         sheet_names = [ sheet.title for sheet in sheets]
-
-#         # 날짜별로 sheet name 저장  
-#         for date_str, value in sorted(data_dict.items()):
-#             # sheet name 이 존재 안하면 sheet add
-#             # sheet name 은 YYMM 형식 
-#             sheet_name = date_str
-#             new_sheet = None
-#             if( sheet_name not in sheet_names):
-#                 new_sheet = wb.add_worksheet(title = sheet_name, rows = 100, cols = 20, index = 0 )
-#             else:
-#                 continue
-
-#             rows = []
-#             stop_plus_range_list = []
-#             for row_index, line in enumerate(value):
-#                 items = [ item.strip() for item in line.split('|') ]
-#                 row_data = {}
-
-#                 # 매도의 경우 정보 추가  
-#                 if( len(items) == 11 ):
-#                     items.append( items[9])  # 종목이름
-#                     items.append( items[10].split(':')[0][8:])  # 매수시간
-#                     items.append( items[10].split(':')[1])  # 매수가격 
-#                     items.append( items[8])  # 매도시간 
-#                     items.append( items[6])  # 매도가격 
-#                 range_str = "A{}:{}{}".format(row_index + 1, chr(ord('A') + len(items) ),  row_index + 1 )
-#                 row_data['range'] = range_str                
-#                 row_data['values'] = [ items ] 
-#                 if( float(items[0]) > 0 ):
-#                     stop_plus_range_list.append(range_str)
-#                 rows.append( row_data )
-#             new_sheet.batch_update(rows)
-#             for plus_range in stop_plus_range_list:
-#                 new_sheet.format(plus_range, { "backgroundColor": { "red": 1.0, "green": 1.0, "blue": 0}})
-
-
-#         print('excel save complete')
 
     # method 
     # 수동 로그인설정인 경우 로그인창을 출력.
