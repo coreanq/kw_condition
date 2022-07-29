@@ -36,22 +36,8 @@ class KiwoomOpenApiPlus(QObject):
         self.fsm = QStateMachine()
         assert platform.architecture()[0] == "32bit", "Control object should be created in 32bit environment"
 
-
 #         self.account_list = []
 #         self.timerSystem = QTimer()
-#         self.timerRealInfoRefresh = QTimer()
-#         self.timerD2YesugmRequest = QTimer()
-#         self.lineCmdText = ''
-
-#         self.maesuProhibitCodeList = [] # 종목 거래 금지 list 
-
-#         self.upjongInfo = {'코스피': {}, '코스닥': {} } # { 'yupjong_code': { '현재가': 222, ...} }
-#         self.jangoInfo = {} # { 'jongmok_code': { '이익실현가': 222, ...}}
-#         self.jangoInfoFromFile = {} # TR 잔고 정보 요청 조회로는 얻을 수 없는 데이터를 파일로 저장하고 첫 실행시 로드함  
-#         self.chegyeolInfo = {} # { '날짜' : [ [ '주문구분', '매도', '분할매수이력', '체결가' , '체결수량', '미체결수량'] ] }
-#         self.conditionOccurList = [] # 조건 진입이 발생한 모든 리스트 저장하고 매수 결정에 사용되는 모든 정보를 저장함  [ {'종목코드': code, ...}] 
-
-#         self.conditionStoplossList = {'1분': [], '3분': [], '15분': [], '30분': [] }# 기존 조건 진입후 손절 조건을 판단하기 위함 
 
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
@@ -60,11 +46,6 @@ class KiwoomOpenApiPlus(QObject):
         self.createConnection()
 #         self.currentTime = datetime.datetime.now()
 #         self.current_condition_name = ''
-
-#         self.kospi_updown = 0 
-#         self.kosdaq_updown = 0 
-
-#         self.realInfoEnabled = False
 
 #         self.marginInfo = {}
 #         self.maesu_wait_list = {}
@@ -81,66 +62,54 @@ class KiwoomOpenApiPlus(QObject):
     def createState(self):
 
         # state defintion
-        main_state = QState(self.fsm)       
-        main_finalState = QFinalState(self.fsm)
+        main_state = QState(QState.ParallelStates, self.fsm)       
+        base_state = QState(main_state)
+        sub_state = QState(main_state)
+
         self.fsm.setInitialState(main_state)
 
-        main_init_state = QState(main_state)
-        disconnected_state = QState(main_state)
-        connected_state = QState(main_state)
-        
-        #transition defition
-        main_state.setInitialState(main_init_state)
-        main_state.addTransition(self.sigStateStop, main_finalState)
-        main_init_state.addTransition(self.sigInitOk, disconnected_state)
-        disconnected_state.addTransition(self.sigConnected, connected_state)
-        disconnected_state.addTransition(self.sigTryConnect, disconnected_state)
-        connected_state.addTransition(self.sigDisconnected, disconnected_state)
-        
-        # state entered slot connect
-        main_state.entered.connect(self.main_state_entered)
-        main_init_state.entered.connect(self.main_init_entered)
-        disconnected_state.entered.connect(self.disconnected_entered)
-        connected_state.entered.connect(self.connected_entered)
+        base_state.entered.connect(self.base_state_entered)
+        sub_state.entered.connect(self.sub_state_entered)
 
-        main_finalState.entered.connect(self.main_final_state_entered)
+        init = QState(base_state)
+        disconnected = QState(base_state)
+        connected = QState(base_state)
+        base_state.setInitialState(init)
+        
+        # transition defition
+        init.addTransition(self.sigInitOk, disconnected)
+        disconnected.addTransition(self.sigConnected, connected)
+        disconnected.addTransition(self.sigTryConnect, disconnected)
+        connected.addTransition(self.sigDisconnected, disconnected)
+        
+        # # state entered slot connect
+        init.entered.connect(self.init_entered)
+        disconnected.entered.connect(self.disconnected_entered)
+        connected.entered.connect(self.connected_entered)
+
 
         ###############################################################################################
         # sub parallel state define (TR)
-        tr_sub_state = QState(QState.ParallelStates, self.fsm)       
-        tr_sub_final_state = QState(self.fsm)
+        tr_init = QState(sub_state)
+        tr_standby = QState(sub_state)
+        tr_waiting = QState(sub_state)
 
-        tr_init_state = QState(tr_sub_state)
-        tr_standby = QState(tr_sub_state)
-        tr_waiting = QState(tr_sub_state)
+        sub_state.setInitialState(tr_init)
 
-        tr_sub_state.setInitialState(tr_init_state)
-
-        tr_init_state.addTransition(self.sigConnected, tr_standby)
+        tr_init.addTransition(self.sigConnected, tr_standby)
         tr_standby.addTransition(self.sigRequestTR, tr_waiting)
         tr_waiting.addTransition(self.sigTRWaitingComplete, tr_standby)
 
         # state entered slot connect
-        tr_sub_state.entered.connect(self.tr_sub_state_entered)
-        tr_sub_final_state.entered.connect(self.tr_sub_final_state_entered)
-
-        tr_init_state.entered.connect(self.tr_init_state_entered)
+        tr_init.entered.connect(self.tr_init_entered)
         tr_standby.entered.connect(self.tr_standby_entered)
         tr_waiting.entered.connect(self.tr_waiting_entered)
 
         #fsm start
         self.fsm.start()
 
-#         pass
+        pass
 
-#     @Slot()
-#     def onBtnRealInfoEnabled(self):
-#         print(util.whoami())
-#         if( self.realInfoEnabled == False ):
-#             self.realInfoEnabled = True
-#         else:
-#             self.realInfoEnabled = False
-        
 
 #     @Slot(str, str, list)
 #     def onRealInfoArrived(self, jongmok_code, real_data_type, result_list ):
@@ -234,7 +203,13 @@ class KiwoomOpenApiPlus(QObject):
         pass
 
     @Slot()
-    def main_state_entered(self):
+    def base_state_entered(self):
+        print(common_util.whoami())
+        pass
+
+    @Slot()
+    def sub_state_entered(self):
+        print(common_util.whoami())
         pass
 
     @Slot()
@@ -244,7 +219,7 @@ class KiwoomOpenApiPlus(QObject):
         pass
 
     @Slot()
-    def main_init_entered(self):
+    def init_entered(self):
         print(common_util.whoami())
         self.sigInitOk.emit()
         pass
@@ -273,7 +248,7 @@ class KiwoomOpenApiPlus(QObject):
 
         self.account_list = (acc_num.split(';')[:-1])
 
-        print(common_util.whoami() + 'account list ' + str(self.account_list))
+        print('account list ' + str(self.account_list))
 
         # 코스피 , 코스닥 종목 코드 리스트 얻기 
         result = self.getCodeListByMarket('0')
@@ -284,7 +259,7 @@ class KiwoomOpenApiPlus(QObject):
 
 
     @Slot()
-    def tr_sub_state_entered(self):
+    def sub_state_entered(self):
         print(common_util.whoami() )
         pass
 
@@ -294,7 +269,7 @@ class KiwoomOpenApiPlus(QObject):
         pass
 
     @Slot()
-    def tr_init_state_entered(self):
+    def tr_init_entered(self):
         print(common_util.whoami() )
         pass
 
@@ -308,16 +283,6 @@ class KiwoomOpenApiPlus(QObject):
         print(common_util.whoami() )
         pass
 
-
-
-    @Slot()
-    def processBuyStateEntered(self):
-        pass
-     
-    @Slot()
-    def initProcessBuyStateEntered(self):
-        print(util.whoami())
-        pass
 
     @Slot()
     def standbyProcessBuyStateEntered(self):
@@ -716,23 +681,6 @@ class KiwoomOpenApiPlus(QObject):
         # print(util.whoami() )
         QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigTrWaitComplete)
         pass 
-
-    @Slot()
-    def main_final_state_entered(self):
-        print(common_util.whoami())
-        common_util.save_log('', subject= '', folder='log')
-        common_util.save_log('', subject= '', folder='log')
-        common_util.save_log('', subject= '', folder='log')
-        common_util.save_log('', subject= '', folder='log')
-        common_util.save_log('', subject= '', folder='log')
-        common_util.save_log('', subject= '', folder='log')
-        common_util.save_log('', subject= '', folder='log')
-        common_util.save_log('', subject= '', folder='log')
-        common_util.save_log('', subject= '', folder='log')
-
-        # import subprocess
-        # subprocess.call(["shutdown", "-s", "-t", "500"])
-        pass
 
 
     def sendorder_multi(self, rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo):
@@ -2456,18 +2404,5 @@ if __name__ == "__main__":
     myApp = QApplication(sys.argv)
     kw_obj = KiwoomOpenApiPlus()
     kw_obj.tryConnect()
-
-    import time
-    loop_count = 0
-    while kw_obj.isConnected() == False:
-        loop_count = loop_count + 1
-        time.sleep(1)
-        QApplication.processEvents()
-        print(loop_count, end='')
-        if( loop_count > 60 ) :
-            print('connect failed!')
-            break
-
-    print('done')
     sys.exit(myApp.exec_())
     pass
