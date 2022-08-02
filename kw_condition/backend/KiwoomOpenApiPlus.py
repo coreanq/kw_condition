@@ -142,11 +142,12 @@ class KiwoomOpenApiPlus(QObject):
         print('{} {}'.format( common_util.whoami(), request) )
 
         for key, value in request['inputs'].items() :
+            print(key, value)
             self.setInputValue(key, value)
 
         ret = self.commRqData(request['rqname'], request['trcode'], 0, '1111' )
         if( ret != 0 ):
-            print( '{} {}'.format( common_util.whoami(), request )  )
+            print( 'commRqData Err: {} {}'.format( common_util.whoami(), request )  )
         pass
 
     def add_transaction(self, rqname: str, trcode: str, screen_no: str, inputs: dict) -> None:
@@ -162,8 +163,8 @@ class KiwoomOpenApiPlus(QObject):
         self.sigRequestTR.emit()
         pass
 
-    def get_transaction_result(self, rqname: str):
-        pass
+    def get_transaction_result(self, rqname: str) -> dict:
+        return self.result_tr_list.get('rqname', {} )
 
 #     @Slot(str, str, list)
 #     def onRealInfoArrived(self, jongmok_code, real_data_type, result_list ):
@@ -178,27 +179,6 @@ class KiwoomOpenApiPlus(QObject):
 #                 self.setRealData(real_data_type, item_dict, result_list)
 #         pass
 
-#     @Slot(str)
-#     def onRemoveJongmokInfo(self, jongmok_code):
-#         self.jangoInfo.pop(jongmok_code)
-#         if( jongmok_code in self.jangoInfoFromFile):
-#             self.jangoInfoFromFile.pop(jongmok_code)
-#         # 조건 검색된 종목이 매도로 인해 삭제 되는거 방지 위해 다시 시도         
-#         # self.sigReselectCondition.emit()
-#         # self.removeConditionOccurList(jongmok_code)
-#         pass
-
-#     @Slot(str)
-#     def addProhibitList(self, jongmok_code):
-#         if( jongmok_code not in self.maesuProhibitCodeList):
-#             self.maesuProhibitCodeList.append(jongmok_code)
-#         pass
-
-#     @Slot(str)
-#     def removeProhibitList(self, jongmok_code):
-#         if( jongmok_code in self.maesuProhibitCodeList):
-#             self.maesuProhibitCodeList.remove(jongmok_code)
-#         pass
 
   
     @Slot()
@@ -1106,6 +1086,8 @@ class KiwoomOpenApiPlus(QObject):
         print(common_util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext {}, errorCode:{}, message:{}, splmMsg:{}' 
         .format(scrNo, rQName, trCode, recordName, prevNext, errorCode, message, splmMsg ))
 
+        # self.result_tr_list[rQName] = 
+
         # if ( trCode == 'opw00018' ):
         # # 게좌 정보 요청 rQName 은 계좌번호임 
         #     if( self.makeOpw00018Info(rQName) ):
@@ -1127,7 +1109,7 @@ class KiwoomOpenApiPlus(QObject):
         #         pass
 
         # #주식 기본 정보 요청 rQName 은 개별 종목 코드임
-        # elif( trCode == "opt10001"):
+        # if( trCode == "opt10001"):
         #     if( self.makeOpt10001Info(rQName) ):
         #         self.sigWaitTr.emit()
         #     else:
@@ -2109,7 +2091,7 @@ class KiwoomOpenApiPlus(QObject):
     # OP_ERR_RQ_STRING_FAIL – 요청전문 작성 실패
     # OP_ERR_NONE – 정상처리
     @Slot(str, str, int, str, result=int)
-    def commRqData(self, rQName, trCode, prevNext, screenNo):
+    def commRqData(self, rQName :str, trCode :str , prevNext :int, screenNo: str) -> int:
         return self.ocx.dynamicCall("CommRqData(QString, QString, int, QString)", rQName, trCode, prevNext, screenNo)
 
     # 수신 받은 데이터의 반복 개수를 반환한다.
@@ -2117,30 +2099,11 @@ class KiwoomOpenApiPlus(QObject):
     def getRepeatCnt(self, trCode, recordName):
         return self.ocx.dynamicCall("GetRepeatCnt(QString, QString)", trCode, recordName)
 
-    # Tran 데이터, 실시간 데이터, 체결잔고 데이터를 반환한다.
-    # 1. Tran 데이터
-    # 2. 실시간 데이터
-    # 3. 체결 데이터
-    # 1. Tran 데이터
-    # sJongmokCode : Tran명
-    # sRealType : 사용안함
-    # sFieldName : 레코드명
-    # nIndex : 반복인덱스
-    # sInnerFieldName: 아이템명
-    # 2. 실시간 데이터
-    # sJongmokCode : Key Code
-    # sRealType : Real Type
-    # sFieldName : Item Index (FID)
-    # nIndex : 사용안함
-    # sInnerFieldName:사용안함
-    # 3. 체결 데이터
-    # sJongmokCode : 체결구분
-    # sRealType : “-1”
-    # sFieldName : 사용안함
-    # nIndex : ItemIndex
-    # sInnerFieldName:사용안함
     @Slot(str, str, str, int, str, result=str)
     def commGetData(self, jongmok_code, realType, fieldName, index, innerFieldName):
+        '''
+        일부 TR에서 사용상 제약이 있음므로 이 함수 대신 GetCommData()함수를 사용하시기 바랍니다.
+        '''
         return self.ocx.dynamicCall("CommGetData(QString, QString, QString, int, QString)", jongmok_code, realType, fieldName, index, innerFieldName).strip()
 
     # strRealType – 실시간 구분
