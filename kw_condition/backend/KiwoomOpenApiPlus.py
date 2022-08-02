@@ -139,7 +139,7 @@ class KiwoomOpenApiPlus(QObject):
             print( 'request tr list empty!' )
             return
 
-        print(request)
+        print('{} {}'.format( common_util.whoami(), request) )
 
         for key, value in request['inputs'].items() :
             self.setInputValue(key, value)
@@ -237,14 +237,14 @@ class KiwoomOpenApiPlus(QObject):
         user_name = self.getLoginInfo("USER_NAME")
         keyboard_boan = self.getLoginInfo("KEY_BSECGB")
         firewall = self.getLoginInfo("FIREW_SECGB")
-        print("account count: {}, acc_num: {}, user id: {}, " 
-              "user_name: {}, keyboard_boan: {}, firewall: {}"
-              .format(account_cnt, acc_num, user_id, user_name, 
-                      keyboard_boan, firewall))
+        print("account count: {}, "
+                #"acc_num: {}, user id: {}, "user_name: {}, "
+                "keyboard_boan: {}, firewall: {}"
+                .format(account_cnt, 
+                    #acc_num, user_id, user_name, 
+                    keyboard_boan, firewall))
 
         self.account_list = (acc_num.split(';')[:-1])
-
-        print('account list ' + str(self.account_list))
 
         # 코스피 , 코스닥 종목 코드 리스트 얻기 
         result = self.getCodeListByMarket('0')
