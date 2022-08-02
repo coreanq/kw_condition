@@ -8,6 +8,8 @@ from PySide2.QtAxContainer import QAxWidget
 
 from kw_condition.utils import common_util
 
+TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
+
 class KiwoomOpenApiPlus(QObject):
     sigInitOk = Signal()
     sigConnected = Signal()
@@ -18,6 +20,7 @@ class KiwoomOpenApiPlus(QObject):
 
     sigRequestTR = Signal()
     sigTRWaitingComplete  = Signal()
+    sigTrResponseError = Signal()
     
     def __init__(self):
         super().__init__()
@@ -33,7 +36,7 @@ class KiwoomOpenApiPlus(QObject):
         self.code_by_names = {}
 
         self.request_tr_list = [] # [ {}, {},... ]
-        self.result_tr_list = {} # rqname: data
+        self.result_tr_list = {} # { rqname: data }
 
         self.create_state()
         self.create_connection()
@@ -51,6 +54,25 @@ class KiwoomOpenApiPlus(QObject):
 #             '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
 #             '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가',
 #             '일{}봉'.format(user_setting.MAX_SAVE_CANDLE_COUNT), '{}분{}봉'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE, user_setting.MAX_SAVE_CANDLE_COUNT)  ]
+
+    def create_connection(self):
+        self.ocx.connect( SIGNAL("OnEventConnect(int)"), self._OnEventConnect )
+        self.ocx.connect( SIGNAL("OnReceiveMsg(str, str, str, str)"), self._OnReceiveMsg )
+
+        self.ocx.connect( SIGNAL("OnReceiveTrData(str, str, str, str, str)"), self._OnReceiveTrData )
+        self.ocx.connect( SIGNAL("OnReceiveRealData(str, str, str)"), self._OnReceiveRealData )
+
+        # self.ocx.OnReceiveChejanData[str, int, str].connect(
+        #     self._OnReceiveChejanData)
+        # self.ocx.OnReceiveConditionVer[int, str].connect(
+        #     self._OnReceiveConditionVer)
+        # self.ocx.OnReceiveTrCondition[str, str, str, int, int].connect(
+        #     self._OnReceiveTrCondition)
+        # self.ocx.OnReceiveRealCondition[str, str, str, str].connect(
+        #     self._OnReceiveRealCondition)
+
+        # self.timerSystem.setInterval(1000) 
+        # self.timerSystem.timeout.connect(self.onTimerSystemTimeout) 
         
     def create_state(self):
 
@@ -89,9 +111,10 @@ class KiwoomOpenApiPlus(QObject):
 
         sub_state.setInitialState(tr_init)
 
-        tr_init.addTransition(self.sigConnected, tr_standby)
-        tr_standby.addTransition(self.sigRequestTR, tr_waiting)
-        tr_waiting.addTransition(self.sigTRWaitingComplete, tr_standby)
+        tr_init.addTransition(self.sigConnected, tr_standby )
+        tr_standby.addTransition(self.sigRequestTR, tr_waiting )
+        tr_waiting.addTransition(self.sigTRWaitingComplete, tr_standby )
+        tr_waiting.addTransition(self.sigTrResponseError, tr_standby )
 
         # state entered slot connect
         tr_init.entered.connect(self.tr_init_entered)
@@ -112,8 +135,18 @@ class KiwoomOpenApiPlus(QObject):
         request = None
         if( len(self.request_tr_list) != 0 ):
             request = self.request_tr_list.pop(0)
+        else:
+            print( 'request tr list empty!' )
+            return
 
-        print(self.request_tr_list)
+        print(request)
+
+        for key, value in request['inputs'].items() :
+            self.setInputValue(key, value)
+
+        ret = self.commRqData(request['rqname'], request['trcode'], 0, '1111' )
+        if( ret != 0 ):
+            print( '{} {}'.format( common_util.whoami(), request )  )
         pass
 
     def add_transaction(self, rqname: str, trcode: str, screen_no: str, inputs: dict) -> None:
@@ -124,7 +157,9 @@ class KiwoomOpenApiPlus(QObject):
         '''
 
         self.request_tr_list.append( { 'rqname' : rqname, 'trcode' : trcode, 'screen_no' : screen_no, 'inputs': inputs } )
-        print(self.request_tr_list)
+
+        print('{} {}'.format( common_util.whoami(), self.request_tr_list ) )
+        self.sigRequestTR.emit()
         pass
 
     def get_transaction_result(self, rqname: str):
@@ -165,24 +200,6 @@ class KiwoomOpenApiPlus(QObject):
 #             self.maesuProhibitCodeList.remove(jongmok_code)
 #         pass
 
-    def create_connection(self):
-        self.ocx.connect( SIGNAL("OnEventConnect(int)"), self._OnEventConnect )
-        self.ocx.connect( SIGNAL("OnReceiveMsg(str, str, str, str)"), self._OnReceiveMsg )
-
-        self.ocx.connect( SIGNAL("OnReceiveTrData(str, str, str, str, str)"), self._OnReceiveTrData )
-        self.ocx.connect( SIGNAL("OnReceiveRealData(str, str, str)"), self._OnReceiveRealData )
-
-        # self.ocx.OnReceiveChejanData[str, int, str].connect(
-        #     self._OnReceiveChejanData)
-        # self.ocx.OnReceiveConditionVer[int, str].connect(
-        #     self._OnReceiveConditionVer)
-        # self.ocx.OnReceiveTrCondition[str, str, str, int, int].connect(
-        #     self._OnReceiveTrCondition)
-        # self.ocx.OnReceiveRealCondition[str, str, str, str].connect(
-        #     self._OnReceiveRealCondition)
-
-        # self.timerSystem.setInterval(1000) 
-        # self.timerSystem.timeout.connect(self.onTimerSystemTimeout) 
   
     @Slot()
     def base_state_entered(self):
@@ -269,8 +286,10 @@ class KiwoomOpenApiPlus(QObject):
     @Slot()
     def tr_waiting_entered(self):
         print(common_util.whoami() )
-        pass
 
+        self.request_transaction()
+        QTimer.singleShot(TR_TIME_LIMIT_MS, self.sigTRWaitingComplete)
+        pass
 
     @Slot()
     def standbyProcessBuyStateEntered(self):
@@ -1084,62 +1103,62 @@ class KiwoomOpenApiPlus(QObject):
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
-        # print(util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext {}, errorCode:{}, message:{}, splmMsg:{}' 
-        # .format(scrNo, rQName, trCode, recordName, prevNext, errorCode, message, splmMsg ))
+        print(common_util.whoami() + 'sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext {}, errorCode:{}, message:{}, splmMsg:{}' 
+        .format(scrNo, rQName, trCode, recordName, prevNext, errorCode, message, splmMsg ))
 
-        if ( trCode == 'opw00018' ):
-        # 게좌 정보 요청 rQName 은 계좌번호임 
-            if( self.makeOpw00018Info(rQName) ):
-                # 연속 데이터 존재 하는 경우 재 조회 
-                if( prevNext  == "2" ) :
-                    QTimer.singleShot(20, lambda: self.requestOpw00018(self.account_list[0], prevNext) )
-                else:
-                    QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigRequestJangoComplete)
+        # if ( trCode == 'opw00018' ):
+        # # 게좌 정보 요청 rQName 은 계좌번호임 
+        #     if( self.makeOpw00018Info(rQName) ):
+        #         # 연속 데이터 존재 하는 경우 재 조회 
+        #         if( prevNext  == "2" ) :
+        #             QTimer.singleShot(20, lambda: self.requestOpw00018(self.account_list[0], prevNext) )
+        #         else:
+        #             QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigRequestJangoComplete)
 
-            else:
-                self.sigError.emit()
-            pass
+        #     else:
+        #         self.sigError.emit()
+        #     pass
 
-        elif( trCode == 'opw00004'):
-            if( self.makeOpw00004Info(rQName) ):
-                pass
-        elif( trCode == 'opw00005'):
-            if( self.makeOpw00005Info(rQName) ):
-                pass
+        # elif( trCode == 'opw00004'):
+        #     if( self.makeOpw00004Info(rQName) ):
+        #         pass
+        # elif( trCode == 'opw00005'):
+        #     if( self.makeOpw00005Info(rQName) ):
+        #         pass
 
-        #주식 기본 정보 요청 rQName 은 개별 종목 코드임
-        elif( trCode == "opt10001"):
-            if( self.makeOpt10001Info(rQName) ):
-                self.sigWaitTr.emit()
-            else:
-                self.sigError.emit()
-            pass
+        # #주식 기본 정보 요청 rQName 은 개별 종목 코드임
+        # elif( trCode == "opt10001"):
+        #     if( self.makeOpt10001Info(rQName) ):
+        #         self.sigWaitTr.emit()
+        #     else:
+        #         self.sigError.emit()
+        #     pass
 
-        #주식 일봉 정보 요청 rqName 은 개별 종목 코드임  
-        elif( trCode =='opt10081'):
-            if( self.makeOpt10081Info(rQName) ):
-                self.sigWaitTr.emit()
-                pass
-            else:
-                self.sigError.emit()
+        # #주식 일봉 정보 요청 rqName 은 개별 종목 코드임  
+        # elif( trCode =='opt10081'):
+        #     if( self.makeOpt10081Info(rQName) ):
+        #         self.sigWaitTr.emit()
+        #         pass
+        #     else:
+        #         self.sigError.emit()
 
 
-        # 주식 분봉 정보 요청 rQName 개별 종목 코드  
-        elif( trCode == "opt10080"):     
-            if( self.makeOpt10080Info(rQName) ) :
-                self.sigWaitTr.emit()
-            else:
-                self.sigError.emit()
-            pass
+        # # 주식 분봉 정보 요청 rQName 개별 종목 코드  
+        # elif( trCode == "opt10080"):     
+        #     if( self.makeOpt10080Info(rQName) ) :
+        #         self.sigWaitTr.emit()
+        #     else:
+        #         self.sigError.emit()
+        #     pass
 
-        # 업종 분봉 rQName 업종 코드  
-        elif( trCode == "opt20005"):     
-            if( self.makeOpt20005Info(rQName) ) :
-                self.sigWaitTr.emit()
-                pass
-            else:
-                self.sigError.emit()
-            pass
+        # # 업종 분봉 rQName 업종 코드  
+        # elif( trCode == "opt20005"):     
+        #     if( self.makeOpt20005Info(rQName) ) :
+        #         self.sigWaitTr.emit()
+        #         pass
+        #     else:
+        #         self.sigError.emit()
+        #     pass
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmok_code, realType, realData):
