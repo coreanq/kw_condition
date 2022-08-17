@@ -1,5 +1,6 @@
 # -*-coding: utf-8 -
 import sys, os, platform
+from timeit import repeat
 
 from PySide2.QtCore import QObject, SIGNAL, SLOT, Slot, Signal, QStateMachine, QState, QFinalState
 from PySide2.QtCore import QTimer
@@ -7,6 +8,7 @@ from PySide2.QtWidgets import QApplication
 from PySide2.QtAxContainer import QAxWidget
 
 from kw_condition.utils import common_util
+from kw_condition.utils import kw_util
 
 TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
 
@@ -21,7 +23,7 @@ class KiwoomOpenApiPlus(QObject):
     sigRequestTR = Signal()
     sigTRWaitingComplete  = Signal()
     sigTrResponseError = Signal()
-    
+
     def __init__(self):
         super().__init__()
         self.ocx = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
@@ -57,10 +59,9 @@ class KiwoomOpenApiPlus(QObject):
 
     def create_connection(self):
         self.ocx.connect( SIGNAL("OnEventConnect(int)"), self._OnEventConnect )
-        self.ocx.connect( SIGNAL("OnReceiveMsg(str, str, str, str)"), self._OnReceiveMsg )
-
-        self.ocx.connect( SIGNAL("OnReceiveTrData(str, str, str, str, str)"), self._OnReceiveTrData )
-        self.ocx.connect( SIGNAL("OnReceiveRealData(str, str, str)"), self._OnReceiveRealData )
+        self.ocx.connect( SIGNAL("OnReceiveMsg(const QString&,, const QString&, const QString&, const QString&)"), self._OnReceiveMsg )
+        self.ocx.connect( SIGNAL("OnReceiveTrData(const QString&, const QString&, const QString&, const QString&, const QString&, int, const QString&, const QString&, const QString&)" ), self._OnReceiveTrData )
+        # self.ocx.connect( SIGNAL("OnReceiveRealData(const QString&, const QString&, const QString&)"), self._OnReceiveRealData )
 
         # self.ocx.OnReceiveChejanData[str, int, str].connect(
         #     self._OnReceiveChejanData)
@@ -97,7 +98,7 @@ class KiwoomOpenApiPlus(QObject):
         disconnected.addTransition(self.sigTryConnect, disconnected)
         connected.addTransition(self.sigDisconnected, disconnected)
         
-        # # state entered slot connect
+        # state entered slot connect
         init.entered.connect(self.init_entered)
         disconnected.entered.connect(self.disconnected_entered)
         connected.entered.connect(self.connected_entered)
@@ -124,6 +125,7 @@ class KiwoomOpenApiPlus(QObject):
         #fsm start
         self.fsm.start()
         pass
+
 
     def request_transaction(self) -> None:
         ''' 
@@ -159,12 +161,12 @@ class KiwoomOpenApiPlus(QObject):
 
         self.request_tr_list.append( { 'rqname' : rqname, 'trcode' : trcode, 'screen_no' : screen_no, 'inputs': inputs } )
 
-        print('{} {}'.format( common_util.whoami(), self.request_tr_list ) )
+        # print('{} {}'.format( common_util.whoami(), self.request_tr_list ) )
         self.sigRequestTR.emit()
         pass
 
     def get_transaction_result(self, rqname: str) -> dict:
-        return self.result_tr_list.get('rqname', {} )
+        return self.result_tr_list.get(rqname, {} )
 
 #     @Slot(str, str, list)
 #     def onRealInfoArrived(self, jongmok_code, real_data_type, result_list ):
@@ -954,12 +956,12 @@ class KiwoomOpenApiPlus(QObject):
     def requestOpt10001(self, jongmok_code):
         # print(util.cur_time_msec() )
         self.setInputValue("종목코드", jongmok_code)
-        ret = self.commRqData(jongmok_code, "opt10001", 0, kw_util.sendGibonScreenNo) 
+        ret = self.commRqData(jongmok_code, "opt10001", 0, '001')
         errorString = None
         if( ret != 0 ):
-            errorString = jongmok_code + " commRqData() " + kw_util.parseErrorCode(str(ret))
-            print(util.whoami() + errorString ) 
-            util.save_log(errorString, util.whoami(), folder = "log" )
+            # errorString = jongmok_code + " commRqData() " + kw_util.parseErrorCode(str(ret))
+            # print(util.whoami() + errorString ) 
+            # util.save_log(errorString, util.whoami(), folder = "log" )
             return False
         return True
         
@@ -1051,8 +1053,8 @@ class KiwoomOpenApiPlus(QObject):
 
     # 수신 메시지 이벤트
     def _OnReceiveMsg(self, scrNo, rQName, trCode, msg):
-        # print(util.whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
-        # .format(scrNo, rQName, trCode, msg))
+        print(common_util.whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
+        .format(scrNo, rQName, trCode, msg))
 
         # [107066] 매수주문이 완료되었습니다.
         # [107048] 매도주문이 완료되었습니다
@@ -1088,65 +1090,54 @@ class KiwoomOpenApiPlus(QObject):
 
         # self.result_tr_list[rQName] = 
 
-        # if ( trCode == 'opw00018' ):
-        # # 게좌 정보 요청 rQName 은 계좌번호임 
-        #     if( self.makeOpw00018Info(rQName) ):
-        #         # 연속 데이터 존재 하는 경우 재 조회 
-        #         if( prevNext  == "2" ) :
-        #             QTimer.singleShot(20, lambda: self.requestOpw00018(self.account_list[0], prevNext) )
-        #         else:
-        #             QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigRequestJangoComplete)
+        # 주식 일봉 데이터 생성  
+        repeat_cnt = self.getRepeatCnt(trCode, rQName)
 
-        #     else:
-        #         self.sigError.emit()
-        #     pass
+        if( repeat_cnt != 0 ):
+            # 복수 데이터 처리 
+            for i in range(repeat_cnt): 
 
-        # elif( trCode == 'opw00004'):
-        #     if( self.makeOpw00004Info(rQName) ):
-        #         pass
-        # elif( trCode == 'opw00005'):
-        #     if( self.makeOpw00005Info(rQName) ):
-        #         pass
+                row_info = {}
+                for item_name in kw_util.tr_column_info[trCode]:
+                    result = self.getCommData(trCode, rQName, i, item_name)
+                    row_info[item_name] = result.strip()
 
-        # #주식 기본 정보 요청 rQName 은 개별 종목 코드임
-        # if( trCode == "opt10001"):
-        #     if( self.makeOpt10001Info(rQName) ):
-        #         self.sigWaitTr.emit()
-        #     else:
-        #         self.sigError.emit()
-        #     pass
+                if(rQName not in  self.result_tr_list):
+                    self.result_tr_list[rQName] = []
+                self.result_tr_list[rQName].append( row_info )
 
-        # #주식 일봉 정보 요청 rqName 은 개별 종목 코드임  
-        # elif( trCode =='opt10081'):
-        #     if( self.makeOpt10081Info(rQName) ):
-        #         self.sigWaitTr.emit()
-        #         pass
-        #     else:
-        #         self.sigError.emit()
+                # print( '{}: {}'.format(item_name, result ) )
+            pass
+        else:
+            #단일 데이터 처리 
+            row_info = {}
+            for item_name in kw_util.tr_column_info[trCode]:
+                result = self.getCommData(trCode, rQName, 0, item_name)
+                row_info[item_name] = result.strip()
+            self.result_tr_list[rQName] = row_info
+            # print( '{}: {}'.format(item_name, result ) )
+            pass
 
+        return True
 
-        # # 주식 분봉 정보 요청 rQName 개별 종목 코드  
-        # elif( trCode == "opt10080"):     
-        #     if( self.makeOpt10080Info(rQName) ) :
-        #         self.sigWaitTr.emit()
-        #     else:
-        #         self.sigError.emit()
-        #     pass
+        if ( trCode == 'opw00018' ):
+        # 게좌 정보 요청 rQName 은 계좌번호임 
+            if( self.makeOpw00018Info(rQName) ):
+                # 연속 데이터 존재 하는 경우 재 조회 
+                if( prevNext  == "2" ) :
+                    QTimer.singleShot(20, lambda: self.requestOpw00018(self.account_list[0], prevNext) )
+                else:
+                    QTimer.singleShot(TR_TIME_LIMIT_MS,  self.sigRequestJangoComplete)
 
-        # # 업종 분봉 rQName 업종 코드  
-        # elif( trCode == "opt20005"):     
-        #     if( self.makeOpt20005Info(rQName) ) :
-        #         self.sigWaitTr.emit()
-        #         pass
-        #     else:
-        #         self.sigError.emit()
-        #     pass
+            else:
+                self.sigError.emit()
+            pass
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmok_code, realType, realData):
 
         if( self.realInfoEnabled == True):
-            print(util.whoami() + 'jongmok_code: {}, {}, realType: {}'
+            print(common_util.whoami() + 'jongmok_code: {}, {}, realType: {}'
                     .format(jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
 
         # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
@@ -2084,14 +2075,25 @@ class KiwoomOpenApiPlus(QObject):
     def getCodeListByMarket(self, sMarket):
         return self.ocx.dynamicCall("GetCodeListByMarket(QString)", sMarket)
 
-    # 통신 데이터를 송신한다.
-    # 0이면 정상
-    # OP_ERR_SISE_OVERFLOW – 과도한 시세조회로 인한 통신불가
-    # OP_ERR_RQ_STRUCT_FAIL – 입력 구조체 생성 실패
-    # OP_ERR_RQ_STRING_FAIL – 요청전문 작성 실패
-    # OP_ERR_NONE – 정상처리
     @Slot(str, str, int, str, result=int)
     def commRqData(self, rQName :str, trCode :str , prevNext :int, screenNo: str) -> int:
+        '''
+        [CommRqData() 함수]
+        
+        CommRqData(
+        BSTR sRQName,    // 사용자 구분명 (임의로 지정, 한글지원)
+        BSTR sTrCode,    // 조회하려는 TR이름
+        long nPrevNext,  // 연속조회여부
+        BSTR sScreenNo  // 화면번호 (4자리 숫자 임의로 지정)
+        )
+        
+        조회요청 함수입니다.
+        리턴값 0이면 조회요청 정상 나머지는 에러
+        
+        예)
+        -200 시세과부하
+        -201 조회전문작성 에러
+        '''
         return self.ocx.dynamicCall("CommRqData(QString, QString, int, QString)", rQName, trCode, prevNext, screenNo)
 
     # 수신 받은 데이터의 반복 개수를 반환한다.
@@ -2327,8 +2329,40 @@ class KiwoomOpenApiPlus(QObject):
         return kospi_kosdaq + ':' + yupjong
 
 if __name__ == "__main__":
+    from kw_condition.utils import common_util
+
     myApp = QApplication(sys.argv)
     kw_obj = KiwoomOpenApiPlus()
     kw_obj.tryConnect()
+    common_util.process_qt_events(20)
+
+    rqname = '주식기본정보요청'
+    trcode = 'opt10001'
+    screen_no = '0001'  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
+
+    inputs = {'종목코드': '005930'}
+
+    kw_obj.add_transaction(rqname, trcode, screen_no, inputs )
+    common_util.process_qt_events(6)
+
+
+    print( kw_obj.get_transaction_result(rqname) )
+
+    ############################################################################################################
+    import datetime
+
+    rqname = '주식일봉차트조회요청'
+    trcode = 'opt10081'
+    screen_no = '0002'  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
+
+    current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+
+    inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+
+    kw_obj.add_transaction(rqname, trcode, screen_no, inputs )
+    common_util.process_qt_events(6)
+
+    print( kw_obj.get_transaction_result(rqname) )
+
     sys.exit(myApp.exec_())
     pass

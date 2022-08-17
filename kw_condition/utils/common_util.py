@@ -3,7 +3,19 @@ import inspect
 import datetime 
 import os
 import os.path
+import time
+from PySide2.QtWidgets import QApplication
 
+
+def process_qt_events(secs: int):
+    loop_count = 0
+    while True:
+        loop_count = loop_count + 1
+        time.sleep(1)
+        QApplication.processEvents()
+        if( loop_count > secs ) :
+            print('time out!')
+            break
 
 def save_log(contents, subject="None", folder=""):
     current_dir = os.getcwd()
