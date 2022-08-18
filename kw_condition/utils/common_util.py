@@ -11,11 +11,11 @@ def process_qt_events(check_func : Callable[ [], bool], timeout_in_secs: int):
     loop_count = 0
     while True:
         loop_count = loop_count + 1
-        time.sleep(0.01)
+        time.sleep(0.001)
         QApplication.processEvents()
         if( check_func() == True ):
             break
-        if( loop_count > timeout_in_secs * 100 ) :
+        if( loop_count > timeout_in_secs * 1000 ) :
             print('time out!')
             break
 

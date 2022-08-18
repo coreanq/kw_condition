@@ -41,10 +41,11 @@ class KiwoomOpenApiPlus(QObject):
         self.request_tr_list = [] # [ {}, {},... ]
         self.result_tr_list = {} # { rqname: data }
 
+        self.condition_names_dict = {}
+
         self.create_state()
         self.create_connection()
         # self.currentTime = datetime.datetime.now()
-#         self.current_condition_name = ''
 
 #         self.marginInfo = {}
 #         self.maesu_wait_list = {}
@@ -162,7 +163,7 @@ class KiwoomOpenApiPlus(QObject):
         self.sigRequestTR.emit()
         pass
     
-    def is_transaction_result_avaliable(self, rqname: str) -> Callable[[], bool]:
+    def has_transaction_result(self, rqname: str) -> Callable[[], bool]:
         def check_transation():
             return rqname in self.result_tr_list
         return check_transation
@@ -174,6 +175,31 @@ class KiwoomOpenApiPlus(QObject):
         else:
             print(" transation result null")
             return {}
+
+    def load_condition_names(self):
+        self.getConditionLoad()
+
+    def has_condition_names(self) -> bool:
+        if( len(self.condition_names_dict) == 0):
+            return False
+        else:
+            return True
+    def get_condition_names(self) -> dict:
+        return self.condition_names_dict
+    
+    def request_condition(self, condition_name: str) -> str:
+        if( condition_name not in self.condition_names_dict ):
+            print('condition name {} not exist'.format( condition_name) )
+            pass
+        else:
+            self.sendCondition('0010', condition_name, self.condition_names_dict[condition_name], 0)
+
+    @Slot(str, str, int, int)
+
+    def sendCondition(self, scrNo, conditionName, index, search):
+        self.ocx.dynamicCall("SendCondition(QString,QString, int, int)", scrNo, conditionName, index, search)
+        pass
+
   
     @Slot()
     def base_state_entered(self):
@@ -743,8 +769,18 @@ class KiwoomOpenApiPlus(QObject):
     def _OnReceiveConditionVer(self, ret, msg):
         print('{} ret: {}, msg: {}'.format(common_util.whoami(), ret, msg))
         if ret == 1:
-            # self.sigGetConditionCplt.emit()
-            pass
+            # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
+            # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
+            result = self.getConditionNameList()
+            searchPattern = r'(?P<index>[^\/:*?"<>|;]+)\^(?P<name>[^\/:*?"<>|;]+);'
+            fileSearchObj = re.compile(searchPattern, re.IGNORECASE)
+            findList = fileSearchObj.findall(result)
+
+            for item in findList:
+                # 종목이름: index
+                self.condition_names_dict[item[1]] = int(item[0])
+            
+
 
     # 조건검색 조회응답으로 종목리스트를 구분자(“”)로 붙어서 받는 시점.
     # LPCTSTR sScrNo : 종목코드
@@ -756,10 +792,10 @@ class KiwoomOpenApiPlus(QObject):
         print('{} scrNo: {}, codeList: {}, conditionName: {} index: {}, next: {}'.format(common_util.whoami(), scrNo, codeList, conditionName, index, next ))
         codes = codeList.split(';')[:-1]
         # 마지막 split 결과 None 이므로 삭제 
-        if( '이탈' not in conditionName ):
-            for code in codes:
-                print('condition list add: {} '.format(code) + self.getMasterCodeName(code))
-                self.addConditionOccurList(code)
+
+        for code in codes:
+            print('condition list add: {} '.format(code) + self.getMasterCodeName(code))
+
             # 주의: 여기에 실시간조건 refresh 를 넣지않는다 동작오류남
             # self.refreshRealRequest()
 
@@ -1118,37 +1154,24 @@ if __name__ == "__main__":
     common_util.process_qt_events(kw_obj.isConnected,  60)
 
 
-    for index in range(1, 10):
-        ########################################################################
-        rqname = '주식기본정보요청'
-        trcode = 'opt10001'
-        screen_no = '000{}'.format(index)  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
+    # for index in range(1, 10):
+    #     ########################################################################
+    #     rqname = '주식기본정보요청'
+    #     trcode = 'opt10001'
+    #     screen_no = '000{}'.format(index)  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
 
-        inputs = {'종목코드': '005930'}
+    #     inputs = {'종목코드': '005930'}
 
-        kw_obj.add_transaction(rqname, trcode, inputs, screen_no)
+    #     kw_obj.add_transaction(rqname, trcode, inputs, screen_no)
 
-        common_util.process_qt_events(kw_obj.is_transaction_result_avaliable(rqname), 10)
+    #     common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 10)
 
-        print( kw_obj.get_transaction_result(rqname) )
+    #     print( kw_obj.get_transaction_result(rqname) )
 
     ########################################################################
-    # kw_obj.getConditionLoad()
-
-    # # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
-    # # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
-    # result = kw_obj.getConditionNameList()
-    # searchPattern = r'(?P<index>[^\/:*?"<>|;]+)\^(?P<name>[^\/:*?"<>|;]+);'
-    # fileSearchObj = re.compile(searchPattern, re.IGNORECASE)
-    # findList = fileSearchObj.findall(result)
-    
-    # tempDict = dict(findList)
-    # print(tempDict)
-
-    # condition_name_screenNo_dict = {}
-    # for number, condition in tempDict.items():
-    #     # condition_name_screenNo_dict[condition] = [kw_util.sendConditionScreenNo + '{}'.format(int (number)), number]
-    #     pass
+    kw_obj.load_condition_names()
+    common_util.process_qt_events(kw_obj.has_condition_names, 5)
+    print( kw_obj.get_condition_names() )
         
     sys.exit(myApp.exec_())
     pass
