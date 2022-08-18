@@ -1,5 +1,5 @@
 # -*-coding: utf-8 -
-import sys, os, platform
+import sys, os, platform, re
 from timeit import repeat
 from typing import Callable
 
@@ -141,15 +141,15 @@ class KiwoomOpenApiPlus(QObject):
         print('{} {}'.format( common_util.whoami(), request) )
 
         for key, value in request['inputs'].items() :
-            print(key, value)
+            # print(key, value)
             self.setInputValue(key, value)
 
-        ret = self.commRqData(request['rqname'], request['trcode'], 0, '1111' )
+        ret = self.commRqData(request['rqname'], request['trcode'], 0, request['screen_no'] )
         if( ret != 0 ):
             print( 'commRqData Err: {} {}'.format( common_util.whoami(), request )  )
         pass
 
-    def add_transaction(self, rqname: str, trcode: str, screen_no: str, inputs: dict) -> None:
+    def add_transaction(self, rqname: str, trcode: str, inputs: dict, screen_no: str = '9999') -> None:
         ''' 
         rqname 의 경우 unique 하여야 하며, 
         get_transaction_result 사용시 rqname 을 통해서 한다. 
@@ -162,29 +162,18 @@ class KiwoomOpenApiPlus(QObject):
         self.sigRequestTR.emit()
         pass
     
-    def is_transaction_result_avaliable(self, rqname: str) -> Callable:
+    def is_transaction_result_avaliable(self, rqname: str) -> Callable[[], bool]:
         def check_transation():
             return rqname in self.result_tr_list
         return check_transation
 
 
     def get_transaction_result(self, rqname: str) -> dict:
-        return self.result_tr_list.get(rqname, {} )
-
-#     @Slot(str, str, list)
-#     def onRealInfoArrived(self, jongmok_code, real_data_type, result_list ):
-#         # print("{} {} {}".format(self.getMasterCodeName(jongmok_code),  real_data_type, result_list))
-
-#         #잔고 실시간 정보 upate
-#         if( jongmok_code in self.jangoInfo ):
-#             self.setRealData(real_data_type, self.jangoInfo[jongmok_code], result_list)
-#         #조건 발생 종목 정보 update
-#         for item_dict in self.conditionOccurList:
-#             if( item_dict['종목코드'] == jongmok_code ):
-#                 self.setRealData(real_data_type, item_dict, result_list)
-#         pass
-
-
+        if( rqname in self.result_tr_list ):
+            return self.result_tr_list.pop(rqname)
+        else:
+            print(" transation result null")
+            return {}
   
     @Slot()
     def base_state_entered(self):
@@ -201,13 +190,13 @@ class KiwoomOpenApiPlus(QObject):
 
     @Slot()
     def init_entered(self):
-        print(common_util.whoami())
+        # print(common_util.whoami())
         self.sigInitOk.emit()
         pass
 
     @Slot()
     def disconnected_entered(self):
-        print(common_util.whoami())
+        # print(common_util.whoami())
         if( self.getConnectState() == 1 ):
             self.sigConnected.emit()
             
@@ -232,10 +221,10 @@ class KiwoomOpenApiPlus(QObject):
         self.account_list = (acc_num.split(';')[:-1])
 
         # 코스피 , 코스닥 종목 코드 리스트 얻기 
-        result = self.getCodeListByMarket('0')
-        self.kospiCodeList = tuple(result.split(';'))
-        result = self.getCodeListByMarket('10')
-        self.kosdaqCodeList = tuple(result.split(';'))
+        # result = self.getCodeListByMarket('0')
+        # self.kospiCodeList = tuple(result.split(';'))
+        # result = self.getCodeListByMarket('10')
+        # self.kosdaqCodeList = tuple(result.split(';'))
 
         # for code in self.kospiCodeList:
         #     print(self.getMasterCodeName(code) )
@@ -254,23 +243,19 @@ class KiwoomOpenApiPlus(QObject):
 
     @Slot()
     def tr_init_entered(self):
-        print(common_util.whoami() )
+        # print(common_util.whoami() )
         pass
 
     @Slot()
     def tr_standby_entered(self):
-        print(common_util.whoami() )
-
+        # print(common_util.whoami() )
         if( len(self.request_tr_list) != 0):
-
             self.sigRequestTR.emit()
             pass
 
-        pass
-
     @Slot()
     def tr_waiting_entered(self):
-        print(common_util.whoami() )
+        # print(common_util.whoami() )
 
         self.request_transaction()
         QTimer.singleShot(TR_TIME_LIMIT_MS, self.sigTRWaitingComplete)
@@ -281,25 +266,6 @@ class KiwoomOpenApiPlus(QObject):
         def inner():
             self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo)
         return inner
-
-
-    def printStockInfo(self, jongmok_code = 'all'):
-        if( jongmok_code == 'all'):
-            print(json.dumps(self.jangoInfo, ensure_ascii= False, indent =2, sort_keys = True))
-        else:
-            print(json.dumps(self.jangoInfo[jongmok_code], ensure_ascii= False, indent =2, sort_keys = True))
-        pass
-    
-    def printChegyeolInfo(self, current_date = 'all'):
-        if( current_date == 'all' ):
-            print(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent = 2, sort_keys = True))
-        elif( current_date == ''):
-            current_date = self.currentTime.date().strftime("%y%m%d")
-            if( current_date in self.chegyeolInfo):
-                print(json.dumps(self.chegyeolInfo[current_date], ensure_ascii= False, indent = 2, sort_keys = True))
-
-    def printYupjongInfo(self):
-        print(json.dumps(self.upjongInfo, ensure_ascii= False, indent =2, sort_keys = True))
 
     # 계좌평가현황요청
     @Slot(str, result = bool)
@@ -403,165 +369,15 @@ class KiwoomOpenApiPlus(QObject):
 
         # print(self.jangoInfo)
         return True 
-
-    # 주식 분봉 tr 요청 
-    @Slot(str, result = bool)
-    def requestOpt10080(self, jongmok_code):
-     # 분봉 tr 요청의 경우 너무 많은 데이터를 요청하므로 한개씩 수행 
-        candle_type_str = "{}:{}분".format( user_setting.REQUEST_MINUTE_CANDLE_TYPE )
-
-        self.setInputValue("종목코드", jongmok_code )
-        self.setInputValue("틱범위", candle_type_str) 
-        self.setInputValue("수정주가구분","1") 
-
-        # rQName 을 데이터로 외부에서 사용
-        ret = self.commRqData(jongmok_code , "opt10080", 0, kw_util.send5minScreenNo) 
-        errorString = None
-        if( ret != 0 ):
-            errorString =  jongmok_code + " commRqData() " + kw_util.parseErrorCode(str(ret))
-            print(util.whoami() + errorString ) 
-            util.save_log(errorString, util.whoami(), folder = "log" )
-            return False
-        return True
-
-    # 분봉 데이터 생성 
-    def makeOpt10080Info(self, rQName):
-        jongmok_code = rQName
-        jongmok_info_dict = self.getConditionOccurList()
-        if( jongmok_info_dict == None ):
-            return False
-
-        # 한번 읽으면 900개 읽힘 
-        repeatCnt = self.getRepeatCnt("opt10080", rQName)
-
-        total_current_price_list = []
-
-        # 3분봉 기준 6.5 시간 * 20 = 130  
-        for i in range(min(repeatCnt, user_setting.MAX_SAVE_CANDLE_COUNT)):
-            line = []
-            for item_name in kw_util.dict_jusik['TR:분봉']:
-                result = self.getCommData("opt10080", rQName, i, item_name)
-                if( item_name == "체결시간" ):
-                    # 20191104145500 형식 
-                    if( i == 0 ):
-                        jongmok_info_dict['최근{}분봉체결시간'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE)] = result.strip()
-                    line.append( result.strip() )
-                else:
-                    line.append( abs(int(result.strip()) ))
-                    pass
-            total_current_price_list.append( line )
-
-        key_minute_candle = '{}분{}봉'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE, user_setting.MAX_SAVE_CANDLE_COUNT)
-        jongmok_info_dict[key_minute_candle] = total_current_price_list
-
-        if( jongmok_code in self.jangoInfo ):
-            self.jangoInfo[jongmok_code][key_minute_candle] = jongmok_info_dict[key_minute_candle]
-
-        
-        return True
-
-    # 업종 분봉 tr 요청 
-    @Slot(str, result=bool)
-    def requestOpt20005(self, yupjong_code):
-        self.setInputValue("업종코드", yupjong_code )
-        self.setInputValue("틱범위","3:5분") 
-        self.setInputValue("수정주가구분","1") 
-        ret = 0
-        if( yupjong_code == '001'):
-            ret = self.commRqData(yupjong_code , "opt20005", 0, kw_util.sendReqYupjongKospiScreenNo) 
-        else:
-            ret = self.commRqData(yupjong_code , "opt20005", 0, kw_util.sendReqYupjongKosdaqScreenNo) 
-        
-        errorString = None
-        if( ret != 0 ):
-            errorString =  yupjong_code + " commRqData() " + kw_util.parseErrorCode(str(ret))
-            print(util.whoami() + errorString ) 
-            util.save_log(errorString, util.whoami(), folder = "log" )
-            return False
-        return True
-
-    # 업종 분봉 데이터 생성 
-    def makeOpt20005Info(self, rQName):
-        min_candle_list = []
-
-        repeatCnt = self.getRepeatCnt("opt20005", rQName)
-
-        for i in range(min(repeatCnt, user_setting.MAX_SAVE_CANDLE_COUNT)):
-            line = []
-            for item_name in kw_util.dict_jusik['TR:업종분봉']:
-                result = self.getCommData("opt20005", rQName, i, item_name)
-                line.append(result.strip())
-
-                if( item_name == "체결시간" ):
-                    line_item = '{}'.format( ':'.join(line))
-                    min_candle_list.append(line_item)
-        
-        if( rQName == '001'):
-            self.upjongInfo['코스피']['분봉'] = min_candle_list
-        elif( rQName == '101'):
-            self.upjongInfo['코스닥']['분봉'] = min_candle_list
-        else:
-            return False
-        return True
-
-
+   
     @Slot()
     def onTimerSystemTimeout(self):
-
-        self.currentTime = datetime.datetime.now()
         current_time = self.currentTime.time()
-
-        isConditionRefreshed = False
-
-        for key, value in user_setting.CONDITION_INFO.items():
-            start_time = datetime.time( hour = value['start_time']['hour'], minute = value['start_time']['minute'], second = value['start_time']['second'] )
-            end_time = datetime.time( hour = value['end_time']['hour'], minute = value['end_time']['minute'], second = value['end_time']['second'] )
-
-            if( current_time > start_time and current_time < end_time ):
-                if( self.current_condition_name !=  key ):
-                    isConditionRefreshed = True
-                self.current_condition_name = key
-                break
-
-        if(isConditionRefreshed == True):
-            self.sigReselectCondition.emit()
-
-
-        for jongmok_code, value in self.maesu_wait_list.items() :
-            jumun_number = self.maesu_wait_list[jongmok_code]['매수주문번호']
-            jumun_time = self.maesu_wait_list[jongmok_code]['매수접수시간']
-            jumun_qty = self.maesu_wait_list[jongmok_code]['주문수량']
-
-            # 매수 대기 시간이 지나면 매수 취소 
-            time_span = datetime.timedelta(minutes= 1)
-            current_time = self.currentTime.time()
-            jumun_time = datetime.datetime.strptime(jumun_time, "%H%M%S")
-
-            if( current_time > (jumun_time + time_span).time() ):
-                printData = "매수주문 취소 요청 {}, 주문번호: {}, {}".format( self.getMasterCodeName(jongmok_code), jumun_number, jumun_time) 
-                result = self.sendOrder("buy_" + jongmok_code, kw_util.sendBuyOrderScreenNo, 
-                                    objKiwoom.account_list[0], kw_util.dict_order["매수취소"], jongmok_code, 
-                                    jumun_qty, 0 , kw_util.dict_order["지정가"], jumun_number)
-
-                util.save_log(printData, "*주문취소요청", folder= "log")
-
-
-        if( self.getConnectState() != 1 ):
-            util.save_log("Disconnected!", "시스템", folder = "log")
-            self.sigDisconnected.emit() 
-        else:
-            if( datetime.time(*TRADING_INFO_GETTING_TIME) <=  self.currentTime.time() ): 
-                self.timerSystem.stop()
-                self.make_excel(CHEGYEOL_INFO_EXCEL_FILE_PATH, self.chegyeolInfo)
-                util.save_log("Stock Trade Terminate!\n\n\n\n\n", "시스템", folder = "log")
-                pass
-            else :
-                pass
         pass
 
     @Slot()
     def quit(self):
-        print(util.whoami())
+        print(common_util.whoami())
         self.commTerminate()
         QApplication.quit()
 
@@ -737,222 +553,6 @@ class KiwoomOpenApiPlus(QObject):
         else:
             # 주식시세는 장종료 후에 나옴 
             pass
-
-    # def calculateSuik(self, jongmok_code, current_price, amount):
-    #     current_jango = self.jangoInfo[jongmok_code]
-    #     maeip_price = abs(int(current_jango['매입가']))
-
-    #     maeip_danga = maeip_price + maeip_price* 0.00015
-    #     maedo_danga = current_price - current_price * 0.00015 - current_price * 0.0023
-
-    #     suik_price = round( (maedo_danga - maeip_danga) * amount , 2)
-    #     current_jango['수익'] = suik_price 
-    #     current_jango['수익율'] = round( ( (maedo_danga - maeip_danga)  / maeip_danga ) * 100 , 2) 
-    #     pass
-
-#     # 개별 종목 관련 실시간 체결/호가 등 정보 update 
-#     def makeRealDataInfo(self, jongmok_code, real_data_type):
-#         #주식 호가 잔량 정보 요청 
-#         result_list = [] 
-#         for col_name in kw_util.dict_jusik[real_data_type]:
-#             result_list.append(self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ).strip())
-
-#         self.sigRealInfoArrived.emit(jongmok_code, real_data_type, result_list)
-
-#     def isMinCandleExist(self, current_jango):
-#         key_minute_candle = '{}분{}봉'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE, user_setting.MAX_SAVE_CANDLE_COUNT)
-#         if( key_minute_candle in current_jango
-#             and len( current_jango[key_minute_candle] ) == user_setting.MAX_SAVE_CANDLE_COUNT ):  # 분봉 정보 얻었는지 확인 
-#             return True
-#         else:
-#             return False
-
-#     def isDayCandleExist(self, current_jango):
-#         key_day_candle = '일{}봉'.format(user_setting.MAX_SAVE_CANDLE_COUNT ) 
-#         if( key_day_candle in current_jango
-#             # and len( current_jango[key_day_candle] ) == user_setting.MAX_SAVE_CANDLE_COUNT 
-#             ):  # 분봉 정보 얻었는지 확인 
-#             return True
-#         else:
-#             return False
-
-
-#     def processStopLoss(self, jongmok_code):
-#         jongmok_name = self.getMasterCodeName(jongmok_code)
-#         if( self.isTradeAvailable() == False ):
-#             print('-1', end = '')
-#             return
-        
-#         # 예외 처리 리스트이면 종료 
-#         if( jongmok_code in user_setting.EXCEPTION_LIST ):
-#             # print('-2', end = '')
-#             return
-
-#         # 잔고에 없는 종목이면 종료 
-#         if( jongmok_code not in self.jangoInfo ):
-#             # print('-3', end = '')
-#             return 
-#         current_jango = self.jangoInfo[jongmok_code]
-
-#         bunhal_maedo_info_list = current_jango.get('분할매도이력', [])  
-#         bunhal_maesu_info_list = current_jango.get('분할매수이력', [])  
-
-#         bunhal_maedo_count = len(bunhal_maedo_info_list)
-#         bunhal_maesu_count = len(bunhal_maesu_info_list)
-
-#         first_bunhal_maesu_time_str = bunhal_maesu_info_list[0].split(':')[0] #날짜:가격:수량 
-#         first_maeip_price = int(bunhal_maesu_info_list[0].split(':')[1]) #날짜:가격:수량 
-
-#         last_bunhal_maesu_time_str = bunhal_maesu_info_list[-1].split(':')[0]  #날짜:가격:수량 
-#         last_maeip_price = int(bunhal_maesu_info_list[-1].split(':')[1]) #날짜:가격:수량 
-
-#         if( 
-#             '손절가' not in current_jango 
-#             or '매매가능수량' not in current_jango 
-#             or '매도호가총잔량' not in current_jango 
-#             or '현재가' not in current_jango
-#             or '현재가' not in self.upjongInfo['코스닥']
-#             or '현재가' not in self.upjongInfo['코스피']
-#             or '분봉' not in self.upjongInfo['코스닥']
-#             or '분봉' not in self.upjongInfo['코스피']
-#             ):
-#             print('-4', end = '')
-#             return
-
-#         # 중요: 매도 시 매도 호가가 빠지는 등의 이유로 가격의 왜곡이 생기므로 최우선 매수 호가를 기준 삼지 않는다. 
-#         # 손절시는 current_price 참고  
-#         # 익절시는 maesuHoga1 참고  (치고 올라가기 때문에  매수/매도 호가 괴리가 생기므로 매수호가 기준 )
-#         current_price = abs(int ( current_jango['현재가']))
-#         maesuHoga1 = abs(int ( current_jango['(최우선)매수호가']))
-#         current_trade_power = abs(float(current_jango['체결강도']))
-
-#         # # 매수호가 기준 
-#         # if( jongmok_code in self.kospiCodeList ):
-#         #     current_price = kw_util.getHogaPrice(current_price, -1, 'kospi')
-#         # else: 
-#         #     current_price = kw_util.getHogaPrice(current_price, -1, 'kosdaq')
-
-#         jangosuryang = int( current_jango['매매가능수량'] )
-#         stop_plus = int(current_jango['이익실현가'])
-#         stop_loss = int(current_jango['손절가'])
-#         maeipga = int(current_jango['매입가'])
-
-#         updown_percentage = float(current_jango['등락율']) 
-
-#         time_span = datetime.timedelta(days = 1)
-
-#         total_maedohoga_amount = int(current_jango['매도호가총잔량'])
-#         total_maesuhoga_amount = int(current_jango['매수호가총잔량'])
-
-#         # 업종 정보 생성 
-#         jongmok_jang_type = ''
-#         if( jongmok_code in self.kosdaqCodeList ):
-#             jongmok_jang_type = 'kosdaq'
-#         else:
-#             jongmok_jang_type = 'kospi'
-
-#         _upjong_20_candle_avr = 0
-#         key_upjong_name = ''
-#         if( jongmok_jang_type == 'kospi'):
-#             key_upjong_name = '코스피'
-#         else:
-#             key_upjong_name = '코스닥'
-
-#         current_upjong_price = abs(round(float(self.upjongInfo[key_upjong_name]['현재가']), 2))
-#         open_upjong_price = abs(round(float(self.upjongInfo[key_upjong_name]['시가']), 2))
-
-#         candle_list = self.upjongInfo[key_upjong_name]['분봉']
-#         price_list = [ abs(round( float(item.split(':')[0]), 2) ) for item in candle_list ]
-#         # 분봉데이터는 소숫점 둘째자리까지 표현되는데 * 100 한 값의 문자열임 
-#         _upjong_20_candle_avr = round( ( (sum(price_list[1:20]) / 100)  + current_upjong_price )/ 20 , 2)
-
-#         ##########################################################################################################
-#         current_time_str = util.cur_time()
-#         server_hoga_time_str = current_jango['호가시간']
-#         expected_one_hoga_amount = round(total_maesuhoga_amount) / 10
-
-#         _yesterday_date = (self.currentTime - time_span).date()
-#         _today_date = (self.currentTime).date()
-
-#         _today_open_price = abs(int(current_jango['시가']))
-#         _today_close_price = abs(int(current_jango['현재가']))
-#         _today_low_price = abs(int(current_jango['저가']))
-#         _today_high_price = abs(int(current_jango['고가']) )
-#         _today_amount = abs(int(current_jango['누적거래량']))
-
-#         maesuHoga1_amount = abs(int(current_jango['매수호가수량1']))
-#         maesuHoga2_amount = abs(int(current_jango['매수호가수량2']))
-#         maedoHoga1_amount = abs(int(current_jango['매도호가수량1']))
-#         maedoHoga2_amount = abs(int(current_jango['매도호가수량2']))
-
-#         _yesterday_close_price = int(self.GetMasterLastPrice(jongmok_code))
-#         _percent = abs(float(current_jango['전일거래량대비(비율)'])) 
-#         _yesterday_amount = 0
-#         if(_percent != 0  ):
-#             _yesterday_amount = int( _today_amount / (_percent / 100) )
-
-#         maedo_type = ""
-
-#         first_bunhal_maesu_date_time = datetime.datetime.strptime( first_bunhal_maesu_time_str, '%Y%m%d%H%M%S').date()
-#         first_bunhal_stoploss_percent = 1.023
-
-#         if( _yesterday_date >= first_bunhal_maesu_date_time):
-#             ##########################################################################################################
-#             # 분할 매수 스윙 종목  
-#             stop_plus = 99999999
-#             maedo_type = "(스윙매수기본손절)"
-
-
-#         else:
-#             ##########################################################################################################
-#             # 당일 매수 종목 
-#             last_bunhal_maesu_date_time = datetime.datetime.strptime(last_bunhal_maesu_time_str, "%Y%m%d%H%M%S") 
-#             stop_plus = 9999999 
-#             bunhal_maedo_base_amount = 0
-#             maedo_type = "(당일매수기본손절)"
-
-
-#             # time cut 적용 
-#             time_span = datetime.timedelta( minutes = 1 )
-
-
-#         ########################################################################################
-
-#         isSell = False
-#         printData = jongmok_code + ' {0:20} '.format(jongmok_name) 
-
-#         # 손절 / 익절 계산 
-#         isSijanga = False
-#         sell_amount = jangosuryang
-
-#         # 20180410150510 실시간 매수 호가가 0으로 나오는 경우 오류 처리
-#         if( stop_loss >= current_price and current_price > 0 ) :
-#             isSijanga = True
-#             isSell = True
-#         elif( stop_plus < maesuHoga1 ) :
-#             isSell = True 
-#         printData += maedo_type 
-        
-
-#         printData +=    ' 손절가: {}, 이익실현가: {}, 매입가: {}, 잔고수량: {}, 호가시간: {}, 현재가: {}, 매수호가수량1: {}, 매수호가수량2: {}'.format(
-#                             stop_loss, stop_plus, maeipga , jangosuryang, 
-#                             server_hoga_time_str,
-#                             current_price, 
-#                             maesuHoga1_amount, maesuHoga2_amount 
-#                         )
-
-
-#         order_num = current_jango.get('매도주문번호', '')
-
-#         if( isSell == True ):
-#             low_price = current_price * 0.9
-#             low_price = kw_util.getHogaPrice(low_price, 0, jongmok_jang_type)
-#             result = self.sendOrder("sell_"  + jongmok_code, kw_util.sendOrderScreenNo, objKiwoom.account_list[0], kw_util.dict_order["매도정정"], 
-#                                 jongmok_code, sell_amount, low_price , kw_util.dict_order["지정가"], order_num)
-
-#             print("S {} 잔고수량: {}, 매도타입: {}, 매도 주문번호:{},  {}".format(
-#                 jongmok_name, jangosuryang, maedo_type, order_num, result),  sep= "")
-#             pass
 
 
     # 체결데이터를 받은 시점을 알려준다.
@@ -1138,224 +738,13 @@ class KiwoomOpenApiPlus(QObject):
             pass
 
 
-#     def makeChegyeolInfoFile(self):
-#         # print(util.whoami())
-#         with open(CHEGYEOL_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
-#             f.write(json.dumps(self.chegyeolInfo, ensure_ascii= False, indent= 2, sort_keys = True ))
-#         pass
-
-#     # 서버에서 얻을 수 없는 추가 정보 저장
-#     # 첫 잔고 정보 요청시 호출됨 
-#     # 매수, 매도후 체결 정보로 잔고 정보 올때 호출됨 
-#     def makeEtcJangoInfo(self, jongmok_code): 
-#         if( jongmok_code not in self.jangoInfo):
-#             return
-
-#         current_jango = self.jangoInfo[jongmok_code]
-
-#         # 분할매수없는 경우 저장된 데이터 파일로부터 읽어오고 파일로부터도 없으면 default 값 입력 
-#         if( '분할매수이력' not in current_jango ):
-#             current_jango['분할매수이력'] = ['29991212091234:2:1']
-#             if( jongmok_code in self.jangoInfoFromFile):
-#                 current_jango['분할매수이력'] = self.jangoInfoFromFile[jongmok_code].get('분할매수이력', [])
-
-#         # 분할매도없는 경우 저장된 데이터 파일로부터 읽어옴
-#         if( '분할매도이력' not in current_jango ):
-#             current_jango['분할매도이력'] = []
-#             if( jongmok_code in self.jangoInfoFromFile):
-#                 current_jango['분할매도이력'] = self.jangoInfoFromFile[jongmok_code].get('분할매도이력', [])
-
-#         # 주문번호없는 경우 저장된 데티어 파일로부터 읽어옴 
-#         if( '주문번호' not in current_jango ):
-#             current_jango['주문번호'] = []
-#             if( jongmok_code in self.jangoInfoFromFile):
-#                 current_jango['주문번호'] = self.jangoInfoFromFile[jongmok_code].get('주문번호', [])
-
-#         # 총 매수 갯수 게산 
-#         bunhal_maesu_list = current_jango['분할매수이력']
-#         maesu_count = len(bunhal_maesu_list)
-
-#         # 손절/익절가 퍼센티지 계산 
-#         stop_loss_percent = user_setting.STOP_LOSS_PER_MAESU_COUNT[maesu_count -1]
-#         stop_plus_percent = user_setting.STOP_PLUS_PER_MAESU_COUNT[maesu_count -1]
-
-#         maeip_price = current_jango['매입가']
-
-#         # 기본 손절가 측정 
-#         gibon_stoploss = round( maeip_price *  (1 + (stop_loss_percent/ 100) ) , 2 )
-
-#         print("종목이름:{}, 기본손절:{}".format(self.getMasterCodeName(jongmok_code), gibon_stoploss))
- 
-#         ###############################################################################################
-#         current_jango['손절가'] =  gibon_stoploss
-#         current_jango['이익실현가'] = round( maeip_price * (1 + (stop_plus_percent/100) ) , 2)
-
-#         self.jangoInfo[jongmok_code].update(current_jango)
-#         pass
-
-#     @Slot()
-#     def makeJangoInfoFile(self):
-#         print(util.whoami())
-
-#         # 기타 정보 업데이트
-#         for jongmok_code in self.jangoInfo.keys():
-#             self.makeEtcJangoInfo(jongmok_code)
-
-#         temp = copy.deepcopy(self.jangoInfo)
-#         # 불필요 필드 제거 
-#         for jongmok_code, contents in temp.items():
-#             for key in self.jango_remove_keys:
-#                 if( key in contents):
-#                     del contents[key]
-
-#         with open(JANGO_INFO_FILE_PATH, 'w', encoding = 'utf8' ) as f:
-#             f.write(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys = True ))
-#         pass
-
-#         # self.makeInterestedStocksFile()
-
-#     @Slot()
-#     def makeInterestedStocksFile(self):
-#         print(util.whoami())
-
-#         temp = copy.deepcopy(self.conditionOccurList)
-#         # 불필요 필드 제거 
-#         # condition list 
-#         for item in temp:
-#             for key in self.jango_remove_keys:
-#                 if( key in item):
-#                     del item[key]
-
-#         with open(INTERESTED_STOCKS_FILE_PATH, 'w', encoding = 'utf8' ) as f:
-#             f.write(json.dumps(temp, ensure_ascii= False, indent= 2, sort_keys = True ))
-#         pass
-
-#     def makeChegyeolInfo(self, jongmok_code, fidList):
-#         fids = fidList.split(";")
-#         printData = "" 
-#         info = [] 
-
-#         nFid = kw_util.name_fid['매도매수구분']
-#         result = self.getChejanData(nFid).strip()
-#         maedo_maesu_gubun = '매도' if result == '1' else '매수'
-#         # 첫 매수시는 잔고 정보가 없을 수 있으므로 
-#         current_jango = self.jangoInfo.get(jongmok_code, {})
-#         bunhal_maesu_list = current_jango.get('분할매수이력', [])
-#         bunhal_maedo_list = current_jango.get('분할매도이력', [])
-
-
-#         #################################################################################################
-#         # 사용자 정의 컬럼 수익과 수익율 필드 채움 
-#         if( maedo_maesu_gubun == '매도'): 
-#             # 체결가를 통해 수익율 필드 업데이트 
-#             current_price = int(self.getChejanData(kw_util.name_fid['체결가']).strip())
-#             current_maedo_amount = int(self.getChejanData(kw_util.name_fid['주문수량']).strip())
-
-#             self.calculateSuik(jongmok_code, current_price, current_maedo_amount)
-
-#             # 매도시 체결정보는 수익율 필드가 존재 
-#             profit = current_jango.get('수익', '0')
-#             profit_percent = current_jango.get('수익율', '0' )
-#             maesu_count = len(bunhal_maesu_list)
-#             maedo_type = current_jango.get('매도중', '')
-#             if( maedo_type == ''):
-#                 maedo_type = '(수동직접매도수행)'
-#             info.append('{0:>10}'.format(profit_percent))
-#             info.append('{0:>10}'.format(profit))
-#             info.append(' 매수횟수: {0:>1} '.format(maesu_count))
-#             info.append(' {0} '.format(maedo_type))
-
-
-#         elif( maedo_maesu_gubun == '매수') :  
-#             # 매수시 체결정보는 수익율 / 수익 필드가  
-#             info.append('{0:>10}'.format('0'))
-#             info.append('{0:>10}'.format('0'))
-#             # 체결시는 매수 횟수 정보가 업데이트 되지 않았기 때문에 +1 해줌  
-#             # 첫매수에 대한 처리도 함
-#             maesu_count = len(bunhal_maesu_list)
-#             info.append(' 매수횟수: {0:>1} '.format(maesu_count + 1))
-#             info.append(' {0} '.format('(매수매수매수매수)'))
-
-#         pass
-
-#         #################################################################################################
-#         # kiwoom api 체결 정보 필드 
-#         for col_name in kw_util.dict_jusik["체결정보"]:
-#             nFid = None
-#             result = ""
-#             if( col_name not in kw_util.name_fid ):
-#                 continue
-
-#             nFid = kw_util.name_fid[col_name]
-
-#             if( str(nFid) in fids):
-#                 result = self.getChejanData(nFid).strip()
-#                 if( col_name == '종목코드'):
-#                     result = result[1:] 
-#                 if( col_name == '체결가' ):
-#                     result = '{0:>10}'.format(result)
-#                 if( col_name == '주문구분'):
-#                     result = '{0:<10}'.format(result)
-                
-#                 if( col_name == '체결량' or col_name == '미체결수량'):
-#                     result = '{0:>7}'.format(result)
-
-#                 info.append(' {} '.format(result))
-#                 printData += col_name + ": " + result + ", " 
-    
-#         current_date = self.currentTime.date().strftime('%y%m%d')
-
-#         if( current_date not in self.chegyeolInfo) :
-#             self.chegyeolInfo[current_date] = [] 
-
-#         #################################################################################################
-#         # 매도시 매수 이력 정보 필드 
-#         if( maedo_maesu_gubun == '매도'): 
-#             info.append(' | '.join(current_jango['분할매수이력']))
-#             pass
-
-#         self.chegyeolInfo[current_date].append('|'.join(info))
-
-#         # 한번에 체결되지 않는 경우 empty string 리턴되므로 처리해줘야 함 
-#         if( user_setting.SLACK_BOT_ENABLED == True 
-#             and info[6].strip() != "" and info[7].strip() != "" ):
-#             post_message = 'error occur'
-
-#             if( maedo_maesu_gubun == "매수" ):
-#                 # info int 변환 오류  발생으로 로그 남김 
-#                 try: 
-#                     post_message = "*{}* `{},\t 단가:{},\t 수량:{},\t 총금액: {}`".format( 
-#                         maedo_maesu_gubun, 
-#                         info[9],
-#                         info[6],
-#                         info[7],
-#                         int(info[6]) * int(info[7])
-#                     )
-#                 except ValueError as e:
-#                     print("ERROR {} {}".format(e, info) )
-#                 pass
-#             else:
-#                 post_message = "*{}* `{},\t 수익률: {},\t 수익금: {},\t 단가:{},\t 수량:{}`".format(
-#                     maedo_maesu_gubun,
-#                     info[9],
-#                     info[0],
-#                     info[1],
-#                     info[6],
-#                     info[7]
-#                 ) 
-
-#             slacker_helper.post_message(post_message)
-
-#         util.save_log(printData, "*체결정보", folder= "log")
-#         pass
-
-
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
     def _OnReceiveConditionVer(self, ret, msg):
         print('{} ret: {}, msg: {}'.format(common_util.whoami(), ret, msg))
         if ret == 1:
-            self.sigGetConditionCplt.emit()
+            # self.sigGetConditionCplt.emit()
+            pass
 
     # 조건검색 조회응답으로 종목리스트를 구분자(“”)로 붙어서 받는 시점.
     # LPCTSTR sScrNo : 종목코드
@@ -1422,120 +811,6 @@ class KiwoomOpenApiPlus(QObject):
             
             # 조건 반복 발생으로인한 overhead 를 줄이기 위함
             self.timerRealInfoRefresh.start()
-
-
-#     def addConditionOccurList(self, jongmok_code):
-#         #발생시간, 종목코드,  종목명
-#         jongmok_name = self.getMasterCodeName(jongmok_code)
-#         ret_vals = []
-
-#         # 중복 제거 
-#         for item_dict in self.conditionOccurList:
-#             if( jongmok_code == item_dict['종목코드'] ):
-#                 ret_vals.append(True)
-            
-#         if( ret_vals.count(True) ):
-#             pass
-#         else:
-#             stock_state = self.GetMasterStockState( jongmok_code )
-#             stock_state = stock_state.split("|")[0]
-#             # 증거금 정보 추출 
-#             stock_state = stock_state.replace("증거금", "")
-#             stock_state = int(stock_state.replace("%", ""))
-#             self.conditionOccurList.append( 
-#                 {'종목명': jongmok_name, '종목코드': jongmok_code, '증거금률': '{}'.format(stock_state)  } )
-#             self.sigConditionOccur.emit()
-#         pass
-    
-#     @Slot(str)
-#     def removeConditionOccurList(self, jongmok_code):
-#         for item_dict in self.conditionOccurList:
-#             if( item_dict['종목코드'] == jongmok_code ):
-#                 self.conditionOccurList.remove(item_dict)
-#                 break
-#         pass
-
-#     def getConditionOccurList(self):
-#         if( len(self.conditionOccurList ) ):
-#             return self.conditionOccurList[0]
-#         else:
-#             return None
-#         pass
-    
-#     def getCodeListConditionOccurList(self):
-#         items = []
-#         for item_dict in self.conditionOccurList:
-#             items.append(item_dict['종목코드'])
-#         return items
-
-#     # 실시간 체결처리하기 위함
-#     def setRealData(self, real_data_type, item_dict, result_list):
-#         # 실시간 데이터 대입 
-#         for index, col_name in enumerate(kw_util.dict_jusik[real_data_type]) :
-#             item_dict[col_name] = result_list[index]
-
-#     # 다음 codition list 를 감시 하기 위해 종목 섞기 
-#     def shuffleConditionOccurList(self):
-#         jongmok_info_dict = self.getConditionOccurList()
-
-#         if( jongmok_info_dict != None ):
-#             jongmok_code = jongmok_info_dict['종목코드']
-#             self.removeConditionOccurList(jongmok_code)
-#             self.conditionOccurList.append(jongmok_info_dict)
-
-#      # 실시간  주식 정보 요청 요청리스트 갱신  
-#      # WARNING: 실시간 요청도 TR 처럼 초당 횟수 제한이 있으므로 잘 사용해야함 
-#     @Slot()
-#     def refreshRealRequest(self):
-#         # 버그로 모두 지우고 새로 등록하게 함 
-#         # print(util.whoami() )
-#         self.setRealRemove("ALL", "ALL")
-#         codeList  = []
-
-#         # 현재 보유 종목실시간 정보 요청 추가
-#         for code in self.jangoInfo.keys():
-#             if( code not in codeList):
-#                 codeList.append(code)
-
-#         # 조건 검색식으로 걸린종목  실시간 정보 요청 추가
-#         condition_list = self.getCodeListConditionOccurList()
-#         for code in condition_list: 
-#             if( code not in codeList):
-#                 codeList.append(code)
-
-#         codeList.sort()
-#         # print( 'refresh {}'.format( codeList ))
-#         # 실시간 정보 요청 
-#         if( len(codeList) ):
-#             # 주식 시세의 경우 장 종료 시점에 나옴 
-#             # tmp = self.setRealReg(kw_util.sendRealRegSiseSrcNo, ';'.join(codeList), kw_util.type_fidset['주식시세'], "0")
-#             tmp = self.setRealReg(kw_util.sendRealRegHogaScrNo, ';'.join(codeList), kw_util.type_fidset['주식호가잔량'], "0")
-#             if( tmp < 0 ):
-#                 print("주식호가잔량: " + kw_util.parseErrorCode(tmp) )
-
-#             tmp = self.setRealReg(kw_util.sendRealRegChegyeolScrNo, ';'.join(codeList), kw_util.type_fidset['주식체결'], "0")
-#             if( tmp < 0 ):
-#                 print("주식체결: " + kw_util.parseErrorCode(tmp) )
-
-#             # 주식종목정보 신청시 주식 당일 거래원 정보 올라옴 
-#             # 주식종목정보 실시간의 경우 올라오는 시간이  비주기적임 
-#             tmp = self.setRealReg(kw_util.sendRealRegSiseSrcNo, ';'.join(codeList), kw_util.type_fidset['주식종목정보'], "0")
-#             if( tmp < 0 ):
-#                 print("주식종목정보 : " + kw_util.parseErrorCode(tmp) )
-
-#             # 주식 거래원 지원 안됨 
-#             # tmp = self.setRealReg(kw_util.sendRealRegTradeSrcSrcNo, ';'.join(codeList), kw_util.type_fidset['주식거래원'], "0")
-#             # if( tmp < 0 ):
-#             #     print("주식종목정보 : " + kw_util.parseErrorCode(tmp) )
-
-#             tmp = self.setRealReg(kw_util.sendRealRegUpjongScrNo, '001;101', kw_util.type_fidset['업종지수'], "0")
-#             if( tmp < 0 ):
-#                 print("업종지수: " + kw_util.parseErrorCode(tmp) )
-
-#             # TODO: 장시작시간 인자 오류 수정해야함 장시작시간은 알아서 호출됨 
-#             # tmp = self.setRealReg(kw_util.sendRealRegTradeStartScrNo, '', kw_util.type_fidset['장시작시간'], "0")
-#             # if( tmp < 0 ):
-#             #     print("장시작시간: " + kw_util.parseErrorCode(tmp) )
 
     # method 
     # 수동 로그인설정인 경우 로그인창을 출력.
@@ -1842,35 +1117,38 @@ if __name__ == "__main__":
     kw_obj.tryConnect()
     common_util.process_qt_events(kw_obj.isConnected,  60)
 
-    # rqname = '주식기본정보요청'
-    # trcode = 'opt10001'
-    # screen_no = '0001'  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
 
-    # inputs = {'종목코드': '005930'}
+    for index in range(1, 10):
+        ########################################################################
+        rqname = '주식기본정보요청'
+        trcode = 'opt10001'
+        screen_no = '000{}'.format(index)  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
 
-    # kw_obj.add_transaction(rqname, trcode, screen_no, inputs )
-    # common_util.process_qt_events(kw_obj.is_transaction_result_avaliable(rqname), 10)
+        inputs = {'종목코드': '005930'}
 
+        kw_obj.add_transaction(rqname, trcode, inputs, screen_no)
 
-    # print( kw_obj.get_transaction_result(rqname) )
+        common_util.process_qt_events(kw_obj.is_transaction_result_avaliable(rqname), 10)
 
-    # ############################################################################################################
-    # import datetime
+        print( kw_obj.get_transaction_result(rqname) )
 
-    # rqname = '주식일봉차트조회요청'
-    # trcode = 'opt10081'
-    # screen_no = '0002'  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
+    ########################################################################
+    # kw_obj.getConditionLoad()
 
-    # current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+    # # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
+    # # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
+    # result = kw_obj.getConditionNameList()
+    # searchPattern = r'(?P<index>[^\/:*?"<>|;]+)\^(?P<name>[^\/:*?"<>|;]+);'
+    # fileSearchObj = re.compile(searchPattern, re.IGNORECASE)
+    # findList = fileSearchObj.findall(result)
+    
+    # tempDict = dict(findList)
+    # print(tempDict)
 
-    # inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
-
-    # kw_obj.add_transaction(rqname, trcode, screen_no, inputs )
-    # common_util.process_qt_events(kw_obj.is_transaction_result_avaliable(rqname), 10)
-
-    # print( kw_obj.get_transaction_result(rqname) )
-
-    kw_obj.getConditionLoad()
-
+    # condition_name_screenNo_dict = {}
+    # for number, condition in tempDict.items():
+    #     # condition_name_screenNo_dict[condition] = [kw_util.sendConditionScreenNo + '{}'.format(int (number)), number]
+    #     pass
+        
     sys.exit(myApp.exec_())
     pass

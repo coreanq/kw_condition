@@ -25,6 +25,6 @@ def __getattr__(name):
             import importlib
 
             module = importlib.import_module(module_name)
-            print( module_name, module)
+            # print( module_name, module)
             return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
