@@ -8,6 +8,7 @@ authors = ["Charles <coreanq@gmail.com>"]
 python = ">=3.9,<3.11"
 PySide2 = "^5.15.2"
 matplotlib = "^3.5.2"
+mplfinance = "^0.12.9-beta.1"
 
 [tool.poetry.dev-dependencies]
 ipykernel = "^6.15.1"

@@ -618,24 +618,24 @@ class KiwoomOpenApiPlus(QObject):
             # 복수 데이터 처리 
             for i in range(repeat_cnt): 
 
-                row_info = {}
+                row_values = []
                 for item_name in kw_util.tr_column_info[trCode]:
                     result = self.getCommData(trCode, rQName, i, item_name)
-                    row_info[item_name] = result.strip()
+                    row_values.append( result.strip() )
 
                 if(rQName not in  self.result_tr_list):
-                    self.result_tr_list[rQName] = []
-                self.result_tr_list[rQName].append( row_info )
+                    self.result_tr_list[rQName] = {}
+                self.result_tr_list[rQName]['{}'.format( i ) ] = row_values
 
                 # print( '{}: {}'.format(item_name, result ) )
             pass
         else:
             #단일 데이터 처리 
-            row_info = {}
+            row_values = []
             for item_name in kw_util.tr_column_info[trCode]:
                 result = self.getCommData(trCode, rQName, 0, item_name)
-                row_info[item_name] = result.strip()
-            self.result_tr_list[rQName] = row_info
+                row_values.append(result.strip() )
+            self.result_tr_list[rQName] = row_values
             # print( '{}: {}'.format(item_name, result ) )
             pass
 
@@ -1357,7 +1357,7 @@ class KiwoomOpenApiPlus(QObject):
         if ret == 1:
             self.sigGetConditionCplt.emit()
 
-    # 조건검색 조회응답으로 종목리스트를 구분자(“;”)로 붙어서 받는 시점.
+    # 조건검색 조회응답으로 종목리스트를 구분자(“”)로 붙어서 받는 시점.
     # LPCTSTR sScrNo : 종목코드
     # LPCTSTR strCodeList : 종목리스트(“;”로 구분)
     # LPCTSTR strConditionName : 조건명
