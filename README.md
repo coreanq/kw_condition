@@ -5,6 +5,7 @@
 ## 개발 환경  
  - Windows 10 
  - [Python 3.9.13 32bit]
+ - [PySide2 5.15.2.1]
  - [키움증권 Open API+](https://www1.kiwoom.com/nkw.templateFrameSet.do?m=m1408000000)  
  - 파이썬 패키지 관리툴 poetry 로 패키지 자동 설치 ([가이드](https://blog.gyus.me/2020/introduce-poetry/))
  
