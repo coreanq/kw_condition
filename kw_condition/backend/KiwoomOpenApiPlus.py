@@ -45,6 +45,13 @@ class KiwoomOpenApiPlus(QObject):
 
         self.create_state()
         self.create_connection()
+
+        self.screen_numbers = {}
+        self.screen_numbers['free'] = []
+        self.screen_numbers['occupy'] = []
+        self.screen_numbers['free'] = ['{0:0>4}'.format( number_str ) for number_str in range ( 9100, 9210, 10) ]
+        pass
+
         # self.currentTime = datetime.datetime.now()
 
 #         self.marginInfo = {}
@@ -125,6 +132,15 @@ class KiwoomOpenApiPlus(QObject):
         pass
 
 
+    def get_screen_number(self) -> str:
+        return self.screen_numbers['free'].pop()
+
+    def release_screen_number(self, number : str) -> None:
+        if( number in self.screen_numbers['occupy'] ):
+            self.screen_numbers['occupy'].remove( number )
+            self.screen_numbers['free'].insert(0, number )
+        pass
+
     def request_transaction(self) -> None:
         ''' 
         rqname 의 경우 unique 하여야 하며, 
@@ -145,19 +161,23 @@ class KiwoomOpenApiPlus(QObject):
             # print(key, value)
             self.setInputValue(key, value)
 
-        ret = self.commRqData(request['rqname'], request['trcode'], 0, request['screen_no'] )
+        ret = self.commRqData(request['rqname'], request['trcode'], request['prev_next'], request['screen_no'] )
         if( ret != 0 ):
             print( 'commRqData Err: {} {}'.format( common_util.whoami(), request )  )
         pass
 
-    def add_transaction(self, rqname: str, trcode: str, inputs: dict, screen_no: str = '9999') -> None:
+    def add_transaction(self, rqname: str, trcode: str, inputs: dict, screen_no: str = 'empty', prev_next = 0) -> None:
         ''' 
         rqname 의 경우 unique 하여야 하며, 
         get_transaction_result 사용시 rqname 을 통해서 한다. 
         get_transaction_result 한 후 결과 값을 버퍼에서 지우도록 한다. 
         '''
 
-        self.request_tr_list.append( { 'rqname' : rqname, 'trcode' : trcode, 'screen_no' : screen_no, 'inputs': inputs } )
+        if( screen_no == 'empty'):
+            screen_no = self.get_screen_number()
+            pass
+
+        self.request_tr_list.append( { 'rqname' : rqname, 'trcode' : trcode, 'screen_no' : screen_no, 'prev_next' : prev_next, 'inputs': inputs } )
 
         # print('{} {}'.format( common_util.whoami(), self.request_tr_list ) )
         self.sigRequestTR.emit()
@@ -451,6 +471,9 @@ class KiwoomOpenApiPlus(QObject):
                             prevNext, dataLength, errorCode, message,
                             splmMsg):
         print('{} sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext {}'.format(common_util.whoami(), scrNo, rQName, trCode, recordName, prevNext ))
+
+
+        self.release_screen_number(scrNo);
 
         # 단일 데이터인지 복수 데이터 인지 확인 
         # 단일 데이터인 경우 리턴값이 0 임 
@@ -1169,9 +1192,25 @@ if __name__ == "__main__":
     #     print( kw_obj.get_transaction_result(rqname) )
 
     ########################################################################
-    kw_obj.load_condition_names()
-    common_util.process_qt_events(kw_obj.has_condition_names, 5)
-    print( kw_obj.get_condition_names() )
+    import datetime
+
+    rqname = '주식일봉차트조회요청'
+    trcode = 'opt10081'
+
+    current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+
+    inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+
+    kw_obj.add_transaction(rqname, trcode, inputs)
+
+    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+
+    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+    daily_dict = kw_obj.get_transaction_result(rqname)
+
+    # kw_obj.load_condition_names()
+    # common_util.process_qt_events(kw_obj.has_condition_names, 5)
+    # print( kw_obj.get_condition_names() )
         
     sys.exit(myApp.exec_())
     pass
