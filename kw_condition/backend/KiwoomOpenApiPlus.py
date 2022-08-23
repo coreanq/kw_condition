@@ -70,7 +70,7 @@ class KiwoomOpenApiPlus(QObject):
         self.ocx.connect( SIGNAL("OnEventConnect(int)"), self._OnEventConnect )
         self.ocx.connect( SIGNAL("OnReceiveMsg(const QString&,, const QString&, const QString&, const QString&)"), self._OnReceiveMsg )
         self.ocx.connect( SIGNAL("OnReceiveTrData(const QString&, const QString&, const QString&, const QString&, const QString&, int, const QString&, const QString&, const QString&)" ), self._OnReceiveTrData )
-        # self.ocx.connect( SIGNAL("OnReceiveRealData(const QString&, const QString&, const QString&)"), self._OnReceiveRealData )
+        self.ocx.connect( SIGNAL("OnReceiveRealData(const QString&, const QString&, const QString&)"), self._OnReceiveRealData )
 
         self.ocx.connect( SIGNAL( "OnReceiveChejanData(const QString&, int, const QString&)"), self._OnReceiveChejanData )
         self.ocx.connect( SIGNAL( "OnReceiveConditionVer(int, const QString&)" ), self._OnReceiveConditionVer )
@@ -521,87 +521,85 @@ class KiwoomOpenApiPlus(QObject):
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmok_code, realType, realData):
+        print('{} jongmok_code: {}, {}, realType: {}'.format(common_util.whoami(), jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
 
-        if( self.realInfoEnabled == True):
-            print('{} jongmok_code: {}, {}, realType: {}'.format(common_util.whoami(), jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
+        # # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
+        # if( realType == "주식호가잔량"):
+        #     # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
+        #     #     .format(jongmok_code, realType, realData))
 
-        # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
-        if( realType == "주식호가잔량"):
-            # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
-            #     .format(jongmok_code, realType, realData))
+        #     self.makeRealDataInfo(jongmok_code, '실시간-{}'.format(realType) ) 
 
-            self.makeRealDataInfo(jongmok_code, '실시간-{}'.format(realType) ) 
+        # elif( realType == "주식체결"):
+        #     # WARNING: 거래량이 많아서 주식 체결 데이터가 너무 많아 지는 경우 주의 
+        #     # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
+        #     #     .format(jongmok_code, realType, realData))
+        #     self.makeRealDataInfo(jongmok_code, '실시간-{}'.format(realType) ) 
+        #     pass
 
-        elif( realType == "주식체결"):
-            # WARNING: 거래량이 많아서 주식 체결 데이터가 너무 많아 지는 경우 주의 
-            # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
-            #     .format(jongmok_code, realType, realData))
-            self.makeRealDataInfo(jongmok_code, '실시간-{}'.format(realType) ) 
-            pass
+        # elif( realType == "업종지수" ):
+        #     # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
+        #     #     .format(jongmok_code, realType, realData))
+        #     result = '' 
+        #     key_name = ''
+        #     if( jongmok_code == '001'):
+        #         key_name = '코스피'
+        #     elif( jongmok_code == '101'):
+        #         key_name = '코스닥'
+        #     upjong = self.upjongInfo[key_name]
 
-        elif( realType == "업종지수" ):
-            # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
-            #     .format(jongmok_code, realType, realData))
-            result = '' 
-            key_name = ''
-            if( jongmok_code == '001'):
-                key_name = '코스피'
-            elif( jongmok_code == '101'):
-                key_name = '코스닥'
-            upjong = self.upjongInfo[key_name]
+        #     for col_name in kw_util.dict_jusik['실시간-{}'.format(realType)]:
+        #         result = self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ) 
+        #         upjong[col_name] = result.strip()
 
-            for col_name in kw_util.dict_jusik['실시간-{}'.format(realType)]:
-                result = self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ) 
-                upjong[col_name] = result.strip()
+        #     if( '분봉' in upjong ):
+        #         # 분봉 정보는 소수점이 없고 실시간 정보는 소수점 둘째자리 표시되는 문자열임
+        #         current_price_str = str(round(float(upjong['현재가']) * 100, 2) )
+        #         current_chegyeol_time_str = upjong['체결시간']
+        #         # 장마감후 '체결시간' 이 장마감 문자열로 옴
+        #         if( current_chegyeol_time_str != '장마감'):
+        #             current_chegyeol_time = datetime.datetime.strptime(current_chegyeol_time_str, "%H%M%S").time().replace(second=0)
+        #         else:
+        #             current_chegyeol_time = self.currentTime.time()
 
-            if( '분봉' in upjong ):
-                # 분봉 정보는 소수점이 없고 실시간 정보는 소수점 둘째자리 표시되는 문자열임
-                current_price_str = str(round(float(upjong['현재가']) * 100, 2) )
-                current_chegyeol_time_str = upjong['체결시간']
-                # 장마감후 '체결시간' 이 장마감 문자열로 옴
-                if( current_chegyeol_time_str != '장마감'):
-                    current_chegyeol_time = datetime.datetime.strptime(current_chegyeol_time_str, "%H%M%S").time().replace(second=0)
-                else:
-                    current_chegyeol_time = self.currentTime.time()
+        #         last_chegyeol_time_str = upjong['분봉'][0].split(':')[1]
+        #         last_chegyeol_time = datetime.datetime.strptime(last_chegyeol_time_str, "%Y%m%d%H%M%S")
 
-                last_chegyeol_time_str = upjong['분봉'][0].split(':')[1]
-                last_chegyeol_time = datetime.datetime.strptime(last_chegyeol_time_str, "%Y%m%d%H%M%S")
+        #         time_span = datetime.timedelta(minutes= 3)
 
-                time_span = datetime.timedelta(minutes= 3)
-
-                if( current_chegyeol_time >= (last_chegyeol_time + time_span).time().replace(second=0) ):
-                    upjong['분봉'].insert(0, '{}:{}'.format(current_price_str, '19990101{}'.format( current_chegyeol_time_str) ) )
-                    upjong['분봉'] = upjong['분봉'][0:40]
-                    # print(self.upjongInfo[key_name])
+        #         if( current_chegyeol_time >= (last_chegyeol_time + time_span).time().replace(second=0) ):
+        #             upjong['분봉'].insert(0, '{}:{}'.format(current_price_str, '19990101{}'.format( current_chegyeol_time_str) ) )
+        #             upjong['분봉'] = upjong['분봉'][0:40]
+        #             # print(self.upjongInfo[key_name])
         
-        elif( realType == '장시작시간'):
-            # TODO: 장시작 30분전부터 실시간 정보가 올라오는데 이를 토대로 가변적으로 장시작시간을 가늠할수 있도록 기능 추가 필요 
-            # 장운영구분(0:장시작전, 2:장종료전, 3:장시작, 4,8:장종료, 9:장마감)
-            # 동시호가 시간에 매수 주문 
-            result = self.getCommRealData(realType, kw_util.name_fid['장운영구분'] ) 
-            if( result == '2'):
-                self.sigTerminating.emit()
-            elif( result == '4' ): # 장종료 후 5분뒤에 프로그램 종료 하게 함  
-                QTimer.singleShot(300000, self.sigStockComplete)
+        # elif( realType == '장시작시간'):
+        #     # TODO: 장시작 30분전부터 실시간 정보가 올라오는데 이를 토대로 가변적으로 장시작시간을 가늠할수 있도록 기능 추가 필요 
+        #     # 장운영구분(0:장시작전, 2:장종료전, 3:장시작, 4,8:장종료, 9:장마감)
+        #     # 동시호가 시간에 매수 주문 
+        #     result = self.getCommRealData(realType, kw_util.name_fid['장운영구분'] ) 
+        #     if( result == '2'):
+        #         self.sigTerminating.emit()
+        #     elif( result == '4' ): # 장종료 후 5분뒤에 프로그램 종료 하게 함  
+        #         QTimer.singleShot(300000, self.sigStockComplete)
 
-            print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
-                .format(jongmok_code, realType, realData))
-            pass
-        elif( realType == "주식당일거래원"): 
-            jongmok_name = self.getMasterCodeName(jongmok_code)
-            line_str = [] 
-            for col_name in kw_util.dict_jusik['실시간-{}'.format(realType)]:
-                result = self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ) 
-                line_str.append( '{}'.format( result ) )
+        #     print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
+        #         .format(jongmok_code, realType, realData))
+        #     pass
+        # elif( realType == "주식당일거래원"): 
+        #     jongmok_name = self.getMasterCodeName(jongmok_code)
+        #     line_str = [] 
+        #     for col_name in kw_util.dict_jusik['실시간-{}'.format(realType)]:
+        #         result = self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ) 
+        #         line_str.append( '{}'.format( result ) )
 
-            pass
+        #     pass
 
-        elif( realType == '주식우선호가' or realType == '업종등락' or realType =='주식예상체결' ):
-            pass
+        # elif( realType == '주식우선호가' or realType == '업종등락' or realType =='주식예상체결' ):
+        #     pass
 
-        else:
-            # 주식시세는 장종료 후에 나옴 
-            pass
+        # else:
+        #     # 주식시세는 장종료 후에 나옴 
+        #     pass
 
 
     # 체결데이터를 받은 시점을 알려준다.
@@ -1109,7 +1107,7 @@ class KiwoomOpenApiPlus(QObject):
     # 없는 코드 일경우 empty 를 리턴함
     @Slot(str, result=str)
     def getMasterCodeName(self, strCode):
-        return self.ocx.dynamicCall("GetMasterCodeName(QString)", strCode)
+        return self.ocx.dynamicCall("GetMasterCodeName(const QString&)", strCode)
 
     # 입력한 종목코드에 해당하는 종목 상장주식수를 전달합니다.
     # 로그인 한 후에 사용할 수 있는 함수입니다.
@@ -1210,39 +1208,31 @@ if __name__ == "__main__":
     # print( daily_list )
 
 
-    # 연속 조회 
-    rqname = '주식일봉차트조회요청'
-    trcode = 'opt10081'
+    # # 연속 조회 
+    # rqname = '주식일봉차트조회요청'
+    # trcode = 'opt10081'
 
-    current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+    # current_time_str = datetime.datetime.now().strftime('%Y%m%d')
 
-    inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+    # inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
 
-    kw_obj.add_transaction(rqname, trcode, inputs, prev_next= 2)
+    # kw_obj.add_transaction(rqname, trcode, inputs, prev_next= 2)
 
-    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+    # common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
 
-    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
-    daily_list.extend( kw_obj.get_transaction_result(rqname) )
-    # print( daily_list )
+    # # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+    # daily_list.extend( kw_obj.get_transaction_result(rqname) )
+    # # print( daily_list )
 
 
-    # 처음부터 재조회 
-    rqname = '주식일봉차트조회요청'
-    trcode = 'opt10081'
+    print( kw_obj.getMasterCodeName('005930') )
 
-    current_time_str = datetime.datetime.now().strftime('%Y%m%d')
-
-    inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
-
-    kw_obj.add_transaction(rqname, trcode, inputs)
-
-    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
-
-    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
-    daily_list = kw_obj.get_transaction_result(rqname)
-    # print( daily_list )
-
+    # 코스피 , 코스닥 종목 코드 리스트 얻기 
+    result = kw_obj.getCodeListByMarket('0')
+    kw_obj.kospiCodeList = tuple(result.split(';'))
+    result = kw_obj.getCodeListByMarket('10')
+    kw_obj.kosdaqCodeList = tuple(result.split(';'))
+    # 조건 검색 TR
 
     # kw_obj.load_condition_names()
     # common_util.process_qt_events(kw_obj.has_condition_names, 5)
