@@ -194,7 +194,7 @@ class KiwoomOpenApiPlus(QObject):
             return self.result_tr_list.pop(rqname)
         else:
             print(" transation result null")
-            return {}
+            return [] 
 
     def load_condition_names(self):
         self.getConditionLoad()
@@ -489,8 +489,8 @@ class KiwoomOpenApiPlus(QObject):
                     row_values.append( result.strip() )
 
                 if(rQName not in  self.result_tr_list):
-                    self.result_tr_list[rQName] = {}
-                self.result_tr_list[rQName]['{}'.format( i ) ] = row_values
+                    self.result_tr_list[rQName] = []
+                self.result_tr_list[rQName].append( row_values )
 
                 # print( '{}: {}'.format(item_name, result ) )
             pass
@@ -1206,7 +1206,43 @@ if __name__ == "__main__":
     common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
 
     # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
-    daily_dict = kw_obj.get_transaction_result(rqname)
+    daily_list = kw_obj.get_transaction_result(rqname)
+    # print( daily_list )
+
+
+    # 연속 조회 
+    rqname = '주식일봉차트조회요청'
+    trcode = 'opt10081'
+
+    current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+
+    inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+
+    kw_obj.add_transaction(rqname, trcode, inputs, prev_next= 2)
+
+    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+
+    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+    daily_list.extend( kw_obj.get_transaction_result(rqname) )
+    # print( daily_list )
+
+
+    # 처음부터 재조회 
+    rqname = '주식일봉차트조회요청'
+    trcode = 'opt10081'
+
+    current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+
+    inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+
+    kw_obj.add_transaction(rqname, trcode, inputs)
+
+    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+
+    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+    daily_list = kw_obj.get_transaction_result(rqname)
+    # print( daily_list )
+
 
     # kw_obj.load_condition_names()
     # common_util.process_qt_events(kw_obj.has_condition_names, 5)

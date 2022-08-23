@@ -3,9 +3,8 @@
  - [키움증권 조건검색 유튜브 가이드](https://www.youtube.com/watch?v=THCpQya4bXE&t=189s&ab_channel=%EC%B0%BD%EC%9B%90%EA%B0%9C%EB%AF%B8TV)
 
 ## 개발 환경  
- - Windows 10 
- - [Python 3.9.13 32bit]
- - [PySide2 5.15.2.1]
+ - Python 3.9.13 32bit
+ - PySide2 5.15 >=
  - [키움증권 Open API+](https://www1.kiwoom.com/nkw.templateFrameSet.do?m=m1408000000)  
  - 파이썬 패키지 관리툴 poetry 로 패키지 자동 설치 ([가이드](https://blog.gyus.me/2020/introduce-poetry/))
  
@@ -25,7 +24,8 @@
 
 ## 사용 방법
 
-### 0. python 실행 경로 확인 
+
+ ### 0. python 실행 경로 확인 
     - python 가상 환경을 사용 중이라면 가상 환경의 path 가 맞는지 확인한다. 
 
 
@@ -78,9 +78,9 @@ kw_obj.tryConnect()
 common_util.process_qt_events(kw_obj.isConnected, 60)
 ```
 
-    * 16:51:24.400966 tryConnect 
-    * 16:51:36.109315 _OnEventConnect 0
-    * 16:51:36.122145 connected_entered 
+    * 09:29:53.702437 tryConnect 
+    * 09:30:08.252379 _OnEventConnect 0
+    * 09:30:08.265327 connected_entered 
     account count: 1, keyboard_boan: 1, firewall: 2
     
 
@@ -106,7 +106,7 @@ kw_obj.isConnected()
 ```python
 rqname = '주식기본정보요청'
 trcode = 'opt10001'
-screen_no = '0001'  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
+screen_no = '0001'  # 화면번호, 0000 과 9000 이상을 제외한 4자리 숫자 임의로 지정, screen_no 생략한 경우 임의로 화면 번호 지정 
 
 inputs = {'종목코드': '005930'}
 
@@ -119,9 +119,9 @@ print( kw_obj.get_transaction_result(rqname) )
 
 ```
 
-    * 16:51:36.305282 request_transaction  {'rqname': '주식기본정보요청', 'trcode': 'opt10001', 'screen_no': '0001', 'inputs': {'종목코드': '005930'}}
-    * 16:51:36.375981 _OnReceiveTrData  sScrNo: 0001, rQName: 주식기본정보요청, trCode: opt10001, recordName: , prevNext 0
-    ['005930', '+78500', '-42300', '60400']
+    * 09:30:08.426311 request_transaction  {'rqname': '주식기본정보요청', 'trcode': 'opt10001', 'screen_no': '0001', 'prev_next': 0, 'inputs': {'종목코드': '005930'}}
+    * 09:30:08.486465 _OnReceiveTrData  sScrNo: 0001, rQName: 주식기본정보요청, trCode: opt10001, recordName: , prevNext 0
+    ['005930', '+78000', '-42000', '60000']
     
 
 ### 4. TR(주식일봉차트조회요청) - Multi Data  
@@ -132,27 +132,60 @@ import datetime
 
 rqname = '주식일봉차트조회요청'
 trcode = 'opt10081'
-screen_no = '0002'  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
 
 current_time_str = datetime.datetime.now().strftime('%Y%m%d')
 
 inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
 
-kw_obj.add_transaction(rqname, trcode, inputs, screen_no)
+kw_obj.add_transaction(rqname, trcode, inputs)
 
 common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
 
 # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
-daily_dict = kw_obj.get_transaction_result(rqname)
-#print(daily_dict)
+
+daily_list = kw_obj.get_transaction_result(rqname)
+print( len(daily_list) )
+print( daily_list[-5: ] )
+```
+
+    * 09:33:02.147463 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9140', 'prev_next': 0, 'inputs': {'종목코드': '005930', '기준일자': '20220823', '수정주가구분': '1'}}
+    * 09:33:03.953166 _OnReceiveTrData  sScrNo: 9140, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
+    600
+    [['', '20200326', '49000', '49300', '47700', '47800', '42185129'], ['', '20200325', '48950', '49600', '47150', '48650', '52735922'], ['', '20200324', '43850', '46950', '43050', '46950', '49801908'], ['', '20200323', '42600', '43550', '42400', '42500', '41701626'], ['', '20200320', '44150', '45500', '43550', '45400', '49730008']]
+    
+
+### 4. TR(주식일봉차트조회요청) - Multi Data - 연속 조회 
+
+
+```python
+import datetime
+
+rqname = '주식일봉차트조회요청'
+trcode = 'opt10081'
+
+current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+
+inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+
+# 연속 조회시 prev_next 값을 2로 입력한다.  
+kw_obj.add_transaction(rqname, trcode, inputs, prev_next=2 )
+
+common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+
+# result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+daily_list.extend( kw_obj.get_transaction_result(rqname) ) 
+print(len(daily_list))
+print( daily_list[ -5:] )
 
 
 
 
 ```
 
-    * 16:51:40.144498 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '0002', 'inputs': {'종목코드': '005930', '기준일자': '20220818', '수정주가구분': '1'}}
-    * 16:51:40.214232 _OnReceiveTrData  sScrNo: 0002, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
+    * 09:33:12.198836 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9130', 'prev_next': 2, 'inputs': {'종목코드': '005930', '기준일자': '20220823', '수정주가구분': '1'}}
+    * 09:33:12.667995 _OnReceiveTrData  sScrNo: 9130, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
+    1200
+    [['', '20171017', '54020', '55380', '54000', '54800', '10607800'], ['', '20171016', '53980', '54860', '53760', '53920', '9769950'], ['', '20171013', '54540', '54840', '53780', '54000', '12601650'], ['', '20171012', '54840', '55160', '54100', '54800', '13890700'], ['', '20171011', '53600', '54760', '53340', '54640', '13652150']]
     
 
 ### 4. TR(주식일봉차트조회요청) - Multi Data - 차트 출력  
@@ -161,7 +194,7 @@ daily_dict = kw_obj.get_transaction_result(rqname)
 ```python
 import mplfinance as mpf
 
-daily_df = pd.DataFrame.from_dict( daily_dict, orient='index', columns=["StockCode", "Date", "Open", "High", "Low", "Close", "Volume"])
+daily_df = pd.DataFrame( daily_list, columns=["StockCode", "Date", "Open", "High", "Low", "Close", "Volume"] ) 
 
 # 일봉 조회의 경우 종목 코드가 2번째 row 부터 공백이므로 삭제 
 daily_df.drop(columns='StockCode', axis =1, inplace = True)
@@ -187,11 +220,11 @@ mpf.plot(daily_df, type='candle', mav=(5, 10, 20, 60), volume= True)
 
                  Open   High    Low  Close    Volume
     Date                                            
-    2020-03-17  46900  49650  46700  47300  51218151
-    2020-03-18  47750  48350  45600  45600  40152623
-    2020-03-19  46400  46650  42300  42950  56925513
-    2020-03-20  44150  45500  43550  45400  49730008
-    2020-03-23  42600  43550  42400  42500  41701626
+    2017-10-11  53600  54760  53340  54640  13652150
+    2017-10-12  54840  55160  54100  54800  13890700
+    2017-10-13  54540  54840  53780  54000  12601650
+    2017-10-16  53980  54860  53760  53920   9769950
+    2017-10-17  54020  55380  54000  54800  10607800
     
 
     d:\1git\kw_condition\.venv\lib\site-packages\mplfinance\_arg_validators.py:36: UserWarning: 
@@ -213,11 +246,9 @@ mpf.plot(daily_df, type='candle', mav=(5, 10, 20, 60), volume= True)
 
 
     
-![png](readme-01.png)
+![png](output_17_2.png)
     
 
-
-### 4. TR(주식일봉차트조회요청) - Multi Data - 연속 조회 
 
 
 ```python
@@ -237,7 +268,7 @@ print( kw_obj.get_condition_names() )
 
 ```
 
-    * 16:51:41.868258 _OnReceiveConditionVer  ret: 1, msg: [OK] 사용자 조건검색식 읽기
+    * 09:30:18.419749 _OnReceiveConditionVer  ret: 1, msg: [OK] 사용자 조건검색식 읽기
     {'장초반': 1, '휴식': 2, '장후반': 0, '이탈3': 4, '이탈15': 6, '새조건명': 3, '새조건명2': 5}
     
 
@@ -252,15 +283,11 @@ common_util.process_qt_events(kw_obj.has_condition_names, 5)
 
 ```
 
-    * 16:51:50.798102 _OnReceiveTrCondition  scrNo: 0010, codeList: 002140;005930;063170;107600;, conditionName: 장초반 index: 1, next: 0
-    condition list add: 002140 
-    condition list add: 005930 
-    condition list add: 063170 
-    condition list add: 107600 
-    
-
 ### 6. 실시간 조건 검색 
 
 ### 7. 주문 처리
 
 
+```python
+
+```
