@@ -246,7 +246,7 @@ mpf.plot(daily_df, type='candle', mav=(5, 10, 20, 60), volume= True)
 
 
     
-![png](output_17_2.png)
+![png](readme-01.png)
     
 
 
