@@ -268,18 +268,18 @@ class KiwoomOpenApiPlus(QObject):
         self.account_list = (acc_num.split(';')[:-1])
 
         # 코스피 , 코스닥 종목 코드 리스트 얻기 
-        # result = self.getCodeListByMarket('0')
-        # self.kospiCodeList = tuple(result.split(';'))
-        # result = self.getCodeListByMarket('10')
-        # self.kosdaqCodeList = tuple(result.split(';'))
+        result = self.getCodeListByMarket('0')
+        self.kospiCodeList = tuple(result.split(';'))
+        result = self.getCodeListByMarket('10')
+        self.kosdaqCodeList = tuple(result.split(';'))
 
         # for code in self.kospiCodeList:
         #     print(self.getMasterCodeName(code) )
 
-        # names = [self.getMasterCodeName(code) for code in self.kospiCodeList]
-        # names.append( [self.getMasterCodeName(code) for code in self.kosdaqCodeList] )
+        names = [self.getMasterCodeName(code) for code in self.kospiCodeList]
+        names.extend( [self.getMasterCodeName(code) for code in self.kosdaqCodeList] )
 
-        # self.code_by_names = dict( zip( names, [*self.kospiCodeList, *self.kosdaqCodeList ] ) )
+        self.code_by_names = dict( zip( names, [*self.kospiCodeList, *self.kosdaqCodeList ] ) )
         pass
 
     @Slot()
@@ -910,11 +910,6 @@ class KiwoomOpenApiPlus(QObject):
     def setInputValue(self, id, value):
         self.ocx.dynamicCall("SetInputValue(QString, QString)", [id, value] )
 
-
-    @Slot(str, result=str)
-    def getCodeListByMarket(self, sMarket):
-        return self.ocx.dynamicCall("GetCodeListByMarket(QString)", [sMarket])
-
     @Slot(str, str, int, str, result=int)
     def commRqData(self, rQName :str, trCode :str , prevNext :int, screenNo: str) -> int:
         '''
@@ -1104,60 +1099,101 @@ class KiwoomOpenApiPlus(QObject):
 
 
     # pyside2 에서 인자가 있는 dynamicCall 사용시 인자를 list 형태로 제공해야함 
+    @Slot(str, result=str)
+    def getCodeListByMarket(self, sMarket):
+        '''
+        주식 시장별 종목코드 리스트를 ';'로 구분해서 전달합니다. 
+        시장구분값을 ""공백으로하면 전체시장 코드리스트를 전달합니다.
+        
+        로그인 한 후에 사용할 수 있는 함수입니다.
+        
+        [시장구분값]
+        0 : 코스피
+        10 : 코스닥
+        3 : ELW
+        8 : ETF
+        50 : KONEX
+        4 :  뮤추얼펀드
+        5 : 신주인수권
+        6 : 리츠
+        9 : 하이얼펀드
+        30 : K-OTC
+        '''
+        return self.ocx.dynamicCall("GetCodeListByMarket(QString)", [sMarket])
 
-    # 종목코드의 한글명을 반환한다.
-    # 로그인 한 후에 사용할 수 있는 함수입니다
-    # strCode – 종목코드
-    # 없는 코드 일경우 empty 를 리턴함
     @Slot(str, result=str)
     def getMasterCodeName(self, strCode: str) -> str:
+        '''
+        종목코드에 해당하는 종목명을 전달합니다.
+        로그인 한 후에 사용할 수 있는 함수입니다.
+
+        strCode – 종목코드
+        없는 코드 일경우 empty 를 리턴함
+        '''
         return self.ocx.dynamicCall("GetMasterCodeName(QString)", [strCode])
 
-    # 입력한 종목코드에 해당하는 종목 상장주식수를 전달합니다.
-    # 로그인 한 후에 사용할 수 있는 함수입니다.
-    # strCode – 종목코드
     @Slot(str, result=int)
     def getMasterListedStockCnt(self, strCode):
-        return self.ocx.dynamicCall("GetMasterListedStockCnt(QString)", [strCode])
+        '''
+        입력한 종목코드에 해당하는 종목 상장주식수를 전달합니다.
+        로그인 한 후에 사용할 수 있는 함수입니다.
+        strCode – 종목코드
 
-    # 입력한 종목코드에 해당하는 종목의 감리구분을 전달합니다.
-    # (정상, 투자주의, 투자경고, 투자위험, 투자주의환기종목)
-    # 로그인 한 후에 사용할 수 있는 함수입니다.
-    # strCode – 종목코드
+        상장주식수를 구하는 GetMasterListedStockCnt 기존 함수 사용시 특정 종목 데이터가 long형을 Overflow 하는 현상이 있습니다.
+        이에, 상장주식수를 구하는 기능을 신규 추가 합니다. 사용법은 아래와 같습니다.
+        
+        KOA_Functions("GetMasterListedStockCntEx", "종목코드(6자리)")
+
+        '''
+        return self.ocx.dynamicCall("KOA_Functions(QString, QString)", "GetMasterListedStockCntEx", [strCode])
+
     @Slot(str, result=str)
     def getMasterConstruction(self, strCode):
+        '''
+        입력한 종목코드에 해당하는 종목의 감리구분을 전달합니다.
+        (정상, 투자주의, 투자경고, 투자위험, 투자주의환기종목)
+        로그인 한 후에 사용할 수 있는 함수입니다.
+        strCode – 종목코드
+        '''
         return self.ocx.dynamicCall("GetMasterConstruction(QString)", [strCode])
 
-    # 입력한 종목의 상장일을 전달합니다.
-    # 로그인 한 후에 사용할 수 있는 함수입니다.
-    # 로그인 한 후에 사용할 수 있는 함수입니다.
-    # strCode – 종목코드
     @Slot(str, result=str)
     def getMasterListedStockDate(self, strCode):
+        '''
+        입력한 종목의 상장일을 전달합니다.
+        로그인 한 후에 사용할 수 있는 함수입니다.
+        strCode – 종목코드
+        '''
         return self.ocx.dynamicCall("GetMasterListedStockDate(QString)", [strCode])
 
-    # 설명 종목코드의 전일가를 반환한다. 
-    # 입력값: strCode – 종목코드 
-    # 반환값: 전일가  
     @Slot(str, result=str)
-    def GetMasterLastPrice(self, strCode):
+    def getMasterLastPrice(self, strCode):
+        '''
+        설명 종목코드의 전일가를 반환한다. 
+        입력값: strCode – 종목코드 
+        반환값: 전일가  
+        '''
         return self.ocx.dynamicCall("GetMasterLastPrice(QString)", [strCode])
 
-    # 설명   입력한 종목의 증거금 비율, 거래정지, 관리종목, 감리종목, 투자융의종목, 담보대출, 액면분할, 신용가능 여부를 전달합니다.
-    # 입력값: strCode – 종목코드 
-    # 반환값: 종목 상태 | 구분자   
     @Slot(str, result=str)
-    def GetMasterStockState(self, strCode):
+    def getMasterStockState(self, strCode):
+        '''
+        설명   입력한 종목의 증거금 비율, 거래정지, 관리종목, 감리종목, 투자융의종목, 담보대출, 액면분할, 신용가능 여부를 전달합니다.
+        입력값: strCode – 종목코드 
+        반환값: 종목 상태 | 구분자   
+        '''
         return self.ocx.dynamicCall("GetMasterStockState(QString)", [strCode])
 
-    # 종목코드의 한다.
-    # strCode – 종목코드
-    # 입력한 종목에 대한 대분류, 중분류, 업종구분값을 구분자로 연결한 문자열을 얻을수 있습니다.(여기서 구분자는 '|'와 ';'입니다.) 
-    # KOA_Functions("GetMasterStockInfo", 종목코드) 
-    # 시장구분0|코스닥|벤처기업;시장구분1|소형주;업종구분|제조|기계/장비
-    # 시장구분0|거래소;시장구분1|중형주;업종구분|서비스업;
     @Slot(str, result=str)
     def getMasterStockInfo(self, strCode):
+        '''
+        주식종목 시장구분, 종목분류등 정보제공 
+        strCode – 종목코드
+        입력한 종목에 대한 대분류, 중분류, 업종구분값을 구분자로 연결한 문자열을 얻을수 있습니다.(여기서 구분자는 '|'와 ';'입니다.) 
+        KOA_Functions("GetMasterStockInfo", 종목코드) 
+        시장구분0|코스닥|벤처기업;시장구분1|소형주;업종구분|제조|기계/장비
+        시장구분0|거래소;시장구분1|중형주;업종구분|서비스업;
+        '''
         stock_info = self.ocx.dynamicCall("KOA_Functions(QString, QString)", "GetMasterStockInfo", [strCode])
         # api return 버그로 추가 해줌 
         kospi_kosdaq = ''
@@ -1169,6 +1205,38 @@ class KiwoomOpenApiPlus(QObject):
             kospi_kosdaq = stock_info.split(';')[0].split('|')[1]
             yupjong = stock_info.split(';')[-1].split('|')[-1]
         return kospi_kosdaq + ':' + yupjong
+
+    @Slot()
+    def showAccountWindow(self):
+        '''
+        계좌비밀번호 입력창 출력
+        '''
+        return self.ocx.dynamicCall("KOA_Functions(QString, QString)", "ShowAccountWindow", [])
+
+    @Slot(str, result=str)
+    def getStockMarketKind(self, strCode):
+        '''
+        거래소 제도개선으로 주식 종목 중 정리매매/단기과열/투자위험/투자경고 종목을 매수주문하는 경우
+        경고 메세지 창이 출력되도록 기능이 추가 되었습니다.
+        (경고 창 출력 시 주문을 중지/전송 선택 가능합니다.)
+        주문 함수를 호출하기 전에 특정 종목이 투자유의종목인지 아래와 같은 방법으로 확인할 수 있습니다.
+
+        KOA_Functions("IsOrderWarningStock", "종목코드(6자리)")
+        리턴 값 - "0":해당없음, "2":정리매매, "3":단기과열, "4":투자위험, "5":투자경고 
+        '''
+        return self.ocx.dynamicCall("KOA_Functions(QString, QString)", "IsOrderWarningStock", [strCode])
+
+    @Slot(str, result=str)
+    def getStockMarketKind(self, strCode):
+        '''
+        종목코드 입력으로 해당 종목이 어느 시장에 포함되어 있는지 구하는 기능
+        서버와의 통신없이 메모리에 상주하는 값을 사용하므로 횟수제한 등은 없습니다. 사용법은 아래와 같습니다.
+        
+        KOA_Functions("GetStockMarketKind", "종목코드6자리");
+        리턴값은 문자형으로 아래와 같습니다.
+        "0":코스피, "10":코스닥, "3":ELW, "8":ETF, "4"/"14":뮤추얼펀드, "6"/"16":리츠, "9"/"19":하이일드펀드, "30":제3시장, "60":ETN
+        '''
+        return self.ocx.dynamicCall("KOA_Functions(QString, QString)", "GetStockMarketKind", [strCode])
 
 if __name__ == "__main__":
     from kw_condition.utils import common_util
@@ -1237,8 +1305,10 @@ if __name__ == "__main__":
     result = kw_obj.getCodeListByMarket('10')
     kw_obj.kosdaqCodeList = tuple(result.split(';'))
 
-    print( '1. code: {}'.format( kw_obj.GetMasterLastPrice('005930') )   )
-    print( '2. code: {}'.format( kw_obj.GetMasterStockState('005930') )   )
+    print( '1. code: {}'.format( kw_obj.getMasterLastPrice('005930') )   )
+    print( '2. code: {}'.format( kw_obj.getMasterStockState('005930') )   )
+
+    kw_obj.showAccountWindow()
 
 
     # kw_obj.load_condition_names()
