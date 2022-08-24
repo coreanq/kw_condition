@@ -1,4 +1,5 @@
 # -*-coding: utf-8 -
+from ast import Call
 import sys, os, platform, re
 from timeit import repeat
 from typing import Callable
@@ -28,6 +29,7 @@ class KiwoomOpenApiPlus(QObject):
     def __init__(self):
         super().__init__()
         self.ocx = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
+
         self.fsm = QStateMachine()
         assert platform.architecture()[0] == "32bit", "Control object should be created in 32bit environment"
 
@@ -215,9 +217,8 @@ class KiwoomOpenApiPlus(QObject):
             self.sendCondition('0010', condition_name, self.condition_names_dict[condition_name], 0)
 
     @Slot(str, str, int, int)
-
     def sendCondition(self, scrNo, conditionName, index, search):
-        self.ocx.dynamicCall("SendCondition(QString,QString, int, int)", scrNo, conditionName, index, search)
+        self.ocx.dynamicCall("SendCondition(QString,QString, int, int)", [scrNo, conditionName, index, search])
         pass
 
   
@@ -521,7 +522,8 @@ class KiwoomOpenApiPlus(QObject):
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmok_code, realType, realData):
-        print('{} jongmok_code: {}, {}, realType: {}'.format(common_util.whoami(), jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
+        # print('{} jongmok_code: {}, {}, realType: {}'.format(common_util.whoami(), jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
+        pass
 
         # # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
         # if( realType == "주식호가잔량"):
@@ -906,12 +908,12 @@ class KiwoomOpenApiPlus(QObject):
     # Tran 입력 값을 서버통신 전에 입력값일 저장한다.
     @Slot(str, str)
     def setInputValue(self, id, value):
-        self.ocx.dynamicCall("SetInputValue(QString, QString)", id, value)
+        self.ocx.dynamicCall("SetInputValue(QString, QString)", [id, value] )
 
 
     @Slot(str, result=str)
     def getCodeListByMarket(self, sMarket):
-        return self.ocx.dynamicCall("GetCodeListByMarket(QString)", sMarket)
+        return self.ocx.dynamicCall("GetCodeListByMarket(QString)", [sMarket])
 
     @Slot(str, str, int, str, result=int)
     def commRqData(self, rQName :str, trCode :str , prevNext :int, screenNo: str) -> int:
@@ -932,19 +934,19 @@ class KiwoomOpenApiPlus(QObject):
         -200 시세과부하
         -201 조회전문작성 에러
         '''
-        return self.ocx.dynamicCall("CommRqData(QString, QString, int, QString)", rQName, trCode, prevNext, screenNo)
+        return self.ocx.dynamicCall("CommRqData(QString, QString, int, QString)", [rQName, trCode, prevNext, screenNo])
 
     # 수신 받은 데이터의 반복 개수를 반환한다.
     @Slot(str, str, result=int)
     def getRepeatCnt(self, trCode, recordName):
-        return self.ocx.dynamicCall("GetRepeatCnt(QString, QString)", trCode, recordName)
+        return self.ocx.dynamicCall("GetRepeatCnt(QString, QString)", [trCode, recordName])
 
     @Slot(str, str, str, int, str, result=str)
     def commGetData(self, jongmok_code, realType, fieldName, index, innerFieldName):
         '''
         일부 TR에서 사용상 제약이 있음므로 이 함수 대신 GetCommData()함수를 사용하시기 바랍니다.
         '''
-        return self.ocx.dynamicCall("CommGetData(QString, QString, QString, int, QString)", jongmok_code, realType, fieldName, index, innerFieldName).strip()
+        return self.ocx.dynamicCall("CommGetData(QString, QString, QString, int, QString)", [jongmok_code, realType, fieldName, index, innerFieldName] ).strip()
 
     # strRealType – 실시간 구분
     # nFid – 실시간 아이템
@@ -952,7 +954,7 @@ class KiwoomOpenApiPlus(QObject):
     # 참고)실시간 현재가는 주식시세, 주식체결 등 다른 실시간타입(RealType)으로도 수신가능
     @Slot(str, int, result=str)
     def getCommRealData(self, realType, fid):
-        return self.ocx.dynamicCall("GetCommRealData(QString, int)", realType, fid).strip()
+        return self.ocx.dynamicCall("GetCommRealData(QString, int)", [realType, fid]).strip()
 
     # 주식 주문을 서버로 전송한다.
     # sRQName - 사용자 구분 요청 명
@@ -978,7 +980,7 @@ class KiwoomOpenApiPlus(QObject):
     # 체결잔고 데이터를 반환한다.
     @Slot(int, result=str)
     def getChejanData(self, fid):
-        return self.ocx.dynamicCall("GetChejanData(int)", fid)
+        return self.ocx.dynamicCall("GetChejanData(int)", [fid] )
 
     # 서버에 저장된 사용자 조건식을 가져온다.
     @Slot(result=int)
@@ -1000,13 +1002,13 @@ class KiwoomOpenApiPlus(QObject):
     # 1:실시간조회의 화면 개수의 최대는 10개
     @Slot(str, str, int, int)
     def sendCondition(self, scrNo, conditionName, index, search):
-        self.ocx.dynamicCall("SendCondition(QString,QString, int, int)", scrNo, conditionName, index, search)
+        self.ocx.dynamicCall("SendCondition(QString,QString, int, int)", [scrNo, conditionName, index, search] )
 
     # 실시간 조건검색을 중지합니다.
     # ※ 화면당 실시간 조건검색은 최대 10개로 제한되어 있어서 더 이상 실시간 조건검색을 원하지 않는 조건은 중지해야만 카운트 되지 않습니다.
     @Slot(str, str, int)
     def sendConditionStop(self, scrNo, conditionName, index):
-        self.ocx.dynamicCall("SendConditionStop(QString, QString, int)", scrNo, conditionName, index)
+        self.ocx.dynamicCall("SendConditionStop(QString, QString, int)", [scrNo, conditionName, index] )
 
     # 복수종목조회 Tran을 서버로 송신한다.
     # OP_ERR_RQ_STRING – 요청 전문 작성 실패
@@ -1016,7 +1018,7 @@ class KiwoomOpenApiPlus(QObject):
     # nTypeFlag – 0:주식관심종목정보, 3:선물옵션관심종목정보
     @Slot(str, bool, int, int, str, str)
     def commKwRqData(self, arrCode, next, codeCount, typeFlag, rQName, screenNo):
-    	self.ocx.dynamicCall("CommKwRqData(QString, QBoolean, int, int, QString, QString)", arrCode, next, codeCount, typeFlag, rQName, screenNo)
+    	self.ocx.dynamicCall("CommKwRqData(QString, QBoolean, int, int, QString, QString)", [ arrCode, next, codeCount, typeFlag, rQName, screenNo ] )
 
     # 실시간 등록을 한다.
     # strScreenNo : 화면번호
@@ -1031,7 +1033,7 @@ class KiwoomOpenApiPlus(QObject):
     # ※ 종목, FID는 각각 한번에 실시간 등록 할 수 있는 개수는 100개 입니다.
     @Slot(str, str, str, str,  result=int)
     def setRealReg(self, screenNo, codeList, fidList, optType):
-        return self.ocx.dynamicCall("SetRealReg(QString, QString, QString, QString)", screenNo, codeList, fidList, optType)
+        return self.ocx.dynamicCall("SetRealReg(QString, QString, QString, QString)", [ screenNo, codeList, fidList, optType ])
 
     # 종목별 실시간 해제
     # strScrNo : 화면번호
@@ -1050,7 +1052,7 @@ class KiwoomOpenApiPlus(QObject):
     # SetRealReg 로 등록한 함수만 해제 가능 
     @Slot(str, str)
     def setRealRemove(self, scrNo, delCode):
-        self.ocx.dynamicCall("SetRealRemove(QString, QString)", scrNo, delCode)
+        self.ocx.dynamicCall("SetRealRemove(QString, QString)", [ scrNo, delCode ] )
         
         
     # 수신 데이터를 반환한다. 
@@ -1062,8 +1064,7 @@ class KiwoomOpenApiPlus(QObject):
     
     @Slot(str, str, int, str, result=str)
     def getCommData(self, trCode, recordName, index, itemName):
-        return self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", 
-        trCode, recordName, index, itemName)
+        return self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", [trCode, recordName, index, itemName] )
 
     # 차트 조회한 데이터 전부를 배열로 받아온다.
     # LPCTSTR strTrCode : 조회한TR코드
@@ -1072,7 +1073,7 @@ class KiwoomOpenApiPlus(QObject):
     # 예로 OPT10080을 살펴보면 OUTPUT의 멀티데이터의 항목처럼 현재가, 거래량, 체결시간등 순으로 항목의 위치가 0부터 1씩증가합니다.
     @Slot(str, str, result=str)
     def getCommDataEx(self, trCode, recordName):
-        return self.ocx.dynamicCall("GetCommDataEx(QString, QString)", trCode, recordName)
+        return self.ocx.dynamicCall("GetCommDataEx(QString, QString)", [trCode, recordName] )
 
     # 리얼 시세를 끊는다.
     # 화면 내 모든 리얼데이터 요청을 제거한다.
@@ -1080,7 +1081,7 @@ class KiwoomOpenApiPlus(QObject):
     # Ex) openApi.DisconnectRealData(“0101”);
     @Slot(str)
     def disconnectRealData(self, scnNo):
-        self.ocx.dynamicCall("DisconnectRealData(QString)", scnNo)
+        self.ocx.dynamicCall("DisconnectRealData(QString)", [scnNo] )
 
 
     def tryConnect(self):
@@ -1101,20 +1102,23 @@ class KiwoomOpenApiPlus(QObject):
             return True
 
 
+
+    # pyside2 에서 인자가 있는 dynamicCall 사용시 인자를 list 형태로 제공해야함 
+
     # 종목코드의 한글명을 반환한다.
     # 로그인 한 후에 사용할 수 있는 함수입니다
     # strCode – 종목코드
     # 없는 코드 일경우 empty 를 리턴함
     @Slot(str, result=str)
-    def getMasterCodeName(self, strCode):
-        return self.ocx.dynamicCall("GetMasterCodeName(const QString&)", strCode)
+    def getMasterCodeName(self, strCode: str) -> str:
+        return self.ocx.dynamicCall("GetMasterCodeName(QString)", [strCode])
 
     # 입력한 종목코드에 해당하는 종목 상장주식수를 전달합니다.
     # 로그인 한 후에 사용할 수 있는 함수입니다.
     # strCode – 종목코드
     @Slot(str, result=int)
     def getMasterListedStockCnt(self, strCode):
-        return self.ocx.dynamicCall("GetMasterListedStockCnt(QString)", strCode)
+        return self.ocx.dynamicCall("GetMasterListedStockCnt(QString)", [strCode])
 
     # 입력한 종목코드에 해당하는 종목의 감리구분을 전달합니다.
     # (정상, 투자주의, 투자경고, 투자위험, 투자주의환기종목)
@@ -1122,7 +1126,7 @@ class KiwoomOpenApiPlus(QObject):
     # strCode – 종목코드
     @Slot(str, result=str)
     def getMasterConstruction(self, strCode):
-        return self.ocx.dynamicCall("GetMasterConstruction(QString)", strCode)
+        return self.ocx.dynamicCall("GetMasterConstruction(QString)", [strCode])
 
     # 입력한 종목의 상장일을 전달합니다.
     # 로그인 한 후에 사용할 수 있는 함수입니다.
@@ -1130,21 +1134,21 @@ class KiwoomOpenApiPlus(QObject):
     # strCode – 종목코드
     @Slot(str, result=str)
     def getMasterListedStockDate(self, strCode):
-        return self.ocx.dynamicCall("GetMasterListedStockDate(QString)", strCode)
+        return self.ocx.dynamicCall("GetMasterListedStockDate(QString)", [strCode])
 
     # 설명 종목코드의 전일가를 반환한다. 
     # 입력값: strCode – 종목코드 
     # 반환값: 전일가  
     @Slot(str, result=str)
     def GetMasterLastPrice(self, strCode):
-        return self.ocx.dynamicCall("GetMasterLastPrice(QString)", strCode)
+        return self.ocx.dynamicCall("GetMasterLastPrice(QString)", [strCode])
 
     # 설명   입력한 종목의 증거금 비율, 거래정지, 관리종목, 감리종목, 투자융의종목, 담보대출, 액면분할, 신용가능 여부를 전달합니다.
     # 입력값: strCode – 종목코드 
     # 반환값: 종목 상태 | 구분자   
     @Slot(str, result=str)
     def GetMasterStockState(self, strCode):
-        return self.ocx.dynamicCall("GetMasterStockState(QString)", strCode)
+        return self.ocx.dynamicCall("GetMasterStockState(QString)", [strCode])
 
     # 종목코드의 한다.
     # strCode – 종목코드
@@ -1154,7 +1158,7 @@ class KiwoomOpenApiPlus(QObject):
     # 시장구분0|거래소;시장구분1|중형주;업종구분|서비스업;
     @Slot(str, result=str)
     def getMasterStockInfo(self, strCode):
-        stock_info = self.ocx.dynamicCall("KOA_Functions(QString, QString)", "GetMasterStockInfo", strCode)
+        stock_info = self.ocx.dynamicCall("KOA_Functions(QString, QString)", "GetMasterStockInfo", [strCode])
         # api return 버그로 추가 해줌 
         kospi_kosdaq = ''
         yupjong = ''
@@ -1232,7 +1236,10 @@ if __name__ == "__main__":
     kw_obj.kospiCodeList = tuple(result.split(';'))
     result = kw_obj.getCodeListByMarket('10')
     kw_obj.kosdaqCodeList = tuple(result.split(';'))
-    # 조건 검색 TR
+
+    print( '1. code: {}'.format( kw_obj.GetMasterLastPrice('005930') )   )
+    print( '2. code: {}'.format( kw_obj.GetMasterStockState('005930') )   )
+
 
     # kw_obj.load_condition_names()
     # common_util.process_qt_events(kw_obj.has_condition_names, 5)

@@ -6,7 +6,7 @@
  - Python 3.9.13 32bit
  - PySide2 5.15 >=
  - [키움증권 Open API+](https://www1.kiwoom.com/nkw.templateFrameSet.do?m=m1408000000)  
- - 파이썬 패키지 관리툴 poetry 로 패키지 자동 설치 ([가이드](https://blog.gyus.me/2020/introduce-poetry/))
+ - 파이썬 패키지 관리툴 poetry 로 패키지 자동 설치 ([가이드](https://python-poetry.org/docs/basic-usage/))
  
 
  ## 개발 문서  
@@ -19,6 +19,14 @@
 
 ## 종속 패키지 설치 
 ~~~~
+# poetry virtualenv 환경 프로젝트 내부 설정 
+> poetry config virtualenvs.in-project true
+> poetry config virtualenvs.path "./.venv"
+
+# poetry 32bit python 사용토록 설정
+> poetry env use /path/to/32bit_python/python.exe
+
+# 종속 패키지 설치 
 > poetry install
 ~~~~
 
