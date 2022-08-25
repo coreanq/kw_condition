@@ -6,7 +6,7 @@
  - Python 3.9.13 32bit
  - PySide2 5.15 >=
  - [키움증권 Open API+](https://www1.kiwoom.com/nkw.templateFrameSet.do?m=m1408000000)  
- - 파이썬 패키지 관리툴 poetry 로 패키지 자동 설치 ([가이드](https://python-poetry.org/docs/basic-usage/))
+ - 파이썬 패키지 관리툴 poetry 로 패키지 자동 설치 ([가이드](https://blog.gyus.me/2020/introduce-poetry/))
  
 
  ## 개발 문서  
@@ -17,9 +17,14 @@
  - from https://github.com/elbakramer/koapy
 
 
-## 종속 패키지 설치 
+## 개발 환경 설정 
 ~~~~
-# poetry virtualenv 환경 프로젝트 내부 설정 
+# poetry 설치 (using pipx)
+> python -m pip install pipx
+> python -m pipx ensurepath
+> pipx install poetry
+
+# poetry virtualenv 환경, 프로젝트 내부 경로로 설정 
 > poetry config virtualenvs.in-project true
 > poetry config virtualenvs.path "./.venv"
 
@@ -49,9 +54,6 @@ import sys
 print(sys.executable)
 ```
 
-    d:\1git\kw_condition\.venv\Scripts\python.exe
-    
-
 ### 1. 객체 생성
 
 
@@ -72,9 +74,6 @@ else:
 kw_obj = KiwoomOpenApiPlus()
 ```
 
-    make instance
-    
-
 ### 2. 서버접속
 * 자동로그인이 설정되어 있는 경우 로그인이 자동으로 처리 되며, 그렇지 않은 경우 팝업 창에서 수동으로 아이디, 비밀번호 정보를 입력해야함 
 - TODO
@@ -86,9 +85,9 @@ kw_obj.tryConnect()
 common_util.process_qt_events(kw_obj.isConnected, 60)
 ```
 
-    * 09:29:53.702437 tryConnect 
-    * 09:30:08.252379 _OnEventConnect 0
-    * 09:30:08.265327 connected_entered 
+    * 13:07:02.367131 tryConnect 
+    * 13:07:44.314052 _OnEventConnect 0
+    * 13:07:44.325764 connected_entered 
     account count: 1, keyboard_boan: 1, firewall: 2
     
 
@@ -106,7 +105,23 @@ kw_obj.isConnected()
 
 
 
-### 4. TR (주식기본정보요청) - Single Data
+### 4. 코드 번호를 통해 종목 이름 확인 
+
+
+```python
+name = "삼성전자"
+code = kw_obj.code_by_names[name]
+code 
+```
+
+
+
+
+    '005930'
+
+
+
+### 5. TR (주식기본정보요청) - Single Data
 
 아래 처럼 직접 TR 요청에 필요한 입력값을 설정해 요청하고, 이후 들어오는 이벤트 또한 직접 처리해주는 방식으로 사용할 수 있다.
 
@@ -123,16 +138,22 @@ kw_obj.add_transaction(rqname, trcode, inputs, screen_no)
 common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
 
 # TR result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
-print( kw_obj.get_transaction_result(rqname) )
+kw_obj.get_transaction_result(rqname) 
 
 ```
 
-    * 09:30:08.426311 request_transaction  {'rqname': '주식기본정보요청', 'trcode': 'opt10001', 'screen_no': '0001', 'prev_next': 0, 'inputs': {'종목코드': '005930'}}
-    * 09:30:08.486465 _OnReceiveTrData  sScrNo: 0001, rQName: 주식기본정보요청, trCode: opt10001, recordName: , prevNext 0
-    ['005930', '+78000', '-42000', '60000']
+    * 13:08:19.461797 request_transaction  {'rqname': '주식기본정보요청', 'trcode': 'opt10001', 'screen_no': '0001', 'prev_next': 0, 'inputs': {'종목코드': '005930'}}
+    * 13:08:19.528296 _OnReceiveTrData  sScrNo: 0001, rQName: 주식기본정보요청, trCode: opt10001, recordName: , prevNext 0
     
 
-### 4. TR(주식일봉차트조회요청) - Multi Data  
+
+
+
+    ['005930', '+76700', '-41300', '59000']
+
+
+
+### 6. TR(주식일봉차트조회요청) - Multi Data  
 
 
 ```python
@@ -153,16 +174,26 @@ common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
 
 daily_list = kw_obj.get_transaction_result(rqname)
 print( len(daily_list) )
-print( daily_list[-5: ] )
+daily_list[-5: ] 
 ```
 
-    * 09:33:02.147463 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9140', 'prev_next': 0, 'inputs': {'종목코드': '005930', '기준일자': '20220823', '수정주가구분': '1'}}
-    * 09:33:03.953166 _OnReceiveTrData  sScrNo: 9140, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
+    * 13:08:31.164174 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9200', 'prev_next': 0, 'inputs': {'종목코드': '005930', '기준일자': '20220825', '수정주가구분': '1'}}
+    * 13:08:31.327347 _OnReceiveTrData  sScrNo: 9200, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
     600
-    [['', '20200326', '49000', '49300', '47700', '47800', '42185129'], ['', '20200325', '48950', '49600', '47150', '48650', '52735922'], ['', '20200324', '43850', '46950', '43050', '46950', '49801908'], ['', '20200323', '42600', '43550', '42400', '42500', '41701626'], ['', '20200320', '44150', '45500', '43550', '45400', '49730008']]
     
 
-### 4. TR(주식일봉차트조회요청) - Multi Data - 연속 조회 
+
+
+
+    [['', '20200330', '47050', '48350', '46550', '47850', '26797395'],
+     ['', '20200327', '49600', '49700', '46850', '48300', '39896178'],
+     ['', '20200326', '49000', '49300', '47700', '47800', '42185129'],
+     ['', '20200325', '48950', '49600', '47150', '48650', '52735922'],
+     ['', '20200324', '43850', '46950', '43050', '46950', '49801908']]
+
+
+
+### 6. TR(주식일봉차트조회요청) - Multi Data - 연속 조회 
 
 
 ```python
@@ -182,21 +213,31 @@ common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
 
 # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
 daily_list.extend( kw_obj.get_transaction_result(rqname) ) 
-print(len(daily_list))
-print( daily_list[ -5:] )
+print( len(daily_list) )
+daily_list[ -5:]
 
 
 
 
 ```
 
-    * 09:33:12.198836 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9130', 'prev_next': 2, 'inputs': {'종목코드': '005930', '기준일자': '20220823', '수정주가구분': '1'}}
-    * 09:33:12.667995 _OnReceiveTrData  sScrNo: 9130, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
-    1200
-    [['', '20171017', '54020', '55380', '54000', '54800', '10607800'], ['', '20171016', '53980', '54860', '53760', '53920', '9769950'], ['', '20171013', '54540', '54840', '53780', '54000', '12601650'], ['', '20171012', '54840', '55160', '54100', '54800', '13890700'], ['', '20171011', '53600', '54760', '53340', '54640', '13652150']]
+    * 13:09:07.443514 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9180', 'prev_next': 2, 'inputs': {'종목코드': '005930', '기준일자': '20220825', '수정주가구분': '1'}}
+    * 13:09:07.810523 _OnReceiveTrData  sScrNo: 9180, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
+    1800
     
 
-### 4. TR(주식일봉차트조회요청) - Multi Data - 차트 출력  
+
+
+
+    [['', '20150512', '26900', '27060', '26480', '26620', '10633200'],
+     ['', '20150511', '27200', '27200', '26720', '26720', '9640450'],
+     ['', '20150508', '27320', '27400', '26760', '26760', '9488100'],
+     ['', '20150507', '27240', '27500', '27080', '27400', '10257400'],
+     ['', '20150506', '27800', '27820', '27120', '27240', '13270500']]
+
+
+
+### 6. TR(주식일봉차트조회요청) - Multi Data - 차트 출력  
 
 
 ```python
@@ -228,11 +269,11 @@ mpf.plot(daily_df, type='candle', mav=(5, 10, 20, 60), volume= True)
 
                  Open   High    Low  Close    Volume
     Date                                            
-    2017-10-11  53600  54760  53340  54640  13652150
-    2017-10-12  54840  55160  54100  54800  13890700
-    2017-10-13  54540  54840  53780  54000  12601650
-    2017-10-16  53980  54860  53760  53920   9769950
-    2017-10-17  54020  55380  54000  54800  10607800
+    2015-05-06  27800  27820  27120  27240  13270500
+    2015-05-07  27240  27500  27080  27400  10257400
+    2015-05-08  27320  27400  26760  26760   9488100
+    2015-05-11  27200  27200  26720  26720   9640450
+    2015-05-12  26900  27060  26480  26620  10633200
     
 
     d:\1git\kw_condition\.venv\lib\site-packages\mplfinance\_arg_validators.py:36: UserWarning: 
@@ -263,7 +304,7 @@ mpf.plot(daily_df, type='candle', mav=(5, 10, 20, 60), volume= True)
 
 ```
 
-### 5. 조건 검색 (사용자 설정 조건 리스트 읽기 from HTS)
+### 7. 조건 검색 (사용자 설정 조건 리스트 읽기 from HTS)
 이후 예시의 정상동작을 위해서는 아래에서 사용되는 조건들과 같은 이름을 가지는 조건들이 미리 저장되어 있어야 한다.
 
 참고로 조건들을 편집하고 저장하는건 영웅문 HTS 내부에서만 가능하기 때문에 따로 HTS 를 열어 편집해주어야 한다.
@@ -276,11 +317,7 @@ print( kw_obj.get_condition_names() )
 
 ```
 
-    * 09:30:18.419749 _OnReceiveConditionVer  ret: 1, msg: [OK] 사용자 조건검색식 읽기
-    {'장초반': 1, '휴식': 2, '장후반': 0, '이탈3': 4, '이탈15': 6, '새조건명': 3, '새조건명2': 5}
-    
-
-### 5. 조건검색 (사용자 조건과 일치하는 종목 리턴)
+### 8. 조건검색 (사용자 조건과 일치하는 종목 리턴)
 
 
 ```python
@@ -291,9 +328,9 @@ common_util.process_qt_events(kw_obj.has_condition_names, 5)
 
 ```
 
-### 6. 실시간 조건 검색 
+### 8. 실시간 조건 검색 
 
-### 7. 주문 처리
+### 9. 주문 처리
 
 
 ```python
