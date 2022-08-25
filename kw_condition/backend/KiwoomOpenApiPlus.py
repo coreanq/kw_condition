@@ -51,7 +51,7 @@ class KiwoomOpenApiPlus(QObject):
         self.screen_numbers = {}
         self.screen_numbers['free'] = []
         self.screen_numbers['occupy'] = []
-        self.screen_numbers['free'] = ['{0:0>4}'.format( number_str ) for number_str in range ( 9100, 9210, 10) ]
+        self.screen_numbers['free'] = ['{0:0>4}'.format( number_str ) for number_str in range ( 9000, 9200) ]
         pass
 
         # self.currentTime = datetime.datetime.now()
@@ -135,6 +135,10 @@ class KiwoomOpenApiPlus(QObject):
 
 
     def get_screen_number(self) -> str:
+        number = self.screen_numbers['free'].pop()
+        self.screen_numbers['occupy'].insert(0, number)
+        return number
+
         return self.screen_numbers['free'].pop()
 
     def release_screen_number(self, number : str) -> None:
@@ -1281,34 +1285,22 @@ if __name__ == "__main__":
 
 
     # # 연속 조회 
-    # rqname = '주식일봉차트조회요청'
-    # trcode = 'opt10081'
+    rqname = '주식일봉차트조회요청'
+    trcode = 'opt10081'
 
-    # current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+    current_time_str = datetime.datetime.now().strftime('%Y%m%d')
 
-    # inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+    inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
 
-    # kw_obj.add_transaction(rqname, trcode, inputs, prev_next= 2)
+    kw_obj.add_transaction(rqname, trcode, inputs, prev_next= 2)
 
-    # common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
 
-    # # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
-    # daily_list.extend( kw_obj.get_transaction_result(rqname) )
-    # # print( daily_list )
+    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+    daily_list.extend( kw_obj.get_transaction_result(rqname) )
+    # print( daily_list )
 
-
-    print( kw_obj.getMasterCodeName('005930') )
-
-    # 코스피 , 코스닥 종목 코드 리스트 얻기 
-    result = kw_obj.getCodeListByMarket('0')
-    kw_obj.kospiCodeList = tuple(result.split(';'))
-    result = kw_obj.getCodeListByMarket('10')
-    kw_obj.kosdaqCodeList = tuple(result.split(';'))
-
-    print( '1. code: {}'.format( kw_obj.getMasterLastPrice('005930') )   )
-    print( '2. code: {}'.format( kw_obj.getMasterStockState('005930') )   )
-
-    kw_obj.showAccountWindow()
+    # kw_obj.showAccountWindow()
 
 
     # kw_obj.load_condition_names()
