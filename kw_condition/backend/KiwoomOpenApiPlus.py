@@ -195,12 +195,20 @@ class KiwoomOpenApiPlus(QObject):
         return check_transation
 
 
-    def get_transaction_result(self, rqname: str) -> dict:
+    def get_transaction_result(self, rqname: str) -> list:
         if( rqname in self.result_tr_list ):
-            return self.result_tr_list.pop(rqname)
+            return self.result_tr_list.pop(rqname)['data']
         else:
             print(" transation result null")
             return [] 
+
+    # 연속으로 데이터 요청할 것이 있는지 판단 
+    def has_transaction_additional_data(self, rqname: str) -> bool:
+        if( rqname in self.result_tr_list ):
+            prev_next = self.result_tr_list.pop(rqname)['prev_next']
+            return prev_next == 2
+        else:
+            return False 
 
     def load_condition_names(self):
         self.getConditionLoad()
@@ -472,13 +480,13 @@ class KiwoomOpenApiPlus(QObject):
         pass
 
     # Tran 수신시 이벤트
-    def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName,
-                            prevNext, dataLength, errorCode, message,
-                            splmMsg):
+    def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName, prevNext, 
+                            # not used
+                            dataLength, errorCode, message, splmMsg):
         print('{} sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext {}'.format(common_util.whoami(), scrNo, rQName, trCode, recordName, prevNext ))
 
 
-        self.release_screen_number(scrNo);
+        self.release_screen_number(scrNo)
 
         # 단일 데이터인지 복수 데이터 인지 확인 
         # 단일 데이터인 경우 리턴값이 0 임 
@@ -494,8 +502,12 @@ class KiwoomOpenApiPlus(QObject):
                     row_values.append( result.strip() )
 
                 if(rQName not in  self.result_tr_list):
-                    self.result_tr_list[rQName] = []
-                self.result_tr_list[rQName].append( row_values )
+                    self.result_tr_list[rQName] = {}
+                    self.result_tr_list[rQName]['prev_next'] = 0
+                    self.result_tr_list[rQName]['data'] = [] 
+
+                self.result_tr_list[rQName]['data'].append( row_values )
+                self.result_tr_list[rQName]['prev_next'] = prevNext
 
                 # print( '{}: {}'.format(item_name, result ) )
             pass
@@ -505,7 +517,10 @@ class KiwoomOpenApiPlus(QObject):
             for item_name in kw_util.tr_column_info[trCode]:
                 result = self.getCommData(trCode, rQName, 0, item_name)
                 row_values.append(result.strip() )
-            self.result_tr_list[rQName] = row_values
+
+            self.result_tr_list[rQName] = {} 
+            self.result_tr_list[rQName]['data'] = row_values
+            self.result_tr_list[rQName]['prev_next'] = prevNext
             # print( '{}: {}'.format(item_name, result ) )
             pass
 
@@ -1284,7 +1299,7 @@ if __name__ == "__main__":
     # print( daily_list )
 
 
-    # # 연속 조회 
+    # 연속 조회 
     rqname = '주식일봉차트조회요청'
     trcode = 'opt10081'
 
