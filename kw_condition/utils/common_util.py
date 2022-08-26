@@ -8,14 +8,14 @@ from PySide2.QtWidgets import QApplication
 from typing import Callable, Union
 
 def process_qt_events(check_func : Callable[ [], bool], timeout_in_secs: int):
-    loop_count = 0
+    start_time_stamp = time.time()
     while True:
-        loop_count = loop_count + 1
-        time.sleep(0.001)
+        time.sleep(0.01)
         QApplication.processEvents()
+        end_time_stamp = time.time()
         if( check_func() == True ):
             break
-        if( loop_count > timeout_in_secs * 1000 ) :
+        if( end_time_stamp - start_time_stamp > timeout_in_secs ) :
             print('time out!')
             break
 

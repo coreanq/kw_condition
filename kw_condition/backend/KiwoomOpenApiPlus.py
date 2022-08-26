@@ -206,7 +206,7 @@ class KiwoomOpenApiPlus(QObject):
     def has_transaction_additional_data(self, rqname: str) -> bool:
         if( rqname in self.result_tr_list ):
             prev_next = self.result_tr_list[rqname].get( 'prev_next', 0 )
-            return prev_next == '2'
+            return prev_next == 2
         else:
             return False 
 
@@ -226,7 +226,7 @@ class KiwoomOpenApiPlus(QObject):
             print('condition name {} not exist'.format( condition_name) )
             pass
         else:
-            self.sendCondition('0010', condition_name, self.condition_names_dict[condition_name], 0)
+            self.sendCondition(self.get_screen_number(), condition_name, self.condition_names_dict[condition_name], 0)
 
     @Slot(str, str, int, int)
     def sendCondition(self, scrNo, conditionName, index, search):
@@ -479,10 +479,30 @@ class KiwoomOpenApiPlus(QObject):
         print(printData)
         pass
 
-    # Tran 수신시 이벤트
+
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName, prevNext, 
                             # not used
                             dataLength, errorCode, message, splmMsg):
+        '''
+
+        [OnReceiveTrData() 이벤트]
+        
+        void OnReceiveTrData(
+        BSTR sScrNo,       // 화면번호
+        BSTR sRQName,      // 사용자 구분명
+        BSTR sTrCode,      // TR이름
+        BSTR sRecordName,  // 레코드 이름
+        BSTR sPrevNext,    // 연속조회 유무를 판단하는 값 0: 연속(추가조회)데이터 없음, 2:연속(추가조회) 데이터 있음
+        LONG nDataLength,  // 사용안함.
+        BSTR sErrorCode,   // 사용안함.
+        BSTR sMessage,     // 사용안함.
+        BSTR sSplmMsg     // 사용안함.
+        )
+        
+        요청했던 조회데이터를 수신했을때 발생됩니다.
+        수신된 데이터는 이 이벤트내부에서 GetCommData()함수를 이용해서 얻어올 수 있습니다.
+
+        '''
         print('{} sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext {}'.format(common_util.whoami(), scrNo, rQName, trCode, recordName, prevNext ))
 
 
@@ -507,7 +527,7 @@ class KiwoomOpenApiPlus(QObject):
                     self.result_tr_list[rQName]['data'] = [] 
 
                 self.result_tr_list[rQName]['data'].append( row_values )
-                self.result_tr_list[rQName]['prev_next'] = prevNext
+                self.result_tr_list[rQName]['prev_next'] = int(prevNext)
 
                 # print( '{}: {}'.format(item_name, result ) )
             pass
@@ -520,7 +540,7 @@ class KiwoomOpenApiPlus(QObject):
 
             self.result_tr_list[rQName] = {} 
             self.result_tr_list[rQName]['data'] = row_values
-            self.result_tr_list[rQName]['prev_next'] = prevNext
+            self.result_tr_list[rQName]['prev_next'] = int(prevNext)
             # print( '{}: {}'.format(item_name, result ) )
             pass
 
@@ -834,12 +854,14 @@ class KiwoomOpenApiPlus(QObject):
         print('{} scrNo: {}, codeList: {}, conditionName: {} index: {}, next: {}'.format(common_util.whoami(), scrNo, codeList, conditionName, index, next ))
         codes = codeList.split(';')[:-1]
         # 마지막 split 결과 None 이므로 삭제 
+        self.release_screen_number( scrNo )
+
+        self.result_tr_list['condition'] = {}
+        self.result_tr_list['condition']['data'] = codes
+        self.result_tr_list['condition']['prev_next'] = next
 
         for code in codes:
             print('condition list add: {} '.format(code) + self.getMasterCodeName(code))
-
-            # 주의: 여기에 실시간조건 refresh 를 넣지않는다 동작오류남
-            # self.refreshRealRequest()
 
 
     # 편입, 이탈 종목이 실시간으로 들어옵니다.
@@ -1319,65 +1341,76 @@ if __name__ == "__main__":
 
     ########################################################################
     # 전체종목 일봉 데이터 조회
+    # import datetime
+    # import pandas as pd
+    # import time
 
-    import datetime
-    import pandas as pd
-    import time
+    # current_time_str = datetime.datetime.now().strftime('%Y%m%d')
 
-    current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+    # for code in kw_obj.code_by_names.values():
+    #     trcode = 'opt10081'
+    #     stock_name = kw_obj.getMasterCodeName( code )
+    #     rqname = '{}: 주식일봉차트조회요청'.format( stock_name ) 
 
-    for code in kw_obj.code_by_names.values():
-        trcode = 'opt10081'
-        stock_name = kw_obj.getMasterCodeName( code )
-        rqname = '{}: 주식일봉차트조회요청'.format( stock_name ) 
+    #     inputs = {'종목코드': '{}'.format( code ), '기준일자' : current_time_str, "수정주가구분": '1'}
 
-        inputs = {'종목코드': '{}'.format( code ), '기준일자' : current_time_str, "수정주가구분": '1'}
+    #     daily_list = []
+    #     prev_next = 0
 
-        daily_list = []
-        prev_next = 0
-
-        while True:
-            kw_obj.add_transaction(rqname, trcode, inputs, prev_next = prev_next)
-            common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+    #     while True:
+    #         kw_obj.add_transaction(rqname, trcode, inputs, prev_next = prev_next)
+    #         common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
             
-            has_additional_data = kw_obj.has_transaction_additional_data(rqname)
+    #         has_additional_data = kw_obj.has_transaction_additional_data(rqname)
 
-            # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
-            daily_list.extend( kw_obj.get_transaction_result(rqname) )
+    #         # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+    #         daily_list.extend( kw_obj.get_transaction_result(rqname) )
 
-            if( has_additional_data == True ):
-                prev_next = 2
-            else:
+    #         if( has_additional_data == True ):
+    #             prev_next = 2
+    #         else:
 
-                daily_df = pd.DataFrame( daily_list, columns=["StockCode", "Date", "Open", "High", "Low", "Close", "Volume"] )     
+    #             daily_df = pd.DataFrame( daily_list, columns=["StockCode", "Date", "Open", "High", "Low", "Close", "Volume"] )     
 
-                # 일봉 조회의 경우 종목 코드가 2번째 row 부터 공백이므로 삭제 
-                daily_df.drop(columns='StockCode', axis =1, inplace = True)
+    #             # 일봉 조회의 경우 종목 코드가 2번째 row 부터 공백이므로 삭제 
+    #             daily_df.drop(columns='StockCode', axis =1, inplace = True)
 
-                # string date -> datetime 
-                daily_df['Date'] = pd.to_datetime( daily_df['Date'], format = '%Y%m%d') 
+    #             # string date -> datetime 
+    #             daily_df['Date'] = pd.to_datetime( daily_df['Date'], format = '%Y%m%d') 
 
-                # str to int
-                selected_cols = ["Open", "High", "Low", "Close", "Volume"]
-                daily_df[ selected_cols ] = daily_df[selected_cols].astype('int')
+    #             # str to int
+    #             selected_cols = ["Open", "High", "Low", "Close", "Volume"]
+    #             daily_df[ selected_cols ] = daily_df[selected_cols].astype('int')
 
-                daily_df = daily_df.set_index('Date')
+    #             daily_df = daily_df.set_index('Date')
 
-                daily_df = daily_df.sort_values(by= 'Date')
+    #             daily_df = daily_df.sort_values(by= 'Date')
 
-                print(daily_df.head(2))
+    #             print(daily_df.head(2))
 
-                # Excel 생성 
-                daily_df.to_excel('{}({}).xlsx'.format( stock_name, code ) )
-                time.sleep(10)
+    #             # Excel 생성 
+    #             daily_df.to_excel('{}({}).xlsx'.format( stock_name, code ) )
+    #             time.sleep(20)
 
-                break
+    #             break
 
 
     ########################################################################
-    # kw_obj.load_condition_names()
-    # common_util.process_qt_events(kw_obj.has_condition_names, 5)
-    # print( kw_obj.get_condition_names() )
-        
+    kw_obj.load_condition_names()
+    common_util.process_qt_events(kw_obj.has_condition_names, 5)
+    print( kw_obj.get_condition_names() )
+
+    condition_name = '장초반'
+    kw_obj.request_condition(condition_name)
+
+    def func() -> bool:
+        return False
+    common_util.process_qt_events(func, 5)
+    codes = kw_obj.get_transaction_result('condition')
+    print(codes)
+
+
+
+    print('done')
     sys.exit(myApp.exec_())
     pass
