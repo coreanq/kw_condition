@@ -54,6 +54,9 @@ import sys
 print(sys.executable)
 ```
 
+    d:\1git\kw_condition\.venv\Scripts\python.exe
+    
+
 ### 1. 객체 생성
 
 
@@ -74,6 +77,9 @@ else:
 kw_obj = KiwoomOpenApiPlus()
 ```
 
+    make instance
+    
+
 ### 2. 서버접속
 * 자동로그인이 설정되어 있는 경우 로그인이 자동으로 처리 되며, 그렇지 않은 경우 팝업 창에서 수동으로 아이디, 비밀번호 정보를 입력해야함 
 - TODO
@@ -85,9 +91,9 @@ kw_obj.tryConnect()
 common_util.process_qt_events(kw_obj.isConnected, 60)
 ```
 
-    * 13:07:02.367131 tryConnect 
-    * 13:07:44.314052 _OnEventConnect 0
-    * 13:07:44.325764 connected_entered 
+    * 10:28:03.288871 tryConnect 
+    * 10:28:10.759517 _OnEventConnect 0
+    * 10:28:10.767524 connected_entered 
     account count: 1, keyboard_boan: 1, firewall: 2
     
 
@@ -142,14 +148,13 @@ kw_obj.get_transaction_result(rqname)
 
 ```
 
-    * 13:08:19.461797 request_transaction  {'rqname': '주식기본정보요청', 'trcode': 'opt10001', 'screen_no': '0001', 'prev_next': 0, 'inputs': {'종목코드': '005930'}}
-    * 13:08:19.528296 _OnReceiveTrData  sScrNo: 0001, rQName: 주식기본정보요청, trCode: opt10001, recordName: , prevNext 0
+    * 10:28:17.061208 _OnReceiveTrData  sScrNo: 9199, rQName: 주식기본정보요청, trCode: opt10001, recordName: , prevNext 0
     
 
 
 
 
-    ['005930', '+76700', '-41300', '59000']
+    ['005930', '+77600', '-41800', '59700']
 
 
 
@@ -177,19 +182,18 @@ print( len(daily_list) )
 daily_list[-5: ] 
 ```
 
-    * 13:08:31.164174 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9200', 'prev_next': 0, 'inputs': {'종목코드': '005930', '기준일자': '20220825', '수정주가구분': '1'}}
-    * 13:08:31.327347 _OnReceiveTrData  sScrNo: 9200, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
+    * 10:28:19.923360 _OnReceiveTrData  sScrNo: 9198, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
     600
     
 
 
 
 
-    [['', '20200330', '47050', '48350', '46550', '47850', '26797395'],
+    [['', '20200331', '48000', '48500', '47150', '47750', '30654261'],
+     ['', '20200330', '47050', '48350', '46550', '47850', '26797395'],
      ['', '20200327', '49600', '49700', '46850', '48300', '39896178'],
      ['', '20200326', '49000', '49300', '47700', '47800', '42185129'],
-     ['', '20200325', '48950', '49600', '47150', '48650', '52735922'],
-     ['', '20200324', '43850', '46950', '43050', '46950', '49801908']]
+     ['', '20200325', '48950', '49600', '47150', '48650', '52735922']]
 
 
 
@@ -221,19 +225,18 @@ daily_list[ -5:]
 
 ```
 
-    * 13:09:07.443514 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9180', 'prev_next': 2, 'inputs': {'종목코드': '005930', '기준일자': '20220825', '수정주가구분': '1'}}
-    * 13:09:07.810523 _OnReceiveTrData  sScrNo: 9180, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
-    1800
+    * 10:28:22.925695 _OnReceiveTrData  sScrNo: 9197, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
+    1200
     
 
 
 
 
-    [['', '20150512', '26900', '27060', '26480', '26620', '10633200'],
-     ['', '20150511', '27200', '27200', '26720', '26720', '9640450'],
-     ['', '20150508', '27320', '27400', '26760', '26760', '9488100'],
-     ['', '20150507', '27240', '27500', '27080', '27400', '10257400'],
-     ['', '20150506', '27800', '27820', '27120', '27240', '13270500']]
+    [['', '20171020', '52800', '54100', '52800', '53840', '8027050'],
+     ['', '20171019', '54700', '54700', '52980', '52980', '12108700'],
+     ['', '20171018', '54820', '55240', '54040', '54760', '10110750'],
+     ['', '20171017', '54020', '55380', '54000', '54800', '10607800'],
+     ['', '20171016', '53980', '54860', '53760', '53920', '9769950']]
 
 
 
@@ -269,11 +272,11 @@ mpf.plot(daily_df, type='candle', mav=(5, 10, 20, 60), volume= True)
 
                  Open   High    Low  Close    Volume
     Date                                            
-    2015-05-06  27800  27820  27120  27240  13270500
-    2015-05-07  27240  27500  27080  27400  10257400
-    2015-05-08  27320  27400  26760  26760   9488100
-    2015-05-11  27200  27200  26720  26720   9640450
-    2015-05-12  26900  27060  26480  26620  10633200
+    2017-10-16  53980  54860  53760  53920   9769950
+    2017-10-17  54020  55380  54000  54800  10607800
+    2017-10-18  54820  55240  54040  54760  10110750
+    2017-10-19  54700  54700  52980  52980  12108700
+    2017-10-20  52800  54100  52800  53840   8027050
     
 
     d:\1git\kw_condition\.venv\lib\site-packages\mplfinance\_arg_validators.py:36: UserWarning: 
@@ -299,12 +302,68 @@ mpf.plot(daily_df, type='candle', mav=(5, 10, 20, 60), volume= True)
     
 
 
+### 7. 전종목 일봉 Excel 출력
+전체 종목의 일봉 데이터를 Excel 로 만든다 
+
+주의사항: 과도한 조회는 오류 팝업 발생 후 재접속 해야 하므로 주의!
+
 
 ```python
+import datetime
+import pandas as pd
+import time
 
+current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+
+for code in kw_obj.code_by_names.values():
+    trcode = 'opt10081'
+    stock_name = kw_obj.getMasterCodeName( code )
+    rqname = '{}: 주식일봉차트조회요청'.format( stock_name ) 
+
+    inputs = {'종목코드': '{}'.format( code ), '기준일자' : current_time_str, "수정주가구분": '1'}
+
+    daily_list = []
+    prev_next = 0
+
+    while True:
+        kw_obj.add_transaction(rqname, trcode, inputs, prev_next = prev_next)
+        common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+        
+        has_additional_data = kw_obj.has_transaction_additional_data(rqname)
+
+        # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+        daily_list.extend( kw_obj.get_transaction_result(rqname) )
+
+        if( has_additional_data == True ):
+            prev_next = 2
+        else:
+
+            daily_df = pd.DataFrame( daily_list, columns=["StockCode", "Date", "Open", "High", "Low", "Close", "Volume"] )     
+
+            # 일봉 조회의 경우 종목 코드가 2번째 row 부터 공백이므로 삭제 
+            daily_df.drop(columns='StockCode', axis =1, inplace = True)
+
+            # string date -> datetime 
+            daily_df['Date'] = pd.to_datetime( daily_df['Date'], format = '%Y%m%d') 
+
+            # str to int
+            selected_cols = ["Open", "High", "Low", "Close", "Volume"]
+            daily_df[ selected_cols ] = daily_df[selected_cols].astype('int')
+
+            daily_df = daily_df.set_index('Date')
+
+            daily_df = daily_df.sort_values(by= 'Date')
+
+            print(daily_df.head(2))
+
+            # Excel 생성 
+            daily_df.to_excel('{}({}).xlsx'.format( stock_name, code ) )
+            time.sleep(10)
+
+            break
 ```
 
-### 7. 조건 검색 (사용자 설정 조건 리스트 읽기 from HTS)
+### 8. 조건 검색 (사용자 설정 조건 리스트 읽기 from HTS)
 이후 예시의 정상동작을 위해서는 아래에서 사용되는 조건들과 같은 이름을 가지는 조건들이 미리 저장되어 있어야 한다.
 
 참고로 조건들을 편집하고 저장하는건 영웅문 HTS 내부에서만 가능하기 때문에 따로 HTS 를 열어 편집해주어야 한다.
@@ -328,9 +387,9 @@ common_util.process_qt_events(kw_obj.has_condition_names, 5)
 
 ```
 
-### 8. 실시간 조건 검색 
+### 9. 실시간 조건 검색 
 
-### 9. 주문 처리
+### 10. 주문 처리
 
 
 ```python
