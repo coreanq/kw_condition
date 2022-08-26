@@ -1319,8 +1319,10 @@ if __name__ == "__main__":
 
     ########################################################################
     # 전체종목 일봉 데이터 조회
+
     import datetime
     import pandas as pd
+    import time
 
     current_time_str = datetime.datetime.now().strftime('%Y%m%d')
 
@@ -1366,7 +1368,9 @@ if __name__ == "__main__":
                 print(daily_df.head(2))
 
                 # Excel 생성 
-                daily_df.to_excel('{}.xlsx'.format( stock_name ) )
+                daily_df.to_excel('{}({}).xlsx'.format( stock_name, code ) )
+                time.sleep(10)
+
                 break
 
 
