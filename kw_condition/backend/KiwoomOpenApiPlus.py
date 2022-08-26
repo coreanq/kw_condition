@@ -1400,12 +1400,12 @@ if __name__ == "__main__":
     common_util.process_qt_events(kw_obj.has_condition_names, 5)
     print( kw_obj.get_condition_names() )
 
+
     condition_name = '장초반'
     kw_obj.request_condition(condition_name)
 
-    def func() -> bool:
-        return False
-    common_util.process_qt_events(func, 5)
+    common_util.process_qt_events(False, 5)
+
     codes = kw_obj.get_transaction_result('condition')
     print(codes)
 

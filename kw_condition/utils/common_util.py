@@ -5,16 +5,19 @@ import os
 import os.path
 import time
 from PySide2.QtWidgets import QApplication
-from typing import Callable, Union
+from typing import Callable, Union, Any
 
-def process_qt_events(check_func : Callable[ [], bool], timeout_in_secs: int):
+def process_qt_events(check_flag : Union[Callable[ [], bool], Any], timeout_in_secs: int):
     start_time_stamp = time.time()
     while True:
         time.sleep(0.01)
         QApplication.processEvents()
         end_time_stamp = time.time()
-        if( check_func() == True ):
-            break
+
+        if( isinstance(check_flag, Callable) ):
+            if( check_flag() == True ):
+                break
+
         if( end_time_stamp - start_time_stamp > timeout_in_secs ) :
             print('time out!')
             break
