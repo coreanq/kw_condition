@@ -12,7 +12,7 @@ from PySide2.QtAxContainer import QAxWidget
 from kw_condition.utils import common_util
 from kw_condition.utils import kw_util
 
-TR_TIME_LIMIT_MS = 3800 # 키움 증권에서 정의한 연속 TR 시 필요 딜레이 
+TR_TIME_LIMIT_MS = 250 # 연속 TR 시 딜레이로 1초 5회 제한이나 과도하게 요청시 팝업 발생해서 요청을 막음 
 
 class KiwoomOpenApiPlus(QObject):
     sigInitOk = Signal()
@@ -161,7 +161,7 @@ class KiwoomOpenApiPlus(QObject):
             print( 'request tr list empty!' )
             return
 
-        print('{} {}'.format( common_util.whoami(), request) )
+        # print('{} {}'.format( common_util.whoami(), request) )
 
         for key, value in request['inputs'].items() :
             # print(key, value)
@@ -172,7 +172,7 @@ class KiwoomOpenApiPlus(QObject):
             print( 'commRqData Err: {} {}'.format( common_util.whoami(), request )  )
         pass
 
-    def add_transaction(self, rqname: str, trcode: str, inputs: dict, screen_no: str = 'empty', prev_next = 0) -> None:
+    def add_transaction(self, rqname: str, trcode: str, inputs: dict, prev_next : int = 0, screen_no: str = 'empty') -> None:
         ''' 
         rqname 의 경우 unique 하여야 하며, 
         get_transaction_result 사용시 rqname 을 통해서 한다. 
@@ -205,8 +205,8 @@ class KiwoomOpenApiPlus(QObject):
     # 연속으로 데이터 요청할 것이 있는지 판단 
     def has_transaction_additional_data(self, rqname: str) -> bool:
         if( rqname in self.result_tr_list ):
-            prev_next = self.result_tr_list.pop(rqname)['prev_next']
-            return prev_next == 2
+            prev_next = self.result_tr_list[rqname].get( 'prev_next', 0 )
+            return prev_next == '2'
         else:
             return False 
 
@@ -1267,7 +1267,8 @@ if __name__ == "__main__":
 
 
     # for index in range(1, 10):
-    #     ########################################################################
+    ########################################################################
+
     #     rqname = '주식기본정보요청'
     #     trcode = 'opt10001'
     #     screen_no = '000{}'.format(index)  # 화면번호, 0000 을 제외한 4자리 숫자 임의로 지정, None 의 경우 내부적으로 화면번호 자동할당
@@ -1281,43 +1282,95 @@ if __name__ == "__main__":
     #     print( kw_obj.get_transaction_result(rqname) )
 
     ########################################################################
+    # import datetime
+
+    # rqname = '주식일봉차트조회요청'
+    # trcode = 'opt10081'
+
+    # current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+
+    # inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+
+    # kw_obj.add_transaction(rqname, trcode, inputs)
+
+    # common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+
+    # # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+    # daily_list = kw_obj.get_transaction_result(rqname)
+    # # print( daily_list )
+
+
+    # # 연속 조회 
+    # rqname = '주식일봉차트조회요청'
+    # trcode = 'opt10081'
+
+    # current_time_str = datetime.datetime.now().strftime('%Y%m%d')
+
+    # inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+
+    # kw_obj.add_transaction(rqname, trcode, inputs, prev_next= 2)
+
+    # common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+
+    # # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+    # daily_list.extend( kw_obj.get_transaction_result(rqname) )
+    # # print( daily_list )
+
+
+    ########################################################################
+    # 전체종목 일봉 데이터 조회
     import datetime
-
-    rqname = '주식일봉차트조회요청'
-    trcode = 'opt10081'
+    import pandas as pd
 
     current_time_str = datetime.datetime.now().strftime('%Y%m%d')
 
-    inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
+    for code in kw_obj.code_by_names.values():
+        trcode = 'opt10081'
+        stock_name = kw_obj.getMasterCodeName( code )
+        rqname = '{}: 주식일봉차트조회요청'.format( stock_name ) 
 
-    kw_obj.add_transaction(rqname, trcode, inputs)
+        inputs = {'종목코드': '{}'.format( code ), '기준일자' : current_time_str, "수정주가구분": '1'}
 
-    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+        daily_list = []
+        prev_next = 0
 
-    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
-    daily_list = kw_obj.get_transaction_result(rqname)
-    # print( daily_list )
+        while True:
+            kw_obj.add_transaction(rqname, trcode, inputs, prev_next = prev_next)
+            common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+            
+            has_additional_data = kw_obj.has_transaction_additional_data(rqname)
+
+            # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+            daily_list.extend( kw_obj.get_transaction_result(rqname) )
+
+            if( has_additional_data == True ):
+                prev_next = 2
+            else:
+
+                daily_df = pd.DataFrame( daily_list, columns=["StockCode", "Date", "Open", "High", "Low", "Close", "Volume"] )     
+
+                # 일봉 조회의 경우 종목 코드가 2번째 row 부터 공백이므로 삭제 
+                daily_df.drop(columns='StockCode', axis =1, inplace = True)
+
+                # string date -> datetime 
+                daily_df['Date'] = pd.to_datetime( daily_df['Date'], format = '%Y%m%d') 
+
+                # str to int
+                selected_cols = ["Open", "High", "Low", "Close", "Volume"]
+                daily_df[ selected_cols ] = daily_df[selected_cols].astype('int')
+
+                daily_df = daily_df.set_index('Date')
+
+                daily_df = daily_df.sort_values(by= 'Date')
+
+                print(daily_df.head(2))
+
+                # Excel 생성 
+                daily_df.to_excel('{}.xlsx'.format( stock_name ) )
+                break
 
 
-    # 연속 조회 
-    rqname = '주식일봉차트조회요청'
-    trcode = 'opt10081'
-
-    current_time_str = datetime.datetime.now().strftime('%Y%m%d')
-
-    inputs = {'종목코드': '005930', '기준일자' : current_time_str, "수정주가구분": '1'}
-
-    kw_obj.add_transaction(rqname, trcode, inputs, prev_next= 2)
-
-    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
-
-    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
-    daily_list.extend( kw_obj.get_transaction_result(rqname) )
-    # print( daily_list )
-
-    # kw_obj.showAccountWindow()
-
-
+    ########################################################################
     # kw_obj.load_condition_names()
     # common_util.process_qt_events(kw_obj.has_condition_names, 5)
     # print( kw_obj.get_condition_names() )
