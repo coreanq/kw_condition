@@ -147,6 +147,16 @@ class KiwoomOpenApiPlus(QObject):
             self.screen_numbers['free'].insert(0, number )
         pass
 
+    def get_account_list(self) -> list:
+        return self.account_list
+
+    def get_first_account(self) -> str:
+        
+        if( len(self.account_list) != 0 ):
+            return self.account_list[0]
+        else:
+            return ''
+
     def request_transaction(self) -> None:
         ''' 
         rqname 의 경우 unique 하여야 하며, 
@@ -161,7 +171,7 @@ class KiwoomOpenApiPlus(QObject):
             print( 'request tr list empty!' )
             return
 
-        # print('{} {}'.format( common_util.whoami(), request) )
+        print('{} {}'.format( common_util.whoami(), request) )
 
         for key, value in request['inputs'].items() :
             # print(key, value)
@@ -249,7 +259,7 @@ class KiwoomOpenApiPlus(QObject):
 
     @Slot()
     def disconnected_entered(self):
-        # print(common_util.whoami())
+        print(common_util.whoami())
         if( self.getConnectState() == 1 ):
             self.sigConnected.emit()
             
@@ -499,8 +509,11 @@ class KiwoomOpenApiPlus(QObject):
         '''
         print('{} sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext {}'.format(common_util.whoami(), scrNo, rQName, trCode, recordName, prevNext ))
 
-
         self.release_screen_number(scrNo)
+
+        if( trCode not in kw_util.tr_column_info ):
+            print( 'TR Receive not implemented! ')
+            return 
 
         # 단일 데이터인지 복수 데이터 인지 확인 
         # 단일 데이터인 경우 리턴값이 0 임 
@@ -511,18 +524,16 @@ class KiwoomOpenApiPlus(QObject):
             for i in range(repeat_cnt): 
 
                 row_values = []
+
                 for item_name in kw_util.tr_column_info[trCode]:
                     result = self.getCommData(trCode, rQName, i, item_name)
                     row_values.append( result.strip() )
 
                 if(rQName not in  self.result_tr_list):
                     self.result_tr_list[rQName] = {}
-                    self.result_tr_list[rQName]['prev_next'] = 0
                     self.result_tr_list[rQName]['data'] = [] 
 
                 self.result_tr_list[rQName]['data'].append( row_values )
-                self.result_tr_list[rQName]['prev_next'] = int(prevNext)
-
                 # print( '{}: {}'.format(item_name, result ) )
             pass
         else:
@@ -534,11 +545,18 @@ class KiwoomOpenApiPlus(QObject):
 
             self.result_tr_list[rQName] = {} 
             self.result_tr_list[rQName]['data'] = row_values
-            self.result_tr_list[rQName]['prev_next'] = int(prevNext)
-            # print( '{}: {}'.format(item_name, result ) )
-            pass
 
-        return True
+
+        # prevNext 가 empty 인 경우 처리 
+        if ( prevNext != '' ):
+            self.result_tr_list[rQName]['prev_next'] = int(prevNext)
+        else: 
+            self.result_tr_list[rQName]['prev_next'] = 0
+        # print( '{}: {}'.format(item_name, result ) )
+
+        pass
+
+        return 
 
         if ( trCode == 'opw00018' ):
         # 게좌 정보 요청 rQName 은 계좌번호임 
@@ -902,43 +920,77 @@ class KiwoomOpenApiPlus(QObject):
             # 조건 반복 발생으로인한 overhead 를 줄이기 위함
             self.timerRealInfoRefresh.start()
 
-    # method 
-    # 수동 로그인설정인 경우 로그인창을 출력.
-    # 자동로그인 설정인 경우 로그인창에서 자동으로 로그인을 시도합니다.
     @Slot(result=int)
     def commConnect(self):
+        '''
+        수동 로그인설정인 경우 로그인창을 출력.
+        자동로그인 설정인 경우 로그인창에서 자동으로 로그인을 시도합니다.
+        
+        '''
         return self.ocx.dynamicCall("CommConnect()")
 
-    # 서버와 현재 접속 상태를 알려줍니다.
-    # 리턴값 1:연결, 0:연결안됨
     @Slot(result=int)
     def getConnectState(self):
+        '''
+        서버와 현재 접속 상태를 알려줍니다.
+        리턴값 1:연결, 0:연결안됨
+        
+        '''
         return self.ocx.dynamicCall("GetConnectState()")
 
-    # 프로그램 종료없이 서버와의 접속만 단절시키는 함수입니다.
-    # 함수 사용 후 사용자의 오해소지가 생기는 이유로 더 이상 사용할 수 없는 함수입니다
     @Slot()
     def commTerminate(self):
+        '''
+        프로그램 종료없이 서버와의 접속만 단절시키는 함수입니다.
+        함수 사용 후 사용자의 오해소지가 생기는 이유로 더 이상 사용할 수 없는 함수입니다
+        '''
         self.ocx.dynamicCall("CommTerminate()")
 
-    # 로그인 후 사용할 수 있으며 인자값에 대응하는 정보를 얻을 수 있습니다.
-    #      
-    # 인자는 다음값을 사용할 수 있습니다.
-    #   
-    # "ACCOUNT_CNT" : 보유계좌 갯수를 반환합니다.
-    # "ACCLIST" 또는 "ACCNO" : 구분자 ';'로 연결된 보유계좌 목록을 반환합니다.
-    # "USER_ID" : 사용자 ID를 반환합니다.
-    # "USER_NAME" : 사용자 이름을 반환합니다.
-    # "GetServerGubun" : 접속서버 구분을 반환합니다.(1 : 모의투자, 나머지 : 실거래서버)
-    # "KEY_BSECGB" : 키보드 보안 해지여부를 반환합니다.(0 : 정상, 1 : 해지)
-    # "FIREW_SECGB" : 방화벽 설정여부를 반환합니다.(0 : 미설정, 1 : 설정, 2 : 해지)
     @Slot(str, result=str)
     def getLoginInfo(self, tag):
+        '''
+        [LONG GetLoginInfo()]
+          
+        로그인 후 사용할 수 있으며 인자값에 대응하는 정보를 얻을 수 있습니다.
+        
+        인자는 다음값을 사용할 수 있습니다.
+        
+        "ACCOUNT_CNT" : 보유계좌 갯수를 반환합니다.
+        "ACCLIST" 또는 "ACCNO" : 구분자 ';'로 연결된 보유계좌 목록을 반환합니다.
+        "USER_ID" : 사용자 ID를 반환합니다.
+        "USER_NAME" : 사용자 이름을 반환합니다.
+        "GetServerGubun" : 접속서버 구분을 반환합니다.(1 : 모의투자, 나머지 : 실거래서버)
+        "KEY_BSECGB" : 키보드 보안 해지여부를 반환합니다.(0 : 정상, 1 : 해지)
+        "FIREW_SECGB" : 방화벽 설정여부를 반환합니다.(0 : 미설정, 1 : 설정, 2 : 해지)
+        
+        리턴값
+        인자값에 대응하는 정보를 얻을 수 있습니다.
+        ------------------------------------------------------------------------------------------------------------------------------------
+        
+        [보유계좌 목록 예시]
+        
+        CString   strAcctList = GetLoginInfo("ACCLIST");
+        여기서 strAcctList는 ';'로 분리한 보유계좌 목록임
+        예) "3040525910;5678905510;3040526010"  
+
+        '''
         return self.ocx.dynamicCall("GetLoginInfo(QString)", [tag])
 
-    # Tran 입력 값을 서버통신 전에 입력값일 저장한다.
     @Slot(str, str)
     def setInputValue(self, id, value):
+        '''
+   
+        [SetInputValue() 함수]
+        
+        SetInputValue(
+        BSTR sID,     // TR에 명시된 Input이름
+        BSTR sValue   // Input이름으로 지정한 값
+        )
+        
+        조회요청시 TR의 Input값을 지정하는 함수입니다.
+        CommRqData 호출 전에 입력값들을 셋팅합니다.
+        각 TR마다 Input 항목이 다릅니다. 순서에 맞게 Input 값들을 셋팅해야 합니다.     
+        '''
         self.ocx.dynamicCall("SetInputValue(QString, QString)", [id, value] )
 
     @Slot(str, str, int, str, result=int)
@@ -962,9 +1014,23 @@ class KiwoomOpenApiPlus(QObject):
         '''
         return self.ocx.dynamicCall("CommRqData(QString, QString, int, QString)", [rQName, trCode, prevNext, screenNo])
 
-    # 수신 받은 데이터의 반복 개수를 반환한다.
     @Slot(str, str, result=int)
     def getRepeatCnt(self, trCode, recordName):
+        '''
+  
+        [GetRepeatCnt() 함수]
+        
+        GetRepeatCnt(
+        BSTR sTrCode, // TR 이름
+        BSTR sRecordName // 레코드 이름
+        )
+        
+        데이터 수신시 멀티데이터의 갯수(반복수)를 얻을수 있습니다. 
+        예를들어 차트조회는 한번에 최대 900개 데이터를 수신할 수 있는데 
+        이렇게 수신한 데이터갯수를 얻을때 사용합니다.
+        이 함수는 OnReceiveTRData()이벤트가 발생될때 그 안에서 사용해야 합니다.      
+
+        '''
         return self.ocx.dynamicCall("GetRepeatCnt(QString, QString)", [trCode, recordName])
 
     @Slot(str, str, str, int, str, result=str)
@@ -1566,20 +1632,23 @@ if __name__ == "__main__":
     #             break
 
 
-    ########################################################################
-    kw_obj.load_condition_names()
-    common_util.process_qt_events(kw_obj.has_condition_names, 5)
-    print( kw_obj.get_condition_names() )
+    import datetime
 
+    rqname = '계좌평가잔고내역요청'
+    trcode = 'opw00018'
 
-    condition_name = '장초반'
-    kw_obj.request_condition(condition_name)
+    inputs = {'계좌번호': kw_obj.get_first_account(), '비밀번호' : '', '비밀번호입력매체구분': '00', '조회구분': '1' }
 
-    common_util.process_qt_events(False, 5)
+    kw_obj.showAccountWindow()
+    kw_obj.add_transaction(rqname, trcode, inputs)
 
-    codes = kw_obj.get_transaction_result('condition')
-    print(codes)
+    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
 
+    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+
+    jango = kw_obj.get_transaction_result(rqname)
+    print( len(jango) )
+    jango[-5: ] 
 
 
     print('done')
