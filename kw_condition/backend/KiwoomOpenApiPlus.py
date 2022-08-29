@@ -228,12 +228,6 @@ class KiwoomOpenApiPlus(QObject):
         else:
             self.sendCondition(self.get_screen_number(), condition_name, self.condition_names_dict[condition_name], 0)
 
-    @Slot(str, str, int, int)
-    def sendCondition(self, scrNo, conditionName, index, search):
-        self.ocx.dynamicCall("SendCondition(QString,QString, int, int)", [scrNo, conditionName, index, search])
-        pass
-
-  
     @Slot()
     def base_state_entered(self):
         # print(common_util.whoami())
@@ -566,15 +560,9 @@ class KiwoomOpenApiPlus(QObject):
 
         # # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
         # if( realType == "주식호가잔량"):
-        #     # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
-        #     #     .format(jongmok_code, realType, realData))
-
         #     self.makeRealDataInfo(jongmok_code, '실시간-{}'.format(realType) ) 
 
         # elif( realType == "주식체결"):
-        #     # WARNING: 거래량이 많아서 주식 체결 데이터가 너무 많아 지는 경우 주의 
-        #     # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
-        #     #     .format(jongmok_code, realType, realData))
         #     self.makeRealDataInfo(jongmok_code, '실시간-{}'.format(realType) ) 
         #     pass
 
@@ -647,20 +635,22 @@ class KiwoomOpenApiPlus(QObject):
     # sGubun – 0:주문체결통보, 1:잔고통보, 3:특이신호
     # sFidList – 데이터 구분은 ‘;’ 이다.
     '''
-    매수시 
-    14:03:36.218242 _OnReceiveChejanData gubun: 0, itemCnt: 35, fidList: 9201;9203;9205;9001;912;913;302;900;901;902;903;904;905;906;907;908;909;910;911;10;27;28;914;915;938;939;919;920;921;922;923;949;10010;969;819
-    * 14:03:36.250244 _OnReceiveChejanData gubun: 0, itemCnt: 35, fidList: 9201;9203;9205;9001;912;913;302;900;901;902;903;904;905;906;907;908;909;910;911;10;27;28;914;915;938;939;919;920;921;922;923;949;10010;969;819
-    * 14:03:36.353244 _OnReceiveChejanData gubun: 1, itemCnt: 34, fidList: 9201;9001;917;916;302;10;930;931;932;933;945;946;950;951;27;28;307;8019;957;958;918;990;991;992;993;959;924;10010;25;11;12;306;305;970
-    '''
-    '''
-    _OnReceiveChejanData gubun: 1, itemCnt: 27, fidList: 9201;9001;917;916;302;10;930;931;932;933;945;946;950;951;27;28;307;8019;957;958;918;990;991;992;993;959;924
-    {'종목코드': 'A010050', '당일실현손익률(유가)': '0.00', '대출일': '00000000', '당일실현손익률(신용)': '0.00', '(최우선)매수호가': '+805', '당일순매수수량': '5', '총매입가': '4043', 
-    '당일총매도손일': '0', '만기일': '00000000', '신용금액': '0', '당일실현손익(신용)': '0', '현재가': '+806', '기준가': '802', '계좌번호': ', '보유수량': '5', 
-    '예수금': '0', '주문가능수량': '5', '종목명': '우리종금                                ', '손익율': '0.00', '당일실현손익(유가)': '0', '담보대출수량': '0', '924': '0', 
-    '매입단가': '809', '신용구분': '00', '매도/매수구분': '2', '(최우선)매도호가': '+806', '신용이자': '0'}
     ''' 
     # receiveChejanData 에서 말씀하신 951번 예수금데이터는 제공되지 않습니다. from 운영자
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
+        '''
+        매수시 
+        14:03:36.218242 _OnReceiveChejanData gubun: 0, itemCnt: 35, fidList: 9201;9203;9205;9001;912;913;302;900;901;902;903;904;905;906;907;908;909;910;911;10;27;28;914;915;938;939;919;920;921;922;923;949;10010;969;819
+        * 14:03:36.250244 _OnReceiveChejanData gubun: 0, itemCnt: 35, fidList: 9201;9203;9205;9001;912;913;302;900;901;902;903;904;905;906;907;908;909;910;911;10;27;28;914;915;938;939;919;920;921;922;923;949;10010;969;819
+        * 14:03:36.353244 _OnReceiveChejanData gubun: 1, itemCnt: 34, fidList: 9201;9001;917;916;302;10;930;931;932;933;945;946;950;951;27;28;307;8019;957;958;918;990;991;992;993;959;924;10010;25;11;12;306;305;970
+        '''
+        '''
+        _OnReceiveChejanData gubun: 1, itemCnt: 27, fidList: 9201;9001;917;916;302;10;930;931;932;933;945;946;950;951;27;28;307;8019;957;958;918;990;991;992;993;959;924
+        {'종목코드': 'A010050', '당일실현손익률(유가)': '0.00', '대출일': '00000000', '당일실현손익률(신용)': '0.00', '(최우선)매수호가': '+805', '당일순매수수량': '5', '총매입가': '4043', 
+        '당일총매도손일': '0', '만기일': '00000000', '신용금액': '0', '당일실현손익(신용)': '0', '현재가': '+806', '기준가': '802', '계좌번호': ', '보유수량': '5', 
+        '예수금': '0', '주문가능수량': '5', '종목명': '우리종금                                ', '손익율': '0.00', '당일실현손익(유가)': '0', '담보대출수량': '0', '924': '0', 
+        '매입단가': '809', '신용구분': '00', '매도/매수구분': '2', '(최우선)매도호가': '+806', '신용이자': '0'}
+        '''
         # print(util.whoami() + 'gubun: {}, itemCnt: {}, fidList: {}'
         #         .format(gubun, itemCnt, fidList))
         if( gubun == "1"): # 잔고 정보
@@ -980,143 +970,324 @@ class KiwoomOpenApiPlus(QObject):
     @Slot(str, str, str, int, str, result=str)
     def commGetData(self, jongmok_code, realType, fieldName, index, innerFieldName):
         '''
-        일부 TR에서 사용상 제약이 있음므로 이 함수 대신 GetCommData()함수를 사용하시기 바랍니다.
+        일부 TR에서 사용상 제약이 있으므로 이 함수 대신 GetCommData()함수를 사용하시기 바랍니다.
         '''
         return self.ocx.dynamicCall("CommGetData(QString, QString, QString, int, QString)", [jongmok_code, realType, fieldName, index, innerFieldName] ).strip()
 
-    # strRealType – 실시간 구분
-    # nFid – 실시간 아이템
-    # Ex) 현재가출력 - openApi.GetCommRealData(“주식시세”, 10);
-    # 참고)실시간 현재가는 주식시세, 주식체결 등 다른 실시간타입(RealType)으로도 수신가능
     @Slot(str, int, result=str)
     def getCommRealData(self, realType, fid):
+        '''
+  
+        [GetCommRealData() 함수]
+        
+        GetCommRealData(
+        BSTR strCode,   // 종목코드
+        long nFid   // 실시간 타입에 포함된FID (Feild ID)
+        )
+        
+        실시간시세 데이터 수신 이벤트인 OnReceiveRealData() 가 발생될때 실시간데이터를 얻어오는 함수입니다.
+        이 함수는 OnReceiveRealData()이벤트가 발생될때 그 안에서 사용해야 합니다.
+        FID 값은 "실시간목록"에서 확인할 수 있습니다.
+        
+        ------------------------------------------------------------------------------------------------------------------------------------
+        
+        예)
+        [주식체결 실시간 데이터 예시]
+        
+        if(strRealType == _T("주식체결"))	// OnReceiveRealData 이벤트로 수신된 실시간타입이 "주식체결" 이면
+        {
+        strRealData = OpenAPI.GetCommRealData(strCode, 10);   // 현재가
+        strRealData = OpenAPI.GetCommRealData(strCode, 13);   // 누적거래량
+        strRealData = OpenAPI.GetCommRealData(strCode, 228);    // 체결강도
+        strRealData = OpenAPI.GetCommRealData(strCode, 20);  // 체결시간
+        }
+        
+          ------------------------------------------------------------------------------------------------------------------------------------      
+        '''
         return self.ocx.dynamicCall("GetCommRealData(QString, int)", [realType, fid]).strip()
 
-    # 주식 주문을 서버로 전송한다.
-    # sRQName - 사용자 구분 요청 명
-    # sScreenNo - 화면번호[4]
-    # sAccNo - 계좌번호[10]
-    # nOrderType - 주문유형 (1:신규매수, 2:신규매도, 3:매수취소, 4:매도취소, 5:매수정정, 6:매도정정)
-    # sCode, - 주식종목코드
-    # nQty – 주문수량
-    # nPrice – 주문단가
-    # sHogaGb - 거래구분
-    # sHogaGb – 00:지정가, 03:시장가, 05:조건부지정가, 06:최유리지정가, 07:최우선지정가, 10:지정가IOC, 13:시장가IOC, 16:최유리IOC, 20:지정가FOK, 23:시장가FOK, 26:최유리FOK, 61:장전시간외종가, 62:시간외단일가, 81:장후시간외종가
-    # ※ 시장가, 최유리지정가, 최우선지정가, 시장가IOC, 최유리IOC, 시장가FOK, 최유리FOK, 장전시간외, 장후시간외 주문시 주문가격을 입력하지 않습니다.
-    # ex)
-    # 지정가 매수 - openApi.SendOrder(“RQ_1”, “0101”, “5015123410”, 1, “000660”, 10, 48500, “00”, “”);
-    # 시장가 매수 - openApi.SendOrder(“RQ_1”, “0101”, “5015123410”, 1, “000660”, 10, 0, “03”, “”);
-    # 매수 정정 - openApi.SendOrder(“RQ_1”,“0101”, “5015123410”, 5, “000660”, 10, 49500, “00”, “1”);
-    # 매수 취소 - openApi.SendOrder(“RQ_1”, “0101”, “5015123410”, 3, “000660”, 10, “00”, “2”);
-    # sOrgOrderNo – 원주문번호
     @Slot(str, str, str, int, str, int, int, str, str, result=int)
     def sendOrder(self, rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo):
+        '''
+        # ex)
+        # 지정가 매수 - openApi.SendOrder(“RQ_1”, “0101”, “5015123410”, 1, “000660”, 10, 48500, “00”, “”);
+        # 시장가 매수 - openApi.SendOrder(“RQ_1”, “0101”, “5015123410”, 1, “000660”, 10, 0, “03”, “”);
+        # 매수 정정 - openApi.SendOrder(“RQ_1”,“0101”, “5015123410”, 5, “000660”, 10, 49500, “00”, “1”);
+        # 매수 취소 - openApi.SendOrder(“RQ_1”, “0101”, “5015123410”, 3, “000660”, 10, “00”, “2”);
+
+        [SendOrder() 함수]
+        
+        SendOrder(
+        BSTR sRQName, // 사용자 구분명
+        BSTR sScreenNo, // 화면번호
+        BSTR sAccNo,  // 계좌번호 10자리
+        LONG nOrderType,  // 주문유형 1:신규매수, 2:신규매도 3:매수취소, 4:매도취소, 5:매수정정, 6:매도정정
+        BSTR sCode, // 종목코드 (6자리)
+        LONG nQty,  // 주문수량
+        LONG nPrice, // 주문가격
+        BSTR sHogaGb,   // 거래구분(혹은 호가구분)은 아래 참고
+        BSTR sOrgOrderNo  // 원주문번호. 신규주문에는 공백 입력, 정정/취소시 입력합니다.
+        )
+        
+        서버에 주문을 전송하는 함수 입니다.
+        9개 인자값을 가진 주식주문 함수이며 리턴값이 0이면 성공이며 나머지는 에러입니다.
+        1초에 5회만 주문가능하며 그 이상 주문요청하면 에러 -308을 리턴합니다.
+        ※ 시장가주문시 주문가격은 0으로 입력합니다. 주문가능수량은 해당 종목의 상한가 기준으로 계산됩니다.
+        ※ 취소주문일때 주문가격은 0으로 입력합니다.
+        
+        [거래구분]
+        00 : 지정가
+        03 : 시장가
+        05 : 조건부지정가
+        06 : 최유리지정가
+        07 : 최우선지정가
+        10 : 지정가IOC
+        13 : 시장가IOC
+        16 : 최유리IOC
+        20 : 지정가FOK
+        23 : 시장가FOK
+        26 : 최유리FOK
+        61 : 장전시간외종가
+        62 : 시간외단일가매매
+        81 : 장후시간외종가
+        ※ 모의투자에서는 지정가 주문과 시장가 주문만 가능합니다.
+        
+        [정규장 외 주문]
+        장전 동시호가 주문
+            08:30 ~ 09:00.	거래구분 00:지정가/03:시장가 (일반주문처럼)
+            ※ 08:20 ~ 08:30 시간의 주문은 키움에서 대기하여 08:30 에 순서대로 거래소로 전송합니다.
+        장전시간외 종가
+            08:30 ~ 08:40. 	거래구분 61:장전시간외종가.  가격 0입력
+            ※ 전일 종가로 거래. 미체결시 자동취소되지 않음
+        장마감 동시호가 주문
+            15:20 ~ 15:30.	거래구분 00:지정가/03:시장가 (일반주문처럼)
+        장후 시간외 종가
+            15:40 ~ 16:00.	거래구분 81:장후시간외종가.  가격 0입력
+            ※ 당일 종가로 거래
+        시간외 단일가
+            16:00 ~ 18:00.	거래구분 62:시간외단일가.  가격 입력
+            ※ 10분 단위로 체결, 당일 종가대비 +-10% 가격으로 거래
+        '''
         return self.ocx.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)", [rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo])
 
-    # 체결잔고 데이터를 반환한다.
     @Slot(int, result=str)
     def getChejanData(self, fid):
+        '''
+ 
+        [GetChejanData() 함수]
+        
+        GetChejanData(
+        long nFid   // 실시간 타입에 포함된 FID(Field ID)
+        )
+        
+        OnReceiveChejan()이벤트가 발생될때 FID에 해당되는 값을 구하는 함수입니다.
+        이 함수는 OnReceiveChejan() 이벤트 안에서 사용해야 합니다.
+        예) 체결가 = GetChejanData(910)        
+        '''
         return self.ocx.dynamicCall("GetChejanData(int)", [fid] )
 
-    # 서버에 저장된 사용자 조건식을 가져온다.
     @Slot(result=int)
     def getConditionLoad(self):
+        '''
+          [GetConditionLoad() 함수]
+          
+          서버에 저장된 사용자 조건검색 목록을 요청합니다. 
+          조건검색 목록을 모두 수신하면 OnReceiveConditionVer()이벤트가 발생됩니다.
+          조건검색 목록 요청을 성공하면 1, 아니면 0을 리턴합니다.
+        '''
         return self.ocx.dynamicCall("GetConditionLoad()")
 
-    # 조건검색 조건명 리스트를 받아온다.
-    # 조건명 리스트(인덱스^조건명)
-    # 조건명 리스트를 구분(“;”)하여 받아온다
     @Slot(result=str)
     def getConditionNameList(self):
+        '''
+        [GetConditionNameList() 함수]
+        
+        서버에서 수신한 사용자 조건식을 조건식의 고유번호와 조건식 이름을 한 쌍으로 하는 문자열들로 전달합니다.
+        조건식 하나는 조건식의 고유번호와 조건식 이름이 구분자 '^'로 나뉘어져 있으며 각 조건식은 ';'로 나뉘어져 있습니다.
+        이 함수는 OnReceiveConditionVer()이벤트에서 사용해야 합니다.
+        
+        예) "1^내조건식1;2^내조건식2;5^내조건식3;,,,,,,,,,,"
+        '''
         return self.ocx.dynamicCall("GetConditionNameList()")
 
-    # 조건검색 종목조회TR송신한다.
-    # LPCTSTR strScrNo : 화면번호
-    # LPCTSTR strConditionName : 조건명
-    # int nIndex : 조건명인덱스
-    # int nSearch : 조회구분(0:일반조회, 1:실시간조회, 2:연속조회)
-    # 1:실시간조회의 화면 개수의 최대는 10개
     @Slot(str, str, int, int)
-    def sendCondition(self, scrNo, conditionName, index, search):
-        self.ocx.dynamicCall("SendCondition(QString,QString, int, int)", [scrNo, conditionName, index, search] )
+    def sendCondition(self, screenNo, conditionName, index, search):
+        '''
 
-    # 실시간 조건검색을 중지합니다.
-    # ※ 화면당 실시간 조건검색은 최대 10개로 제한되어 있어서 더 이상 실시간 조건검색을 원하지 않는 조건은 중지해야만 카운트 되지 않습니다.
+        [SendCondition() 함수]
+        
+        SendCondition(
+        BSTR strScrNo,    // 화면번호
+        BSTR strConditionName,  // 조건식 이름
+        int nIndex,     // 조건식 고유번호
+        int nSearch   // 실시간옵션. 0:조건검색만, 1:조건검색+실시간 조건검색
+        )
+        
+        서버에 조건검색을 요청하는 함수입니다.
+        마지막 인자값으로 조건검색만 할것인지 실시간 조건검색도 수신할 것인지를 지정할 수 있습니다.
+        GetConditionNameList()함수로 얻은 조건식 이름과 고유번호의 쌍을 맞춰서 사용해야 합니다.
+        리턴값 1이면 성공이며, 0이면 실패입니다.
+        요청한 조건식이 없거나 조건 고유번호와 조건명이 서로 안맞거나 조회횟수를 초과하는 경우 실패하게 됩니다.
+        
+        ------------------------------------------------------------------------------------------------------------------------------------
+        
+        [조건검색 사용예시]
+        GetConditionNameList()함수로 얻은 조건식 목록이 "0^조건식1;3^조건식1;8^조건식3;23^조건식5"일때 조건식3을 검색
+        
+        long lRet = SendCondition("0156", "조건식3", 8, 1);
+        
+        ------------------------------------------------------------------------------------------------------------------------------------
+        '''
+        self.ocx.dynamicCall("SendCondition(QString,QString, int, int)", [screenNo, conditionName, index, search] )
+
     @Slot(str, str, int)
-    def sendConditionStop(self, scrNo, conditionName, index):
-        self.ocx.dynamicCall("SendConditionStop(QString, QString, int)", [scrNo, conditionName, index] )
+    def sendConditionStop(self, screenNo, conditionName, index):
+        '''
+        [SendConditionStop() 함수]
+        
+        SendConditionStop(
+        BSTR strScrNo,    // 화면번호
+        BSTR strConditionName,    // 조건식 이름 
+        int nIndex    // 조건식 고유번호
+        )
+        
+        실시간 조건검색을 중지할 때 사용하는 함수입니다.
+        조건식 조회할때 얻는 조건식 이름과 고유번호의 쌍을 맞춰서 사용해야 합니다.
+        '''
+        self.ocx.dynamicCall("SendConditionStop(QString, QString, int)", [screenNo, conditionName, index] )
 
-    # 복수종목조회 Tran을 서버로 송신한다.
-    # OP_ERR_RQ_STRING – 요청 전문 작성 실패
-    # OP_ERR_NONE - 정상처리
-    #
-    # sArrCode – 종목간 구분은 ‘;’이다.
-    # nTypeFlag – 0:주식관심종목정보, 3:선물옵션관심종목정보
     @Slot(str, bool, int, int, str, str)
     def commKwRqData(self, arrCode, next, codeCount, typeFlag, rQName, screenNo):
-    	self.ocx.dynamicCall("CommKwRqData(QString, QBoolean, int, int, QString, QString)", [ arrCode, next, codeCount, typeFlag, rQName, screenNo ] )
+        '''
+        [CommKwRqData() 함수]
+        
+        CommKwRqData(
+        BSTR sArrCode,    // 조회하려는 종목코드 리스트
+        BOOL bNext,   // 연속조회 여부 0:기본값, 1:연속조회(지원안함)
+        int nCodeCount,   // 종목코드 갯수
+        int nTypeFlag,    // 0:주식 종목, 3:선물옵션 종목
+        BSTR sRQName,   // 사용자 구분명
+        BSTR sScreenNo    // 화면번호
+        )
+        
+        한번에 100종목까지 조회할 수 있는 복수종목 조회함수 입니다.
+        함수인자로 사용하는 종목코드 리스트는 조회하려는 종목코드 사이에 구분자';'를 추가해서 만들면 됩니다.
+        수신되는 데이터는 TR목록에서 복수종목정보요청(OPTKWFID) Output을 참고하시면 됩니다.
+        ※ OPTKWFID TR은 CommKwRqData()함수 전용으로, CommRqData 로는 사용할 수 없습니다.
+        ※ OPTKWFID TR은 영웅문4 HTS의 관심종목과는 무관합니다.
+        '''
+        self.ocx.dynamicCall("CommKwRqData(QString, QBoolean, int, int, QString, QString)", [ arrCode, next, codeCount, typeFlag, rQName, screenNo ] )
 
-    # 실시간 등록을 한다.
-    # strScreenNo : 화면번호
-    # strCodeList : 종목코드리스트(ex: 039490;005930;…)
-    # strFidList : FID번호(ex:9001;10;13;…)
-    # 	9001 – 종목코드
-    # 	10 - 현재가
-    # 	13 - 누적거래량
-    # strOptType : 타입(“0”, “1”)
-    # 타입 “0”은 항상 마지막에 등록한 종목들만 실시간등록이 됩니다.
-    # 타입 “1”은 이전에 실시간 등록한 종목들과 함께 실시간을 받고 싶은 종목을 추가로 등록할 때 사용합니다.
-    # ※ 종목, FID는 각각 한번에 실시간 등록 할 수 있는 개수는 100개 입니다.
     @Slot(str, str, str, str,  result=int)
     def setRealReg(self, screenNo, codeList, fidList, optType):
+        '''
+        strCodeList : 종목코드리스트(ex: 039490;005930;…)
+        strFidList : FID번호(ex:9001;10;13;…)
+
+        [SetRealReg() 함수]
+        
+        SetRealReg(
+        BSTR strScreenNo,   // 화면번호
+        BSTR strCodeList,   // 종목코드 리스트
+        BSTR strFidList,  // 실시간 FID리스트
+        BSTR strOptType   // 실시간 등록 타입, 0또는 1
+        )
+        
+        종목코드와 FID 리스트를 이용해서 실시간 시세를 등록하는 함수입니다.
+        한번에 등록가능한 종목과 FID갯수는 100종목, 100개 입니다.
+        실시간 등록타입을 0으로 설정하면 등록한 종목들은 실시간 해지되고 등록한 종목만 실시간 시세가 등록됩니다.
+        실시간 등록타입을 1로 설정하면 먼저 등록한 종목들과 함께 실시간 시세가 등록됩니다
+        
+        ------------------------------------------------------------------------------------------------------------------------------------
+        
+        [실시간 시세등록 예시]
+        OpenAPI.SetRealReg(_T("0150"), _T("039490"), _T("9001;302;10;11;25;12;13"), "0");  // 039490종목만 실시간 등록
+        OpenAPI.SetRealReg(_T("0150"), _T("000660"), _T("9001;302;10;11;25;12;13"), "1");  // 000660 종목을 실시간 추가등록
+        
+        ------------------------------------------------------------------------------------------------------------------------------------
+        '''
         return self.ocx.dynamicCall("SetRealReg(QString, QString, QString, QString)", [ screenNo, codeList, fidList, optType ])
 
-    # 종목별 실시간 해제
-    # strScrNo : 화면번호
-    # strDelCode : 실시간 해제할 종목코드
-    # -화면별 실시간해제
-    # 여러 화면번호로 걸린 실시간을 해제하려면 파라메터의 화면번호와 종목코드에 “ALL”로 입력하여 호출하시면 됩니다.
-    # SetRealRemove(“ALL”, “ALL”);
-    # 개별화면별로 실시간 해제 하시려면 파라메터에서 화면번호는 실시간해제할
-    # 화면번호와 종목코드에는 “ALL”로 해주시면 됩니다.
-    # SetRealRemove(“0001”, “ALL”);
-    # -화면의 종목별 실시간해제
-    # 화면의 종목별로 실시간 해제하려면 파라메터에 해당화면번호와 해제할
-    # 종목코드를 입력하시면 됩니다.
-    # SetRealRemove(“0001”, “039490”);
-    # 문서와는 달리 return 없음 
-    # SetRealReg 로 등록한 함수만 해제 가능 
     @Slot(str, str)
-    def setRealRemove(self, scrNo, delCode):
-        self.ocx.dynamicCall("SetRealRemove(QString, QString)", [ scrNo, delCode ] )
+    def setRealRemove(self, screenNo, delCode):
+        '''
+
+        [SetRealRemove() 함수]
         
+        SetRealRemove(
+        BSTR strScrNo,    // 화면번호 또는 ALL
+        BSTR strDelCode   // 종목코드 또는 ALL
+        )
         
-    # 수신 데이터를 반환한다. 
-    # LPCTSTR strTrCode : 조회한TR코드
-    # LPCTSTR strRecordName: 조회한 TR명
-    # nIndex : 복수 데이터 인덱스
-    # strItemName: 아이템 명
-    # 반환값: 수신 데이터
+        실시간시세 해지 함수이며 화면번호와 종목코드를 이용해서 상세하게 설정할 수 있습니다.
+        ※ A종목에 대한 실시간이 여러화면번호로 중복등록되어 있는 경우 특정화면번호를 이용한
+                SetRealRemove() 함수호출시 A종목의 실시간시세는 해지되지 않습니다.
+        
+        ------------------------------------------------------------------------------------------------------------------------------------
+
+        [실시간 시세해지 예시]
+        OpenAPI.SetRealRemove("0150", "039490");  // "0150"화면에서 "039490"종목 실시간 해지
+        OpenAPI.SetRealRemove("ALL", "ALL");  // 모든 화면에서 모든종목 실시간 해지
+        OpenAPI.SetRealRemove("0150", "ALL");  // "0150"화면에서 모든종목 실시간 해지
+        OpenAPI.SetRealRemove("ALL", "039490");  // 모든 화면에서 "039490"종목 실시간 해지
+        
+        ------------------------------------------------------------------------------------------------------------------------------------
+        '''
+        self.ocx.dynamicCall("SetRealRemove(QString, QString)", [ screenNo, delCode ] )
+        
     
     @Slot(str, str, int, str, result=str)
     def getCommData(self, trCode, recordName, index, itemName):
+        '''
+  
+        [GetCommData() 함수]
+        
+        GetCommData(
+        BSTR strTrCode,   // TR 이름
+        BSTR strRecordName,   // 레코드이름
+        long nIndex,      // nIndex번째
+        BSTR strItemName) // TR에서 얻어오려는 출력항목이름
+        
+        OnReceiveTRData()이벤트가 발생될때 수신한 데이터를 얻어오는 함수입니다.
+        이 함수는 OnReceiveTRData()이벤트가 발생될때 그 안에서 사용해야 합니다.
+        
+        '''
         return self.ocx.dynamicCall("GetCommData(QString, QString, int, QString)", [trCode, recordName, index, itemName] )
 
-    # 차트 조회한 데이터 전부를 배열로 받아온다.
-    # LPCTSTR strTrCode : 조회한TR코드
-    # LPCTSTR strRecordName: 조회한 TR명
-    # ※항목의 위치는 KOA Studio의 TR목록 순서로 데이터를 가져옵니다.
-    # 예로 OPT10080을 살펴보면 OUTPUT의 멀티데이터의 항목처럼 현재가, 거래량, 체결시간등 순으로 항목의 위치가 0부터 1씩증가합니다.
     @Slot(str, str, result=str)
     def getCommDataEx(self, trCode, recordName):
+        '''
+
+        # ※항목의 위치는 KOA Studio의 TR목록 순서로 데이터를 가져옵니다.
+        # 예로 OPT10080을 살펴보면 OUTPUT의 멀티데이터의 항목처럼 현재가, 거래량, 체결시간등 순으로 항목의 위치가 0부터 1씩증가합니다.
+
+        [GetCommDataEx() 함수]
+        
+        GetCommDataEx(
+        BSTR strTrCode,   // TR 이름
+        BSTR strRecordName  // 레코드이름
+        )
+        
+        조회 수신데이터 크기가 큰 차트데이터를 한번에 가져올 목적으로 만든 차트조회 전용함수입니다.
+        '''
+
         return self.ocx.dynamicCall("GetCommDataEx(QString, QString)", [trCode, recordName] )
 
-    # 리얼 시세를 끊는다.
-    # 화면 내 모든 리얼데이터 요청을 제거한다.
-    # 화면을 종료할 때 반드시 위 함수를 호출해야 한다.
-    # Ex) openApi.DisconnectRealData(“0101”);
     @Slot(str)
     def disconnectRealData(self, scnNo):
+        '''
+
+        [DisconnectRealData() 함수]
+        
+        DisconnectRealData(
+        BSTR sScnNo // 화면번호 
+        )
+        
+        시세데이터를 요청할때 사용된 화면번호를 이용하여 
+        해당 화면번호로 등록되어져 있는 종목의 실시간시세를 서버에 등록해지 요청합니다.
+        이후 해당 종목의 실시간시세는 수신되지 않습니다.
+        단, 해당 종목이 또다른 화면번호로 실시간 등록되어 있는 경우 해당종목에대한 실시간시세 데이터는 계속 수신됩니다.        
+        '''
         self.ocx.dynamicCall("DisconnectRealData(QString)", [scnNo] )
 
 
