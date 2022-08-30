@@ -69,10 +69,10 @@ class KiwoomOpenApiPlus(QObject):
 #             '일{}봉'.format(user_setting.MAX_SAVE_CANDLE_COUNT), '{}분{}봉'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE, user_setting.MAX_SAVE_CANDLE_COUNT)  ]
 
     def create_connection(self):
-        self.ocx.connect( SIGNAL("OnEventConnect(int)"), self._OnEventConnect )
-        self.ocx.connect( SIGNAL("OnReceiveMsg(const QString&,, const QString&, const QString&, const QString&)"), self._OnReceiveMsg )
-        self.ocx.connect( SIGNAL("OnReceiveTrData(const QString&, const QString&, const QString&, const QString&, const QString&, int, const QString&, const QString&, const QString&)" ), self._OnReceiveTrData )
-        self.ocx.connect( SIGNAL("OnReceiveRealData(const QString&, const QString&, const QString&)"), self._OnReceiveRealData )
+        self.ocx.connect( SIGNAL( "OnEventConnect(int)"), self._OnEventConnect )
+        self.ocx.connect( SIGNAL( "OnReceiveMsg(const QString&,, const QString&, const QString&, const QString&)"), self._OnReceiveMsg )
+        self.ocx.connect( SIGNAL( "OnReceiveTrData(const QString&, const QString&, const QString&, const QString&, const QString&, int, const QString&, const QString&, const QString&)" ), self._OnReceiveTrData )
+        self.ocx.connect( SIGNAL( "OnReceiveRealData(const QString&, const QString&, const QString&)"), self._OnReceiveRealData )
 
         self.ocx.connect( SIGNAL( "OnReceiveChejanData(const QString&, int, const QString&)"), self._OnReceiveChejanData )
         self.ocx.connect( SIGNAL( "OnReceiveConditionVer(int, const QString&)" ), self._OnReceiveConditionVer )
@@ -444,43 +444,57 @@ class KiwoomOpenApiPlus(QObject):
         self.commTerminate()
         QApplication.quit()
 
-    # event
-    # 통신 연결 상태 변경시 이벤트
-    # nErrCode가 0이면 로그인 성공, 음수면 실패
+
     def _OnEventConnect(self, errCode):
-        print(common_util.whoami() + '{}'.format(errCode))
+        '''
+        # 통신 연결 상태 변경시 이벤트>
+        # nErrCode가 0이면 로그인 성공, 음수면 실패>
+        '''
+        print( '{} {}'.format( common_util.whoami() , errCode) )
         if errCode == 0:
             self.sigConnected.emit()
         else:
             self.sigDisconnected.emit()
 
-    # 수신 메시지 이벤트
     def _OnReceiveMsg(self, scrNo, rQName, trCode, msg):
-        # print(common_util.whoami() + 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'
-        # .format(scrNo, rQName, trCode, msg))
+        '''
+   
+        [OnReceiveMsg()이벤트]
+        
+        OnReceiveMsg(
+        BSTR sScrNo,   // 화면번호
+        BSTR sRQName,  // 사용자 구분명
+        BSTR sTrCode,  // TR이름
+        BSTR sMsg     // 서버에서 전달하는 메시지
+        )
+        
+        데이터 요청 또는 주문전송 후에 서버가 보낸 메시지를 수신합니다.
+        예) "조회가 완료되었습니다" 
+        예) "계좌번호 입력을 확인해주세요" 
+        예) "조회할 자료가 없습니다." 
+        예) "증거금 부족으로 주문이 거부되었습니다."
+        
+        ※ 주의할 점 : 
+        메시지에 포함된 6자리 코드번호는 변경될 수 있으니, 여기에 수신된 코드번호를 특정 용도로 사용하지 마시기 바랍니다.     
+        '''
 
-        # [107066] 매수주문이 완료되었습니다.
-        # [107048] 매도주문이 완료되었습니다
-        # [571489] 장이 열리지않는 날입니다
-        # [100000] 조회가 완료되었습니다
-        printData =  'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'.format(scrNo, rQName, trCode, msg)
+        print( '{} sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'.fotmat( common_util.whoami() , scrNo, rQName, trCode, msg ) )
 
         # buy 하다가 오류 난경우 강제로 buy signal 생성  
         # buy 정상 메시지는 107066
-        if( 'buy' in rQName and '107066' not in msg ):
-            self.sigWaitTr.emit()
+        # if( 'buy' in rQName and '107066' not in msg ):
+        #     self.sigWaitTr.emit()
 
         # sell 하다가 오류 난경우 강제로 buy signal 생성  
         # sell 정상 메시지는 107066
-        if( 'sell' in rQName and '107048' not in msg ):
-            pass
+        # if( 'sell' in rQName and '107048' not in msg ):
+        #     pass
             # self.sigWaitTr.emit()
 
         # sell 하다가 오류 난경우 
         # if( 'sell' in rQName and '매도가능수량' in msg ):
         #     self.sigWaitTr.emit()
 
-        print(printData)
         pass
 
 
@@ -1631,8 +1645,6 @@ if __name__ == "__main__":
 
     #             break
 
-
-    import datetime
 
     rqname = '계좌평가잔고내역요청'
     trcode = 'opw00018'
