@@ -24,7 +24,11 @@ class KiwoomOpenApiPlus(QObject):
 
     sigRequestTR = Signal()
     sigTRWaitingComplete  = Signal()
-    sigTrResponseError = Signal()
+    sigTRResponseError = Signal()
+
+    sigRequestOrder = Signal()
+    sigOrderWaitingComplete  = Signal()
+    sigOrderResponseError = Signal()
 
     def __init__(self):
         super().__init__()
@@ -42,6 +46,10 @@ class KiwoomOpenApiPlus(QObject):
 
         self.request_tr_list = [] # [ {}, {},... ]
         self.result_tr_list = {} # { rqname: data }
+
+        self.request_order_list = [] # [ {}, {},... ]
+        self.result_order_list = {} # { rqname: data }
+
 
         self.condition_names_dict = {}
 
@@ -86,13 +94,17 @@ class KiwoomOpenApiPlus(QObject):
 
         # state defintion
         main_state = QState(QState.ParallelStates, self.fsm)       
-        base_state = QState(main_state)
-        sub_state = QState(main_state)
+        base_state = QState(main_state) # 기본 접속 contorl 
+        sub_state = QState(main_state) # 추후 기능 추가용 
+        tr_state = QState(main_state) # send order 를 제외한 일반적인 조회 TR 용으로 send order 와 일반 조회 TR 의 transation 요청 제한이 다르기 때문에 분리함 
+        order_state = QState(main_state)
 
         self.fsm.setInitialState(main_state)
 
-        base_state.entered.connect(self.base_state_entered)
-        sub_state.entered.connect(self.sub_state_entered)
+        base_state.entered.connect( self.base_state_entered )
+        sub_state.entered.connect( self.sub_state_entered )
+        tr_state.entered.connect( self.tr_state_entered )
+        order_state.entered.connect( self.order_state_entered )
 
         init = QState(base_state)
         disconnected = QState(base_state)
@@ -113,23 +125,42 @@ class KiwoomOpenApiPlus(QObject):
 
         ###############################################################################################
         # sub parallel state define (TR)
-        tr_init = QState(sub_state)
-        tr_standby = QState(sub_state)
-        tr_waiting = QState(sub_state)
+        tr_init = QState(tr_state)
+        tr_standby = QState(tr_state)
+        tr_waiting = QState(tr_state)
 
-        sub_state.setInitialState(tr_init)
+        tr_state.setInitialState(tr_init)
 
         tr_init.addTransition(self.sigConnected, tr_standby )
         tr_standby.addTransition(self.sigRequestTR, tr_waiting )
         tr_waiting.addTransition(self.sigTRWaitingComplete, tr_standby )
-        tr_waiting.addTransition(self.sigTrResponseError, tr_standby )
+        tr_waiting.addTransition(self.sigTRResponseError, tr_standby )
 
         # state entered slot connect
         tr_init.entered.connect(self.tr_init_entered)
         tr_standby.entered.connect(self.tr_standby_entered)
         tr_waiting.entered.connect(self.tr_waiting_entered)
 
+        ###############################################################################################
+        # order state parallel state define (TR)
+        order_init = QState(order_state)
+        order_standby = QState(order_state)
+        order_waiting = QState(order_state)
+
+        order_state.setInitialState(order_init)
+
+        order_init.addTransition(self.sigConnected, order_standby )
+        order_standby.addTransition(self.sigRequestOrder, order_waiting )
+        order_waiting.addTransition(self.sigOrderWaitingComplete, order_standby )
+        order_waiting.addTransition(self.sigOrderResponseError, order_standby )
+
+        # state entered slot connect
+        order_init.entered.connect(self.order_init_entered)
+        order_standby.entered.connect(self.order_standby_entered)
+        order_waiting.entered.connect(self.order_waiting_entered)
+
         #fsm start
+
         self.fsm.start()
         pass
 
@@ -220,6 +251,48 @@ class KiwoomOpenApiPlus(QObject):
         else:
             return False 
 
+    def add_order(self, rqname: str, account_no : str, order_type: int, code : str, quantity: int, price: int, quote_type: str, original_order_no : str , screen_no: str = 'empty') -> None:
+        ''' 
+        rqname 의 경우 unique 하여야 하며, 
+        get_order_result 사용시 rqname 을 통해서 한다. 
+        get_order_result 한 후 결과 값을 버퍼에서 지우도록 한다. 
+        '''
+
+        if( screen_no == 'empty'):
+            screen_no = self.get_screen_number()
+            pass
+
+        self.request_order_list.append( { 'rqname' : rqname, 'screen_no' : screen_no, 'account_no' : account_no, 'order_type' : order_type, 
+            'code': code, 'quantity': quantity, 'price' : price, 'quote_type': quote_type, 'original_order_no': original_order_no }  )
+
+        self.sigRequestOrder.emit()
+
+        pass
+
+    def request_order(self) -> None:
+        ''' 
+        rqname 의 경우 unique 하여야 하며, 
+        get_order_result 사용시 rqname 을 통해서 한다. 
+        get_order_result 한 후 결과 값을 버퍼에서 지우도록 한다. 
+        '''
+
+        request = None
+        if( len(self.request_order_list) != 0 ):
+            request = self.request_order_list.pop(0)
+        else:
+            print( 'request tr list empty!' )
+            return
+
+        print('{} {}'.format( common_util.whoami(), request) )
+
+        ret = self.sendOrder(request['rqname'], request['screen_no'], request['account_no'], request['order_type'], request['code'], request['quantity'], request['price'], request['quote_type'], request['original_order_no'] )
+        # def sendOrder(self, rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo):
+
+        if( ret != 0 ):
+            print( 'sendOrder Err: {} {}'.format( common_util.whoami(), request )  )
+        pass
+
+
     def load_condition_names(self):
         self.getConditionLoad()
 
@@ -299,7 +372,12 @@ class KiwoomOpenApiPlus(QObject):
         pass
 
     @Slot()
-    def sub_state_entered(self):
+    def tr_state_entered(self):
+        # print(common_util.whoami() )
+        pass
+
+    @Slot()
+    def order_state_entered(self):
         # print(common_util.whoami() )
         pass
 
@@ -324,11 +402,26 @@ class KiwoomOpenApiPlus(QObject):
         QTimer.singleShot(TR_TIME_LIMIT_MS, self.sigTRWaitingComplete)
         pass
 
-   
-    def sendorder_multi(self, rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo):
-        def inner():
-            self.sendOrder(rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo)
-        return inner
+    @Slot()
+    def order_init_entered(self):
+        print(common_util.whoami() )
+        pass
+
+    @Slot()
+    def order_standby_entered(self):
+        print(common_util.whoami() )
+        if( len(self.request_order_list) != 0):
+            self.sigRequestOrder.emit()
+            pass
+
+    @Slot()
+    def order_waiting_entered(self):
+        print(common_util.whoami() )
+
+        self.request_order()
+        QTimer.singleShot(TR_TIME_LIMIT_MS, self.sigOrderWaitingComplete)
+        pass
+
 
     # 계좌평가현황요청
     @Slot(str, result = bool)
@@ -527,6 +620,13 @@ class KiwoomOpenApiPlus(QObject):
 
         if( trCode not in kw_util.tr_column_info ):
             print( 'TR Receive not implemented! ')
+            '''
+            OnReceiveTRData이벤트에서 "주문번호" 확인방법을 정리하면 다음과 같습니다. 조회데이터 처리와 같습니다.
+            OnReceiveTRData(sScreenNo, sRqName, sTrCode, ....) // 이벤트 처리부분
+            {
+            sData = OpenAPI.GetCommData(sTrCode, sRqName, 0, "주문번호")
+            }
+            '''
             return 
 
         # 단일 데이터인지 복수 데이터 인지 확인 
@@ -699,6 +799,8 @@ class KiwoomOpenApiPlus(QObject):
             maedoHoga1 = abs(int(self.getChejanData(kw_util.name_fid['(최우선)매도호가'])))
             maemae_type = int( self.getChejanData(kw_util.name_fid['매도/매수구분']) )
 
+            print('{} {} {} {} {} {} {} {} {} {} {}'.format( '잔고정보', jongmok_code, boyou_suryang, jumun_ganeung_suryang, maeip_danga, jongmok_name, current_price, current_amount, maesuHoga1, maedoHoga1, maemae_type ))
+
             # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
             current_jango = {}
             current_jango['보유수량'] = boyou_suryang
@@ -714,48 +816,48 @@ class KiwoomOpenApiPlus(QObject):
             else:
                 printData = "{}: 매수 주문가능수량:{} / 보유수량:{}".format( jongmok_name, jumun_ganeung_suryang, boyou_suryang)
 
-            util.save_log(printData, "*잔고정보", folder= "log")
+            # util.save_log(printData, "*잔고정보", folder= "log")
 
             # 매수  
-            if( maemae_type == 2 ):
-                chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maeip_danga) + ":" + str(current_amount)
-                if( jongmok_code not in self.jangoInfo):
-                    # 첫매수
-                    current_jango['분할매수이력'] = [chegyeol_info] 
-                    self.jangoInfo[jongmok_code] = current_jango 
-                else:
-                    # 분할매수
-                    last_chegyeol_info = self.jangoInfo[jongmok_code]['분할매수이력'][-1]
-                    last_price = int(last_chegyeol_info.split(':')[1])
-                    if( last_price != current_price ):
-                        chegyeol_info_list = self.jangoInfo[jongmok_code].get('분할매수이력', [])
-                        chegyeol_info_list.append( chegyeol_info )
-                        current_jango['분할매수이력'] = chegyeol_info_list
-                    pass
+            # if( maemae_type == 2 ):
+            #     chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(maeip_danga) + ":" + str(current_amount)
+            #     if( jongmok_code not in self.jangoInfo):
+            #         # 첫매수
+            #         current_jango['분할매수이력'] = [chegyeol_info] 
+            #         self.jangoInfo[jongmok_code] = current_jango 
+            #     else:
+            #         # 분할매수
+            #         last_chegyeol_info = self.jangoInfo[jongmok_code]['분할매수이력'][-1]
+            #         last_price = int(last_chegyeol_info.split(':')[1])
+            #         if( last_price != current_price ):
+            #             chegyeol_info_list = self.jangoInfo[jongmok_code].get('분할매수이력', [])
+            #             chegyeol_info_list.append( chegyeol_info )
+            #             current_jango['분할매수이력'] = chegyeol_info_list
+            #         pass
 
-                self.removeProhibitList( jongmok_code )
-            # 매도
-            else:
-                if( boyou_suryang == 0 ):
-                    # 보유 수량이 0 인 경우 완전 매도 수행한 것임  
-                    self.sigRemoveJongmokInfo.emit(jongmok_code)
-                else:
-                    # 분할매도
-                    current_amount = boyou_suryang - jumun_ganeung_suryang
-                    chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(current_price) + ":" + str(current_amount)
+            #     self.removeProhibitList( jongmok_code )
+            # # 매도
+            # else:
+            #     if( boyou_suryang == 0 ):
+            #         # 보유 수량이 0 인 경우 완전 매도 수행한 것임  
+            #         self.sigRemoveJongmokInfo.emit(jongmok_code)
+            #     else:
+            #         # 분할매도
+            #         current_amount = boyou_suryang - jumun_ganeung_suryang
+            #         chegyeol_info = util.cur_date_time('%Y%m%d%H%M%S') + ":" + str(current_price) + ":" + str(current_amount)
 
-                    chegyeol_info_list = self.jangoInfo[jongmok_code].get('분할매도이력', [])  
-                    chegyeol_info_list.append( chegyeol_info )
-                    current_jango['분할매도이력'] = chegyeol_info_list
-                    pass
+            #         chegyeol_info_list = self.jangoInfo[jongmok_code].get('분할매도이력', [])  
+            #         chegyeol_info_list.append( chegyeol_info )
+            #         current_jango['분할매도이력'] = chegyeol_info_list
+            #         pass
 
-                    if( '매도중' in self.jangoInfo[jongmok_code] ):
-                        del self.jangoInfo[jongmok_code]['매도중']
+            #         if( '매도중' in self.jangoInfo[jongmok_code] ):
+            #             del self.jangoInfo[jongmok_code]['매도중']
 
-            # 매도로 다 팔아 버린 경우가 아니라면 
-            if( jongmok_code in self.jangoInfo ):
-                self.jangoInfo[jongmok_code].update(current_jango)
-            self.makeJangoInfoFile()
+            # # 매도로 다 팔아 버린 경우가 아니라면 
+            # if( jongmok_code in self.jangoInfo ):
+            #     self.jangoInfo[jongmok_code].update(current_jango)
+            # self.makeJangoInfoFile()
             pass
 
         elif ( gubun == "0"):
@@ -768,83 +870,85 @@ class KiwoomOpenApiPlus(QObject):
             maemae_type = int( self.getChejanData(kw_util.name_fid['매도매수구분']) )
             jumun_qty = int(self.getChejanData(kw_util.name_fid['주문수량']))
             jumun_price = int(self.getChejanData(kw_util.name_fid['주문가격']))
+            jumun_number = self.getChejanData(kw_util.name_fid['주문번호'])
+
+            print('{} {} {} {} {} {} {} {} number: {}'.format( jumun_sangtae, jongmok_code, jongmok_name, jumun_chegyeol_time, michegyeol_suryang, maemae_type, jumun_qty, jumun_price, jumun_number) )
 
 
             # 주문 상태 
             # 매수 시 접수(gubun-0) - 체결(gubun-0) - 잔고(gubun-1)  바로 처리 되지 않는 경우?   접수 - 체결 - 잔고 - 체결 - 잔고 - 체결 - 잔고 
             # 매도 시 접수(gubun-0) - 잔고(gubun-1) - 체결(gubun-0) - 잔고(gubun-1)   순임 
 
+            # if( jumun_sangtae == "체결"):
+            #     # 매수 체결과 매도 체결 구분해야함 
 
-            if( jumun_sangtae == "체결"):
-                # 매수 체결과 매도 체결 구분해야함 
+            #     # 미체결 수량이 0 이 아닌 경우 다시 체결 정보가 올라 오므로 0인경우만 처리하도록 함 
+            #     if( michegyeol_suryang == 0 ):
+            #         self.makeChegyeolInfo(jongmok_code, fidList)
+            #         self.makeChegyeolInfoFile()
 
-                # 미체결 수량이 0 이 아닌 경우 다시 체결 정보가 올라 오므로 0인경우만 처리하도록 함 
-                if( michegyeol_suryang == 0 ):
-                    self.makeChegyeolInfo(jongmok_code, fidList)
-                    self.makeChegyeolInfoFile()
+            #         # 체결정보의 경우 체결 조금씩 될때마다 수행되므로 이를 감안 해야함
+            #         self.timerD2YesugmRequest.start()
+            #         self.timerRealInfoRefresh.start()
 
-                    # 체결정보의 경우 체결 조금씩 될때마다 수행되므로 이를 감안 해야함
-                    self.timerD2YesugmRequest.start()
-                    self.timerRealInfoRefresh.start()
+            #         # 매수주문 번호를 초기화 해서 즉시 매도 조건 걸리게 함 
+            #         if( jongmok_code in self.maesu_wait_list ):
+            #             del self.maesu_wait_list[jongmok_code]
 
-                    # 매수주문 번호를 초기화 해서 즉시 매도 조건 걸리게 함 
-                    if( jongmok_code in self.maesu_wait_list ):
-                        del self.maesu_wait_list[jongmok_code]
+            #         if( maemae_type == 1 ):
+            #             # 매도인 경우 
+            #             self.lastMaedoInfo[jongmok_code] = {}
+            #             self.lastMaedoInfo[jongmok_code]["time"] = jumun_chegyeol_time
+            #             self.lastMaedoInfo[jongmok_code]["price"] =  str(jumun_price)
+            #             self.lastMaedoInfo[jongmok_code]["qty"] =  str(jumun_qty)
 
-                    if( maemae_type == 1 ):
-                        # 매도인 경우 
-                        self.lastMaedoInfo[jongmok_code] = {}
-                        self.lastMaedoInfo[jongmok_code]["time"] = jumun_chegyeol_time
-                        self.lastMaedoInfo[jongmok_code]["price"] =  str(jumun_price)
-                        self.lastMaedoInfo[jongmok_code]["qty"] =  str(jumun_qty)
+            #     printData = ''
+            #     if( maemae_type == 1 ):
+            #         printData = "{}: 매도 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
+            #     else:
+            #         printData = "{}: 매수 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
 
-                printData = ''
-                if( maemae_type == 1 ):
-                    printData = "{}: 매도 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
-                else:
-                    printData = "{}: 매수 {} 미체결수량 {}".format( jongmok_name, jumun_sangtae, michegyeol_suryang)
+            #     util.save_log(printData, "*체결정보", folder= "log")
 
-                util.save_log(printData, "*체결정보", folder= "log")
+            #     pass
+            # elif ( jumun_sangtae == '접수'):
+            #     jumun_number = self.getChejanData(kw_util.name_fid['주문번호'])
+            #     # 매도 접수인 경우
+            #     printData = '' 
+            #     if( jongmok_code in self.jangoInfo ):
+            #         prinData = "sell: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
+            #         self.jangoInfo[jongmok_code]['매도주문번호'] = jumun_number
+            #     else:
+            #         if( jongmok_code not in self.maesu_wait_list ):
+            #             printData = "buy: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
+            #             self.maesu_wait_list[jongmok_code] = {}
+            #             self.maesu_wait_list[jongmok_code]['매수주문번호'] = jumun_number
+            #             self.maesu_wait_list[jongmok_code]['매수접수시간'] = jumun_chegyeol_time
+            #             self.maesu_wait_list[jongmok_code]['주문수량'] = jumun_qty
+            #         else:
+            #             # 매수 취소도 이쪽으로 옴 
+            #             # 매수 취소 시 아래와 같이 2개의 요청이 옴 
+            #             # 매수 취소 요청 접수: order buy: 켐온 ordernumber: 0040221, 매수 접수 시간 111243, 수량 44
+            #             # 기존 매수 취소 접수: order buy: 켐온 ordernumber: 0039559, 매수 접수 시간 110742, 수량 44
+            #             if( self.maesu_wait_list[jongmok_code]['매수주문번호'] == jumun_number):
+            #                 printData = "cancel buy: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
+            #                 del self.maesu_wait_list[jongmok_code]
+            #             else:
+            #                 printData = "cancel request buy: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
 
-                pass
-            elif ( jumun_sangtae == '접수'):
-                jumun_number = self.getChejanData(kw_util.name_fid['주문번호'])
-                # 매도 접수인 경우
-                printData = '' 
-                if( jongmok_code in self.jangoInfo ):
-                    prinData = "sell: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
-                    self.jangoInfo[jongmok_code]['매도주문번호'] = jumun_number
-                else:
-                    if( jongmok_code not in self.maesu_wait_list ):
-                        printData = "buy: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
-                        self.maesu_wait_list[jongmok_code] = {}
-                        self.maesu_wait_list[jongmok_code]['매수주문번호'] = jumun_number
-                        self.maesu_wait_list[jongmok_code]['매수접수시간'] = jumun_chegyeol_time
-                        self.maesu_wait_list[jongmok_code]['주문수량'] = jumun_qty
-                    else:
-                        # 매수 취소도 이쪽으로 옴 
-                        # 매수 취소 시 아래와 같이 2개의 요청이 옴 
-                        # 매수 취소 요청 접수: order buy: 켐온 ordernumber: 0040221, 매수 접수 시간 111243, 수량 44
-                        # 기존 매수 취소 접수: order buy: 켐온 ordernumber: 0039559, 매수 접수 시간 110742, 수량 44
-                        if( self.maesu_wait_list[jongmok_code]['매수주문번호'] == jumun_number):
-                            printData = "cancel buy: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
-                            del self.maesu_wait_list[jongmok_code]
-                        else:
-                            printData = "cancel request buy: {} ordernumber: {}, 접수시간 {}, 가격 {}, 수량 {}".format( jongmok_name, jumun_number, jumun_chegyeol_time, jumun_price, jumun_qty ) 
-
-                util.save_log(printData, "*접수정보", folder= "log")
+            #     util.save_log(printData, "*접수정보", folder= "log")
 
 
-            elif ( jumun_sangtae == '취소' or jumun_sangtae == '거부'):
-                # 매수주문 번호를 초기화 해서 즉시 매도 조건 걸리게 함 
-                if( jongmok_code in self.maesu_wait_list ):
-                    del self.maesu_wait_list[jongmok_code]
-                pass
-            else:
-                printData = "{}, {}".format( jongmok_name, jumun_sangtae)
-                util.save_log(printData, "*접수정보", folder= "log")
-                # 기타 상태인 경우 취소, 확인?
-                pass
+            # elif ( jumun_sangtae == '취소' or jumun_sangtae == '거부'):
+            #     # 매수주문 번호를 초기화 해서 즉시 매도 조건 걸리게 함 
+            #     # if( jongmok_code in self.maesu_wait_list ):
+            #     #     del self.maesu_wait_list[jongmok_code]
+            #     pass
+            # else:
+            #     # printData = "{}, {}".format( jongmok_name, jumun_sangtae)
+            #     # util.save_log(printData, "*접수정보", folder= "log")
+            #     # 기타 상태인 경우 취소, 확인?
+            #     pass
             pass
 
 
@@ -1646,22 +1750,53 @@ if __name__ == "__main__":
     #             break
 
 
-    rqname = '계좌평가잔고내역요청'
-    trcode = 'opw00018'
+    
+    ########################################################################
+    # 계좌 평가 잔고 내역 요청 
+    # rqname = '계좌평가잔고내역요청'
+    # trcode = 'opw00018'
 
-    inputs = {'계좌번호': kw_obj.get_first_account(), '비밀번호' : '', '비밀번호입력매체구분': '00', '조회구분': '1' }
+    # inputs = {'계좌번호': kw_obj.get_first_account(), '비밀번호' : '', '비밀번호입력매체구분': '00', '조회구분': '1' }
 
-    kw_obj.showAccountWindow()
-    kw_obj.add_transaction(rqname, trcode, inputs)
+    # kw_obj.showAccountWindow()
+    # kw_obj.add_transaction(rqname, trcode, inputs)
 
-    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+    # common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
 
-    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+    # # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
 
-    jango = kw_obj.get_transaction_result(rqname)
-    print( len(jango) )
-    jango[-5: ] 
+    # jango = kw_obj.get_transaction_result(rqname)
+    # print( len(jango) )
+    # jango[-5: ] 
 
+    ########################################################################
+    # 1주 시장가 신규 매수 
+
+    request_name = "1주 시장가 신규 매수"  # 사용자 구분명, 구분가능한 임의의 문자열
+    account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
+    order_type = 1  # 주문유형, 1:신규매수
+    code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
+    quantity = 1  # 주문수량, 1주 매수
+    price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
+    quote_type = "03"  # 거래구분, 03:시장가
+    original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
+
+    kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
+
+
+
+    ########################################################################
+    # 1주 시장가 신규 매도 
+    request_name = "1주 시장가 신규 매도"  # 사용자 구분명, 구분가능한 임의의 문자열
+    account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
+    order_type = 2  # 주문유형, 2:신규매도 
+    code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
+    quantity = 1  # 주문수량, 1주 매수
+    price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
+    quote_type = "03"  # 거래구분, 03:시장가
+    original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
+
+    kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
 
     print('done')
     sys.exit(myApp.exec_())
