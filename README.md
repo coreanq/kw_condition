@@ -91,10 +91,13 @@ kw_obj.tryConnect()
 common_util.process_qt_events(kw_obj.isConnected, 60)
 ```
 
-    * 10:28:03.288871 tryConnect 
-    * 10:28:10.759517 _OnEventConnect 0
-    * 10:28:10.767524 connected_entered 
+    * 14:23:13.209393 tryConnect 
+    * 14:23:14.109850 order_init_entered 
+    * 14:23:14.130275 disconnected_entered 
+    * 14:23:22.932260 _OnEventConnect  0
+    * 14:23:22.946283 connected_entered 
     account count: 1, keyboard_boan: 1, firewall: 2
+    * 14:23:22.988526 order_standby_entered 
     
 
 ### 3. 서버 접속 상태 확인 
@@ -127,7 +130,16 @@ code
 
 
 
-### 5. TR (주식기본정보요청) - Single Data
+### 5. 계좌 정보확인
+
+
+```python
+account_list = kw_obj.get_account_list()
+
+account_num = kw_obj.get_first_account()
+```
+
+### 6. TR (주식기본정보요청) - Single Data
 
 아래 처럼 직접 TR 요청에 필요한 입력값을 설정해 요청하고, 이후 들어오는 이벤트 또한 직접 처리해주는 방식으로 사용할 수 있다.
 
@@ -148,17 +160,18 @@ kw_obj.get_transaction_result(rqname)
 
 ```
 
-    * 10:28:17.061208 _OnReceiveTrData  sScrNo: 9199, rQName: 주식기본정보요청, trCode: opt10001, recordName: , prevNext 0
+    * 14:23:23.251290 request_transaction  {'rqname': '주식기본정보요청', 'trcode': 'opt10001', 'screen_no': '9199', 'prev_next': '0001', 'inputs': {'종목코드': '005930'}}
+    * 14:23:23.315368 _OnReceiveTrData  sScrNo: 9199, rQName: 주식기본정보요청, trCode: opt10001, recordName: , prevNext 0
     
 
 
 
 
-    ['005930', '+77600', '-41800', '59700']
+    ['005930', '+76400', '-41200', '58800']
 
 
 
-### 6. TR(주식일봉차트조회요청) - Multi Data  
+### 7. TR(주식일봉차트조회요청) - Multi Data  
 
 
 ```python
@@ -182,22 +195,23 @@ print( len(daily_list) )
 daily_list[-5: ] 
 ```
 
-    * 10:28:19.923360 _OnReceiveTrData  sScrNo: 9198, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
+    * 14:23:23.546144 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9198', 'prev_next': 0, 'inputs': {'종목코드': '005930', '기준일자': '20220831', '수정주가구분': '1'}}
+    * 14:23:23.607395 _OnReceiveTrData  sScrNo: 9198, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
     600
     
 
 
 
 
-    [['', '20200331', '48000', '48500', '47150', '47750', '30654261'],
-     ['', '20200330', '47050', '48350', '46550', '47850', '26797395'],
-     ['', '20200327', '49600', '49700', '46850', '48300', '39896178'],
-     ['', '20200326', '49000', '49300', '47700', '47800', '42185129'],
-     ['', '20200325', '48950', '49600', '47150', '48650', '52735922']]
+    [['', '20200403', '47400', '47600', '46550', '47000', '22784682'],
+     ['', '20200402', '46200', '46850', '45350', '46800', '21621076'],
+     ['', '20200401', '47450', '47900', '45800', '45800', '27259532'],
+     ['', '20200331', '48000', '48500', '47150', '47750', '30654261'],
+     ['', '20200330', '47050', '48350', '46550', '47850', '26797395']]
 
 
 
-### 6. TR(주식일봉차트조회요청) - Multi Data - 연속 조회 
+### 7. TR(주식일봉차트조회요청) - Multi Data - 연속 조회 
 
 
 ```python
@@ -225,22 +239,23 @@ daily_list[ -5:]
 
 ```
 
-    * 10:28:22.925695 _OnReceiveTrData  sScrNo: 9197, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
+    * 14:23:23.849497 request_transaction  {'rqname': '주식일봉차트조회요청', 'trcode': 'opt10081', 'screen_no': '9197', 'prev_next': 2, 'inputs': {'종목코드': '005930', '기준일자': '20220831', '수정주가구분': '1'}}
+    * 14:23:23.923274 _OnReceiveTrData  sScrNo: 9197, rQName: 주식일봉차트조회요청, trCode: opt10081, recordName: , prevNext 2
     1200
     
 
 
 
 
-    [['', '20171020', '52800', '54100', '52800', '53840', '8027050'],
-     ['', '20171019', '54700', '54700', '52980', '52980', '12108700'],
-     ['', '20171018', '54820', '55240', '54040', '54760', '10110750'],
-     ['', '20171017', '54020', '55380', '54000', '54800', '10607800'],
-     ['', '20171016', '53980', '54860', '53760', '53920', '9769950']]
+    [['', '20171025', '54040', '54420', '53700', '53900', '5882850'],
+     ['', '20171024', '54700', '54780', '54040', '54040', '5806050'],
+     ['', '20171023', '54600', '54640', '54000', '54300', '8311050'],
+     ['', '20171020', '52800', '54100', '52800', '53840', '8027050'],
+     ['', '20171019', '54700', '54700', '52980', '52980', '12108700']]
 
 
 
-### 6. TR(주식일봉차트조회요청) - Multi Data - 차트 출력  
+### 8. 일봉 차트 출력 샘플
 
 
 ```python
@@ -272,11 +287,11 @@ mpf.plot(daily_df, type='candle', mav=(5, 10, 20, 60), volume= True)
 
                  Open   High    Low  Close    Volume
     Date                                            
-    2017-10-16  53980  54860  53760  53920   9769950
-    2017-10-17  54020  55380  54000  54800  10607800
-    2017-10-18  54820  55240  54040  54760  10110750
     2017-10-19  54700  54700  52980  52980  12108700
     2017-10-20  52800  54100  52800  53840   8027050
+    2017-10-23  54600  54640  54000  54300   8311050
+    2017-10-24  54700  54780  54040  54040   5806050
+    2017-10-25  54040  54420  53700  53900   5882850
     
 
     d:\1git\kw_condition\.venv\lib\site-packages\mplfinance\_arg_validators.py:36: UserWarning: 
@@ -296,13 +311,11 @@ mpf.plot(daily_df, type='candle', mav=(5, 10, 20, 60), volume= True)
       warnings.warn('\n\n ================================================================= '+
     
 
-
     
 ![png](readme-01.png)
-    
 
 
-### 7. 전종목 일봉 Excel 출력
+### 9. 전종목 일봉 Excel 출력
 전체 종목의 일봉 데이터를 Excel 로 만든다 
 
 주의사항: 과도한 조회는 오류 팝업 발생 후 재접속 해야 하므로 주의!
@@ -325,7 +338,7 @@ for code in kw_obj.code_by_names.values():
     daily_list = []
     prev_next = 0
 
-    while True:
+    while False:
         kw_obj.add_transaction(rqname, trcode, inputs, prev_next = prev_next)
         common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
         
@@ -363,8 +376,54 @@ for code in kw_obj.code_by_names.values():
             break
 ```
 
-### 8. 조건 검색 (사용자 설정 조건 리스트 읽기 from HTS)
-이후 예시의 정상동작을 위해서는 아래에서 사용되는 조건들과 같은 이름을 가지는 조건들이 미리 저장되어 있어야 한다.
+### 10. TR(계좌평가잔고내역조회요청) - Multi Data 
+
+
+```python
+    rqname = '계좌평가잔고내역요청'
+    trcode = 'opw00018'
+
+    inputs = {'계좌번호': kw_obj.get_first_account(), '비밀번호' : '', '비밀번호입력매체구분': '00', '조회구분': '1' }
+
+    kw_obj.showAccountWindow()
+    kw_obj.add_transaction(rqname, trcode, inputs)
+
+    common_util.process_qt_events(kw_obj.has_transaction_result(rqname), 5)
+
+    # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
+
+    jango = kw_obj.get_transaction_result(rqname)
+    print( len(jango) )
+    jango[-5: ] 
+```
+
+    * 14:23:36.946492 request_transaction  {'rqname': '계좌평가잔고내역요청', 'trcode': 'opw00018', 'screen_no': '9196', 'prev_next': 0, 'inputs': {'계좌번호': '4175351811', '비밀번호': '', '비밀번호입력매체구분': '00', '조회구분': '1'}}
+    * 14:23:37.059007 _OnReceiveTrData  sScrNo: 9196, rQName: 계좌평가잔고내역요청, trCode: opw00018, recordName: , prevNext 
+    2
+    
+
+
+
+
+    [['서울식품',
+      'A004410',
+      '000000000000253',
+      '000000000252',
+      '000000000000002',
+      '000000000000002',
+      '000000000253'],
+     ['KD',
+      'A044180',
+      '000000000000966',
+      '000000000949',
+      '000000000000001',
+      '000000000000001',
+      '000000000938']]
+
+
+
+### 11. 조건 검색 (사용자 설정 조건 리스트 읽기 from HTS)
+예시의 정상동작을 위해서는 아래에서 사용되는 조건들과 같은 이름을 가지는 조건들이 미리 저장되어 있어야 한다.
 
 참고로 조건들을 편집하고 저장하는건 영웅문 HTS 내부에서만 가능하기 때문에 따로 HTS 를 열어 편집해주어야 한다.
 
@@ -376,22 +435,91 @@ print( kw_obj.get_condition_names() )
 
 ```
 
-### 8. 조건검색 (사용자 조건과 일치하는 종목 리턴)
+    * 14:23:37.346085 _OnReceiveConditionVer  ret: 1, msg: [OK] 사용자 조건검색식 읽기
+    {'장초반': 1, '휴식': 2, '장후반': 0, '이탈3': 4, '이탈15': 6, '새조건명': 3, '새조건명2': 5}
+    
+
+### 12. 조건검색 (사용자 조건과 일치하는 종목 리턴)
+
+위에서 서버로부터 조건명을 읽어오면 조건명을 입력하여, 
+조건명에 해당하는 종목리스트를 얻어 온다 
 
 
 ```python
 condition_name = '장초반'
 kw_obj.request_condition(condition_name)
-common_util.process_qt_events(kw_obj.has_condition_names, 5)
+common_util.process_qt_events(kw_obj.has_transaction_result('condition'), 5)
+codes = kw_obj.get_transaction_result('condition')
+print(codes)
 
 
 ```
 
-### 9. 실시간 조건 검색 
+    * 14:23:37.470569 _OnReceiveTrCondition  scrNo: 9195, codeList: 000660;005930;009830;012450;064350;389260;, conditionName: 장초반 index: 1, next: 0
+    condition list add: 000660 SK하이닉스
+    condition list add: 005930 삼성전자
+    condition list add: 009830 한화솔루션
+    condition list add: 012450 한화에어로스페이스
+    condition list add: 064350 현대로템
+    condition list add: 389260 대명에너지
+    ['000660', '005930', '009830', '012450', '064350', '389260']
+    
 
-### 10. 주문 처리
+### 13. 실시간 조건 검색 
+
+### 14. 주문처리(시장가 매수)
 
 
 ```python
+    request_name = "1주 시장가 신규 매수"  # 사용자 구분명, 구분가능한 임의의 문자열
+    account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
+    order_type = 1  # 주문유형, 1:신규매수
+    code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
+    quantity = 1  # 주문수량, 1주 매수
+    price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
+    quote_type = "03"  # 거래구분, 03:시장가
+    original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
 
+    kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
+    common_util.process_qt_events(False, 3)
 ```
+
+    * 14:23:37.573540 order_waiting_entered 
+    * 14:23:37.590820 request_order  {'rqname': '1주 시장가 신규 매수', 'screen_no': '9194', 'account_no': '4175351811', 'order_type': 1, 'code': '004410', 'quantity': 1, 'price': 0, 'quote_type': '03', 'original_order_no': ''}
+    * 14:23:37.684528 _OnReceiveTrData  sScrNo: 9194, rQName: 1주 시장가 신규 매수, trCode: KOA_NORMAL_BUY_KP_ORD, recordName: , prevNext 
+    TR Receive not implemented! 
+    접수 004410 서울식품 142337 1 2 1 0 number: 0047254
+    체결 004410 서울식품 142337 0 2 1 0 number: 0047254
+    잔고정보 004410 3 3 253 서울식품 254 3 253 254 2
+    * 14:23:37.897191 order_standby_entered 
+    time out!
+    
+
+### 14. 주문처리(시장가 매도)
+
+
+```python
+    request_name = "1주 시장가 신규 매도"  # 사용자 구분명, 구분가능한 임의의 문자열
+    account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
+    order_type = 2  # 주문유형, 2:신규매도 
+    code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
+    quantity = 1  # 주문수량, 1주 매수
+    price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
+    quote_type = "03"  # 거래구분, 03:시장가
+    original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
+
+    kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
+    common_util.process_qt_events(False, 3)
+```
+
+    * 14:23:40.734433 order_waiting_entered 
+    * 14:23:40.753305 request_order  {'rqname': '1주 시장가 신규 매도', 'screen_no': '9193', 'account_no': '4175351811', 'order_type': 2, 'code': '004410', 'quantity': 1, 'price': 0, 'quote_type': '03', 'original_order_no': ''}
+    * 14:23:40.855911 _OnReceiveTrData  sScrNo: 9193, rQName: 1주 시장가 신규 매도, trCode: KOA_NORMAL_SELL_KP_ORD, recordName: , prevNext 
+    TR Receive not implemented! 
+    접수 004410 서울식품 142340 1 1 1 0 number: 0047257
+    잔고정보 004410 3 2 253 서울식품 253 3 253 254 1
+    체결 004410 서울식품 142340 0 1 1 0 number: 0047257
+    잔고정보 004410 2 2 253 서울식품 253 2 253 254 1
+    * 14:23:41.053941 order_standby_entered 
+    time out!
+    
