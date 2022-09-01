@@ -584,34 +584,23 @@ class KiwoomOpenApiPlus(QObject):
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmok_code, realType, realData):
         '''
-        [주문관련 실시간 데이터]
         실시간 타입 "주문체결", "잔고", "파생잔고"는 주문관련 실시간 데이터를 전달합니다.
         데이터요청이나 서버등록 필요없이 주문발생시 수신되는 실시간타입 입니다.
         실시간시세와는 다르게 조회요청이나 SetRealReg() 함수로 등록해서 사용할 수 없습니다.
-        수신 이벤트는 OnReceiveChejanData() 입니다.
-        영웅문4 HTS, 영웅문S MTS 를 통한 주문들도 동일ID로 접속한 경우 OpenAPI로 수신됩니다.
 
-        
-        아래 실시간 타입은 시스템 내부용으로, 사용자가 사용할수 없는 실시간 타입입니다.
-        1. 임의연장정보
-        2. 시간외종목정보
-        3. 주식거래원
-        4. 순간체결량
-        5. 선물옵션합계
-        6. 투자자별매매
         '''
 
         # 많은 메시지가 발생하므로 주의
-        log.debug('jongmok_code: {}, {}, realType: {}'.format(jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
-        pass
+        # log.debug('jongmok_code: {}, {}, realType: {}'.format(jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
 
         # # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
-        # if( realType == "주식호가잔량"):
-        #     self.makeRealDataInfo(jongmok_code, '실시간-{}'.format(realType) ) 
+        if( realType == '주식호가잔량'  or realType == '주식체결'):
+            result_list = [] 
+            for col_name in kw_util.real_data_column_info[realType]:
+                result_list.append(self.getCommRealData(jongmok_code, kw_util.name_fid[col_name] ).strip())
 
-        # elif( realType == "주식체결"):
-        #     self.makeRealDataInfo(jongmok_code, '실시간-{}'.format(realType) ) 
-        #     pass
+            log.debug(result_list) 
+            # self.sigRealInfoArrived.emit(jongmok_code, realType, result_list)
 
         # elif( realType == "업종지수" ):
         #     # print(util.whoami() + 'jongmok_code: {}, realType: {}, realData: {}'
@@ -686,6 +675,23 @@ class KiwoomOpenApiPlus(QObject):
     # receiveChejanData 에서 말씀하신 951번 예수금데이터는 제공되지 않습니다. from 운영자
     def _OnReceiveChejanData(self, gubun, itemCnt, fidList):
         '''
+
+        [주문관련 실시간 데이터]
+        실시간 타입 "주문체결", "잔고", "파생잔고"는 주문관련 실시간 데이터를 전달합니다.
+        데이터요청이나 서버등록 필요없이 주문발생시 수신되는 실시간타입 입니다.
+        실시간시세와는 다르게 조회요청이나 SetRealReg() 함수로 등록해서 사용할 수 없습니다.
+        수신 이벤트는 OnReceiveChejanData() 입니다.
+        영웅문4 HTS, 영웅문S MTS 를 통한 주문들도 동일ID로 접속한 경우 OpenAPI로 수신됩니다.
+
+        
+        아래 실시간 타입은 시스템 내부용으로, 사용자가 사용할수 없는 실시간 타입입니다.
+        1. 임의연장정보
+        2. 시간외종목정보
+        3. 주식거래원
+        4. 순간체결량
+        5. 선물옵션합계
+        6. 투자자별매매
+
         매수시 
         14:03:36.218242 _OnReceiveChejanData gubun: 0, itemCnt: 35, fidList: 9201;9203;9205;9001;912;913;302;900;901;902;903;904;905;906;907;908;909;910;911;10;27;28;914;915;938;939;919;920;921;922;923;949;10010;969;819
         * 14:03:36.250244 _OnReceiveChejanData gubun: 0, itemCnt: 35, fidList: 9201;9203;9205;9001;912;913;302;900;901;902;903;904;905;906;907;908;909;910;911;10;27;28;914;915;938;939;919;920;921;922;923;949;10010;969;819
@@ -1596,7 +1602,7 @@ if __name__ == "__main__":
 
     # # result 를 get 해야 다시 동일 rqname 으로 재요청 가능함 
     # daily_list = kw_obj.get_transaction_result(rqname)
-    # # print( daily_list )
+    # print( daily_list )
 
 
     # # 연속 조회 
@@ -1694,16 +1700,16 @@ if __name__ == "__main__":
     ########################################################################
     # 1주 시장가 신규 매수 
 
-    request_name = "1주 시장가 신규 매수"  # 사용자 구분명, 구분가능한 임의의 문자열
-    account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
-    order_type = 1  # 주문유형, 1:신규매수
-    code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
-    quantity = 1  # 주문수량, 1주 
-    price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
-    quote_type = "03"  # 거래구분, 03:시장가
-    original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
+    # request_name = "1주 시장가 신규 매수"  # 사용자 구분명, 구분가능한 임의의 문자열
+    # account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
+    # order_type = 1  # 주문유형, 1:신규매수
+    # code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
+    # quantity = 1  # 주문수량, 1주 
+    # price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
+    # quote_type = "03"  # 거래구분, 03:시장가
+    # original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
 
-    kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
+    # kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
 
 
     ########################################################################
@@ -1718,6 +1724,8 @@ if __name__ == "__main__":
     # original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
 
     # kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
+
+    kw_obj.setRealReg('8839', '005930', kw_util.type_fidset['주식체결'] + ';' + kw_util.type_fidset['주식호가잔량'],  '1' )
 
     log.info('done')
     sys.exit(myApp.exec_())
