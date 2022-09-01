@@ -38,8 +38,7 @@ class KiwoomOpenApiPlus(QObject):
         self.fsm = QStateMachine()
         assert platform.architecture()[0] == "32bit", "Control object should be created in 32bit environment"
 
-#         self.account_list = []
-#         self.timerSystem = QTimer()
+        self.account_list = []
 
         self.kospiCodeList = () 
         self.kosdaqCodeList = () 
@@ -65,17 +64,12 @@ class KiwoomOpenApiPlus(QObject):
 
         # self.currentTime = datetime.datetime.now()
 
-#         self.marginInfo = {}
-#         self.maesu_wait_list = {}
-#         self.lastMaedoInfo = {}
-
-
     def create_connection(self):
 
         self.ocx.connect( SIGNAL( "OnEventConnect(int)"), self._OnEventConnect )
-        self.ocx.connect( SIGNAL( "OnReceiveMsg(const QString&, const QString&, const QString&,const QString&)"), self._OnReceiveMsg ) 
+        self.ocx.connect( SIGNAL( "OnReceiveMsg(const QString&, const QString&, const QString&, const QString&)"), self._OnReceiveMsg ) 
         self.ocx.connect( SIGNAL( "OnReceiveTrData(const QString&, const QString&, const QString&, const QString&, const QString&, int, const QString&, const QString&, const QString&)" ), self._OnReceiveTrData )
-        self.ocx.connect( SIGNAL( "OnReceiveRealData(const QString&, const QString&, const QString&)"), self._OnReceiveRealData )
+        self.ocx.connect( SIGNAL( "OnReceiveRealData(const QString&, const QString&, const QString& )"), self._OnReceiveRealData )
 
         self.ocx.connect( SIGNAL( "OnReceiveChejanData(const QString&, int, const QString&)"), self._OnReceiveChejanData )
         self.ocx.connect( SIGNAL( "OnReceiveConditionVer(int, const QString&)" ), self._OnReceiveConditionVer )
@@ -281,10 +275,9 @@ class KiwoomOpenApiPlus(QObject):
         log.info('{}'.format( request) )
 
         ret = self.sendOrder(request['rqname'], request['screen_no'], request['account_no'], request['order_type'], request['code'], request['quantity'], request['price'], request['quote_type'], request['original_order_no'] )
-        # def sendOrder(self, rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo):
 
         if( ret != 0 ):
-            log.warining( 'sendOrder Err: {} {}'.format( request )  )
+            log.warning( 'sendOrder Err: {}'.format( request )  )
         pass
 
 
@@ -442,30 +435,7 @@ class KiwoomOpenApiPlus(QObject):
             result = self.getCommData("opw00004", rQName, 0, item_name)
             print( '{}: {}'.format( item_name, result ) )
 
-    # 체결잔고요청
-    @Slot(str, result = bool)
-    def requestOpw00005(self, account_num ):
-        self.setInputValue('계좌번호', account_num)
-        self.setInputValue('비밀번호', '') #  사용안함(공백)
-        self.setInputValue('비밀번호입력매체구분', '00')
 
-        ret = self.commRqData('{}_opw00005'.format(account_num), "opw00005", 0, kw_util.sendChegyeolJangoInfoScreenNo) 
-
-        errorString = None
-        if( ret != 0 ):
-            errorString =   account_num + " commRqData() " + kw_util.parseErrorCode(str(ret))
-            print(util.whoami() + errorString ) 
-            util.save_log(errorString, util.whoami(), folder = "log" )
-            return False
-        return True
-        pass
-
-    # 체결잔고요청정보 생성
-    def makeOpw00005Info(self, rQName):
-        for item_name in kw_util.dict_jusik['TR:체결잔고']:
-            result = self.getCommData("opw00005", rQName, 0, item_name)
-            self.marginInfo[item_name] = int(result)
-            print( '{}: {}'.format( item_name, result ) )
    
     @Slot()
     def onTimerSystemTimeout(self):
@@ -514,23 +484,8 @@ class KiwoomOpenApiPlus(QObject):
 
         log.debug( 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'.format(screenNo, rQName, trCode, msg ) )
 
-        # buy 하다가 오류 난경우 강제로 buy signal 생성  
-        # buy 정상 메시지는 107066
-        # if( 'buy' in rQName and '107066' not in msg ):
-        #     self.sigWaitTr.emit()
-
-        # sell 하다가 오류 난경우 강제로 buy signal 생성  
-        # sell 정상 메시지는 107066
-        # if( 'sell' in rQName and '107048' not in msg ):
-        #     pass
-            # self.sigWaitTr.emit()
-
-        # sell 하다가 오류 난경우 
-        # if( 'sell' in rQName and '매도가능수량' in msg ):
-        #     self.sigWaitTr.emit()
-
+        # TODO: buy, sell 할때 오류나는 경우 처리 필요 
         pass
-
 
     def _OnReceiveTrData(   self, scrNo, rQName, trCode, recordName, prevNext, 
                             # not used
@@ -628,9 +583,26 @@ class KiwoomOpenApiPlus(QObject):
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmok_code, realType, realData):
+        '''
+        [주문관련 실시간 데이터]
+        실시간 타입 "주문체결", "잔고", "파생잔고"는 주문관련 실시간 데이터를 전달합니다.
+        데이터요청이나 서버등록 필요없이 주문발생시 수신되는 실시간타입 입니다.
+        실시간시세와는 다르게 조회요청이나 SetRealReg() 함수로 등록해서 사용할 수 없습니다.
+        수신 이벤트는 OnReceiveChejanData() 입니다.
+        영웅문4 HTS, 영웅문S MTS 를 통한 주문들도 동일ID로 접속한 경우 OpenAPI로 수신됩니다.
+
+        
+        아래 실시간 타입은 시스템 내부용으로, 사용자가 사용할수 없는 실시간 타입입니다.
+        1. 임의연장정보
+        2. 시간외종목정보
+        3. 주식거래원
+        4. 순간체결량
+        5. 선물옵션합계
+        6. 투자자별매매
+        '''
 
         # 많은 메시지가 발생하므로 주의
-        # log.debug('jongmok_code: {}, {}, realType: {}'.format(jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
+        log.debug('jongmok_code: {}, {}, realType: {}'.format(jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
         pass
 
         # # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
@@ -1722,30 +1694,30 @@ if __name__ == "__main__":
     ########################################################################
     # 1주 시장가 신규 매수 
 
-    # request_name = "1주 시장가 신규 매수"  # 사용자 구분명, 구분가능한 임의의 문자열
-    # account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
-    # order_type = 1  # 주문유형, 1:신규매수
-    # code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
-    # quantity = 1  # 주문수량, 1주 
-    # price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
-    # quote_type = "03"  # 거래구분, 03:시장가
-    # original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
-
-    # kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
-
-
-    ########################################################################
-    # 1주 시장가 신규 매도 
-    request_name = "1주 시장가 신규 매도"  # 사용자 구분명, 구분가능한 임의의 문자열
+    request_name = "1주 시장가 신규 매수"  # 사용자 구분명, 구분가능한 임의의 문자열
     account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
-    order_type = 2  # 주문유형, 2:신규매도 
+    order_type = 1  # 주문유형, 1:신규매수
     code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
-    quantity = 1 # 주문수량, 1주 
+    quantity = 1  # 주문수량, 1주 
     price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
     quote_type = "03"  # 거래구분, 03:시장가
     original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
 
     kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
+
+
+    ########################################################################
+    # 1주 시장가 신규 매도 
+    # request_name = "1주 시장가 신규 매도"  # 사용자 구분명, 구분가능한 임의의 문자열
+    # account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
+    # order_type = 2  # 주문유형, 2:신규매도 
+    # code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
+    # quantity = 1 # 주문수량, 1주 
+    # price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
+    # quote_type = "03"  # 거래구분, 03:시장가
+    # original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
+
+    # kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
 
     log.info('done')
     sys.exit(myApp.exec_())
