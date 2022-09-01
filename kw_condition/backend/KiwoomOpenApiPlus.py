@@ -1,7 +1,5 @@
 # -*-coding: utf-8 -
-from ast import Call
-import sys, os, platform, re
-from timeit import repeat
+import sys, os, platform, re, logging
 from typing import Callable
 
 from PySide2.QtCore import QObject, SIGNAL, SLOT, Slot, Signal, QStateMachine, QState, QFinalState
@@ -68,23 +66,17 @@ class KiwoomOpenApiPlus(QObject):
 #         self.maesu_wait_list = {}
 #         self.lastMaedoInfo = {}
 
-#         # 잔고 정보 저장시 저장 제외될 키 값들 
-#         self.jango_remove_keys = [ 
-#             '매도호가1', '매도호가2', '매도호가3', '매도호가수량1', '매도호가수량2', '매도호가수량3','매도호가총잔량',
-#             '매수호가1', '매수호가2', '매수호가3', '매수호가수량1', '매수호가수량2', '매수호가수량3', '매수호가총잔량',
-#             '현재가', '호가시간', '세금', '전일종가', '현재가', '종목번호', '수익율', '수익', '잔고' , '매도중', '시가', '고가', '저가', '장구분', 
-#             '거래량', '등락율', '전일대비', '기준가', '상한가', '하한가',
-#             '일{}봉'.format(user_setting.MAX_SAVE_CANDLE_COUNT), '{}분{}봉'.format(user_setting.REQUEST_MINUTE_CANDLE_TYPE, user_setting.MAX_SAVE_CANDLE_COUNT)  ]
 
     def create_connection(self):
+
         self.ocx.connect( SIGNAL( "OnEventConnect(int)"), self._OnEventConnect )
-        self.ocx.connect( SIGNAL( "OnReceiveMsg(const QString&,, const QString&, const QString&, const QString&)"), self._OnReceiveMsg )
+        self.ocx.connect( SIGNAL( "OnReceiveMsg(const QString&, const QString&, const QString&,const QString&)"), self._OnReceiveMsg ) 
         self.ocx.connect( SIGNAL( "OnReceiveTrData(const QString&, const QString&, const QString&, const QString&, const QString&, int, const QString&, const QString&, const QString&)" ), self._OnReceiveTrData )
         self.ocx.connect( SIGNAL( "OnReceiveRealData(const QString&, const QString&, const QString&)"), self._OnReceiveRealData )
 
         self.ocx.connect( SIGNAL( "OnReceiveChejanData(const QString&, int, const QString&)"), self._OnReceiveChejanData )
         self.ocx.connect( SIGNAL( "OnReceiveConditionVer(int, const QString&)" ), self._OnReceiveConditionVer )
-        self.ocx.connect( SIGNAL( "OnReceiveTrCondition(const QString&, const QString&, const QString&, int, int)" ), self._OnReceiveTrCondition )
+        self.ocx.connect( SIGNAL( "OnReceiveTrCondition( const QString&, const QString&, const QString&, int, int)" ), self._OnReceiveTrCondition )
         self.ocx.connect( SIGNAL( "OnReceiveRealCondition(const QString&, const QString&, const QString&, const QString&)" ),  self._OnReceiveRealCondition )
 
         # self.timerSystem.setInterval(1000) 
@@ -199,18 +191,18 @@ class KiwoomOpenApiPlus(QObject):
         if( len(self.request_tr_list) != 0 ):
             request = self.request_tr_list.pop(0)
         else:
-            print( 'request tr list empty!' )
+            logging.warning( 'request tr list empty!' )
             return
 
-        print('{} {}'.format( common_util.whoami(), request) )
+        logging.info('{}'.format( request) )
 
         for key, value in request['inputs'].items() :
-            # print(key, value)
+            # logging.debug(key, value)
             self.setInputValue(key, value)
 
         ret = self.commRqData(request['rqname'], request['trcode'], request['prev_next'], request['screen_no'] )
         if( ret != 0 ):
-            print( 'commRqData Err: {} {}'.format( common_util.whoami(), request )  )
+            logging.warning( 'commRqData Err: {} {}'.format( request )  )
         pass
 
     def add_transaction(self, rqname: str, trcode: str, inputs: dict, prev_next : int = 0, screen_no: str = 'empty') -> None:
@@ -226,7 +218,7 @@ class KiwoomOpenApiPlus(QObject):
 
         self.request_tr_list.append( { 'rqname' : rqname, 'trcode' : trcode, 'screen_no' : screen_no, 'prev_next' : prev_next, 'inputs': inputs } )
 
-        # print('{} {}'.format( common_util.whoami(), self.request_tr_list ) )
+        # logging.debug('{}'.format( self.request_tr_list ) )
         self.sigRequestTR.emit()
         pass
     
@@ -240,7 +232,7 @@ class KiwoomOpenApiPlus(QObject):
         if( rqname in self.result_tr_list ):
             return self.result_tr_list.pop(rqname)['data']
         else:
-            print(" transation result null")
+            logging.warning(" transation result null")
             return [] 
 
     # 연속으로 데이터 요청할 것이 있는지 판단 
@@ -280,16 +272,16 @@ class KiwoomOpenApiPlus(QObject):
         if( len(self.request_order_list) != 0 ):
             request = self.request_order_list.pop(0)
         else:
-            print( 'request tr list empty!' )
+            logging.warning( 'request tr list empty!' )
             return
 
-        print('{} {}'.format( common_util.whoami(), request) )
+        logging.info('{}'.format( request) )
 
         ret = self.sendOrder(request['rqname'], request['screen_no'], request['account_no'], request['order_type'], request['code'], request['quantity'], request['price'], request['quote_type'], request['original_order_no'] )
         # def sendOrder(self, rQName, screenNo, accNo, orderType, code, qty, price, hogaGb, orgOrderNo):
 
         if( ret != 0 ):
-            print( 'sendOrder Err: {} {}'.format( common_util.whoami(), request )  )
+            logging.warining( 'sendOrder Err: {} {}'.format( request )  )
         pass
 
 
@@ -306,19 +298,19 @@ class KiwoomOpenApiPlus(QObject):
     
     def request_condition(self, condition_name: str) -> str:
         if( condition_name not in self.condition_names_dict ):
-            print('condition name {} not exist'.format( condition_name) )
+            logging.warning('condition name {} not exist'.format( condition_name) )
             pass
         else:
             self.sendCondition(self.get_screen_number(), condition_name, self.condition_names_dict[condition_name], 0)
 
     @Slot()
     def base_state_entered(self):
-        # print(common_util.whoami())
+        logging.debug('')
         pass
 
     @Slot()
     def sub_state_entered(self):
-        # print(common_util.whoami())
+        logging.debug('')
         pass
 
     ##########################################################
@@ -326,19 +318,19 @@ class KiwoomOpenApiPlus(QObject):
 
     @Slot()
     def init_entered(self):
-        # print(common_util.whoami())
+        logging.debug('')
         self.sigInitOk.emit()
         pass
 
     @Slot()
     def disconnected_entered(self):
-        print(common_util.whoami())
+        logging.debug('')
         if( self.getConnectState() == 1 ):
             self.sigConnected.emit()
             
     @Slot()
     def connected_entered(self):
-        print(common_util.whoami())
+        logging.debug('')
         # get 계좌 정보
 
         account_cnt = self.getLoginInfo("ACCOUNT_CNT")
@@ -347,7 +339,7 @@ class KiwoomOpenApiPlus(QObject):
         user_name = self.getLoginInfo("USER_NAME")
         keyboard_boan = self.getLoginInfo("KEY_BSECGB")
         firewall = self.getLoginInfo("FIREW_SECGB")
-        print("account count: {}, "
+        logging.info("account count: {}, "
                 #"acc_num: {}, user id: {}, "user_name: {}, "
                 "keyboard_boan: {}, firewall: {}"
                 .format(account_cnt, 
@@ -363,7 +355,7 @@ class KiwoomOpenApiPlus(QObject):
         self.kosdaqCodeList = tuple(result.split(';'))
 
         # for code in self.kospiCodeList:
-        #     print(self.getMasterCodeName(code) )
+        #     logging.info(self.getMasterCodeName(code) )
 
         names = [self.getMasterCodeName(code) for code in self.kospiCodeList]
         names.extend( [self.getMasterCodeName(code) for code in self.kosdaqCodeList] )
@@ -373,30 +365,30 @@ class KiwoomOpenApiPlus(QObject):
 
     @Slot()
     def tr_state_entered(self):
-        # print(common_util.whoami() )
+        logging.debug('')
         pass
 
     @Slot()
     def order_state_entered(self):
-        # print(common_util.whoami() )
+        logging.debug('')
         pass
 
 
     @Slot()
     def tr_init_entered(self):
-        # print(common_util.whoami() )
+        logging.debug('')
         pass
 
     @Slot()
     def tr_standby_entered(self):
-        # print(common_util.whoami() )
+        logging.debug('')
         if( len(self.request_tr_list) != 0):
             self.sigRequestTR.emit()
             pass
 
     @Slot()
     def tr_waiting_entered(self):
-        # print(common_util.whoami() )
+        logging.debug('')
 
         self.request_transaction()
         QTimer.singleShot(TR_TIME_LIMIT_MS, self.sigTRWaitingComplete)
@@ -404,19 +396,19 @@ class KiwoomOpenApiPlus(QObject):
 
     @Slot()
     def order_init_entered(self):
-        print(common_util.whoami() )
+        logging.debug('')
         pass
 
     @Slot()
     def order_standby_entered(self):
-        print(common_util.whoami() )
+        logging.debug('')
         if( len(self.request_order_list) != 0):
             self.sigRequestOrder.emit()
             pass
 
     @Slot()
     def order_waiting_entered(self):
-        print(common_util.whoami() )
+        logging.debug('')
 
         self.request_order()
         QTimer.singleShot(TR_TIME_LIMIT_MS, self.sigOrderWaitingComplete)
@@ -471,60 +463,6 @@ class KiwoomOpenApiPlus(QObject):
             result = self.getCommData("opw00005", rQName, 0, item_name)
             self.marginInfo[item_name] = int(result)
             print( '{}: {}'.format( item_name, result ) )
-
-    # 주식 잔고정보 요청 
-    @Slot(str, str, result = bool)
-    def requestOpw00018(self, account_num, sPrevNext):
-        self.setInputValue('계좌번호', account_num)
-        self.setInputValue('비밀번호', '') #  사용안함(공백)
-        self.setInputValue('비빌번호입력매체구분', '00')
-        self.setInputValue('조회구분', '1')
-
-        # 연속 데이터 조회해야 하는 경우 
-        ret = 0
-        if( sPrevNext == "2" ):
-            ret = self.commRqData(account_num, "opw00018", 2, kw_util.sendAccountInfoScreenNo) 
-        else:
-            ret = self.commRqData(account_num, "opw00018", 0, kw_util.sendAccountInfoScreenNo) 
-
-        errorString = None
-        if( ret != 0 ):
-            errorString =   account_num + " commRqData() " + kw_util.parseErrorCode(str(ret))
-            print(util.whoami() + errorString ) 
-            util.save_log(errorString, util.whoami(), folder = "log" )
-            return False
-        return True
-
-    # 주식 잔고 정보 #rQName 의 경우 계좌 번호로 넘겨줌
-    def makeOpw00018Info(self, rQName):
-        data_cnt = self.getRepeatCnt('opw00018', rQName)
-        for cnt in range(data_cnt):
-            info_dict = {}
-            for item_name in kw_util.dict_jusik['TR:계좌평가잔고내역요청']:
-                result = self.getCommData("opw00018", rQName, cnt, item_name)
-                # 없는 컬럼은 pass 
-                if( len(result) == 0 ):
-                    continue
-                if( item_name == '종목명'):
-                    info_dict[item_name] = result.strip() 
-                elif( item_name == '종목번호'):
-                    info_dict[item_name] = result[1:-1].strip()
-                elif( item_name == '수익률(%)'):
-                    info_dict[item_name] = int(result) / 100
-                else: 
-                    info_dict[item_name] = int(result)
-        
-            jongmok_code = info_dict['종목번호']
-            info_dict['업종'] = self.getMasterStockInfo(jongmok_code)
-            
-            if( jongmok_code not in self.jangoInfo.keys() ):
-                self.jangoInfo[jongmok_code] = info_dict
-            else:
-                # 기존에 가지고 있는 종목이면 update
-                self.jangoInfo[jongmok_code].update(info_dict)
-
-        # print(self.jangoInfo)
-        return True 
    
     @Slot()
     def onTimerSystemTimeout(self):
@@ -533,7 +471,7 @@ class KiwoomOpenApiPlus(QObject):
 
     @Slot()
     def quit(self):
-        print(common_util.whoami())
+        logging.debug('')
         self.commTerminate()
         QApplication.quit()
 
@@ -543,13 +481,13 @@ class KiwoomOpenApiPlus(QObject):
         # 통신 연결 상태 변경시 이벤트>
         # nErrCode가 0이면 로그인 성공, 음수면 실패>
         '''
-        print( '{} {}'.format( common_util.whoami() , errCode) )
+        logging.info( '{}'.format( errCode) )
         if errCode == 0:
             self.sigConnected.emit()
         else:
             self.sigDisconnected.emit()
 
-    def _OnReceiveMsg(self, scrNo, rQName, trCode, msg):
+    def _OnReceiveMsg(self, screenNo, rQName, trCode, msg):
         '''
    
         [OnReceiveMsg()이벤트]
@@ -571,7 +509,7 @@ class KiwoomOpenApiPlus(QObject):
         메시지에 포함된 6자리 코드번호는 변경될 수 있으니, 여기에 수신된 코드번호를 특정 용도로 사용하지 마시기 바랍니다.     
         '''
 
-        print( '{} sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'.fotmat( common_util.whoami() , scrNo, rQName, trCode, msg ) )
+        logging.debug( 'sScrNo: {}, sRQName: {}, sTrCode: {}, sMsg: {}'.format(screenNo, rQName, trCode, msg ) )
 
         # buy 하다가 오류 난경우 강제로 buy signal 생성  
         # buy 정상 메시지는 107066
@@ -614,12 +552,12 @@ class KiwoomOpenApiPlus(QObject):
         수신된 데이터는 이 이벤트내부에서 GetCommData()함수를 이용해서 얻어올 수 있습니다.
 
         '''
-        print('{} sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext {}'.format(common_util.whoami(), scrNo, rQName, trCode, recordName, prevNext ))
+        logging.debug('sScrNo: {}, rQName: {}, trCode: {}, recordName: {}, prevNext {}'.format(scrNo, rQName, trCode, recordName, prevNext ))
 
         self.release_screen_number(scrNo)
 
         if( trCode not in kw_util.tr_column_info ):
-            print( 'TR Receive not implemented! ')
+            logging.warning( 'TR Receive not implemented! ')
             '''
             OnReceiveTRData이벤트에서 "주문번호" 확인방법을 정리하면 다음과 같습니다. 조회데이터 처리와 같습니다.
             OnReceiveTRData(sScreenNo, sRqName, sTrCode, ....) // 이벤트 처리부분
@@ -648,7 +586,7 @@ class KiwoomOpenApiPlus(QObject):
                     self.result_tr_list[rQName]['data'] = [] 
 
                 self.result_tr_list[rQName]['data'].append( row_values )
-                # print( '{}: {}'.format(item_name, result ) )
+                logging.debug( '{}: {}'.format(item_name, result ) )
             pass
         else:
             #단일 데이터 처리 
@@ -666,7 +604,7 @@ class KiwoomOpenApiPlus(QObject):
             self.result_tr_list[rQName]['prev_next'] = int(prevNext)
         else: 
             self.result_tr_list[rQName]['prev_next'] = 0
-        # print( '{}: {}'.format(item_name, result ) )
+        logging.debug( '{}: {}'.format(item_name, result ) )
 
         pass
 
@@ -687,7 +625,7 @@ class KiwoomOpenApiPlus(QObject):
 
     # 실시간 시세 이벤트
     def _OnReceiveRealData(self, jongmok_code, realType, realData):
-        # print('{} jongmok_code: {}, {}, realType: {}'.format(common_util.whoami(), jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
+        logging.debug('jongmok_code: {}, {}, realType: {}'.format(jongmok_code, self.getMasterCodeName(jongmok_code),  realType))
         pass
 
         # # 장전에도 주식 호가 잔량 값이 올수 있으므로 유의해야함 
@@ -799,7 +737,7 @@ class KiwoomOpenApiPlus(QObject):
             maedoHoga1 = abs(int(self.getChejanData(kw_util.name_fid['(최우선)매도호가'])))
             maemae_type = int( self.getChejanData(kw_util.name_fid['매도/매수구분']) )
 
-            print('{} {} {} {} {} {} {} {} {} {} {}'.format( '잔고정보', jongmok_code, boyou_suryang, jumun_ganeung_suryang, maeip_danga, jongmok_name, current_price, current_amount, maesuHoga1, maedoHoga1, maemae_type ))
+            logging.info('{} {} {} {} {} {} {} {} {} {} {}'.format( '잔고정보', jongmok_code, boyou_suryang, jumun_ganeung_suryang, maeip_danga, jongmok_name, current_price, current_amount, maesuHoga1, maedoHoga1, maemae_type ))
 
             # 아래 잔고 정보의 경우 TR:계좌평가잔고내역요청 필드와 일치하게 만들어야 함 
             current_jango = {}
@@ -872,7 +810,7 @@ class KiwoomOpenApiPlus(QObject):
             jumun_price = int(self.getChejanData(kw_util.name_fid['주문가격']))
             jumun_number = self.getChejanData(kw_util.name_fid['주문번호'])
 
-            print('{} {} {} {} {} {} {} {} number: {}'.format( jumun_sangtae, jongmok_code, jongmok_name, jumun_chegyeol_time, michegyeol_suryang, maemae_type, jumun_qty, jumun_price, jumun_number) )
+            logging.debug('{} {} {} {} {} {} {} {} number: {}'.format( jumun_sangtae, jongmok_code, jongmok_name, jumun_chegyeol_time, michegyeol_suryang, maemae_type, jumun_qty, jumun_price, jumun_number) )
 
 
             # 주문 상태 
@@ -955,7 +893,7 @@ class KiwoomOpenApiPlus(QObject):
     # 로컬에 사용자조건식 저장 성공여부 응답 이벤트
     # 0:(실패) 1:(성공)
     def _OnReceiveConditionVer(self, ret, msg):
-        print('{} ret: {}, msg: {}'.format(common_util.whoami(), ret, msg))
+        logging.debug('ret: {}, msg: {}'.format(ret, msg))
         if ret == 1:
             # 반환값 : 조건인덱스1^조건명1;조건인덱스2^조건명2;…;
             # result = '조건인덱스1^조건명1;조건인덱스2^조건명2;'
@@ -977,7 +915,7 @@ class KiwoomOpenApiPlus(QObject):
     # int nIndex : 조건명 인덱스
     # int nNext : 연속조회(2:연속조회, 0:연속조회없음)
     def _OnReceiveTrCondition(self, scrNo, codeList, conditionName, index, next):
-        print('{} scrNo: {}, codeList: {}, conditionName: {} index: {}, next: {}'.format(common_util.whoami(), scrNo, codeList, conditionName, index, next ))
+        logging.debug('scrNo: {}, codeList: {}, conditionName: {} index: {}, next: {}'.format(scrNo, codeList, conditionName, index, next ))
         codes = codeList.split(';')[:-1]
         # 마지막 split 결과 None 이므로 삭제 
         self.release_screen_number( scrNo )
@@ -987,7 +925,7 @@ class KiwoomOpenApiPlus(QObject):
         self.result_tr_list['condition']['prev_next'] = next
 
         for code in codes:
-            print('condition list add: {} '.format(code) + self.getMasterCodeName(code))
+            logging.info('condition list add: {} '.format(code) + self.getMasterCodeName(code))
 
 
     # 편입, 이탈 종목이 실시간으로 들어옵니다.
@@ -1476,17 +1414,17 @@ class KiwoomOpenApiPlus(QObject):
 
 
     def tryConnect(self):
-        print( common_util.whoami() )
+        logging.debug('')
         self.commConnect()
         pass
 
     def tryDisconnect(self):
-        print( common_util.whoami() )
+        logging.debug('')
         self.commTerminate()
         pass
 
     def isConnected(self) -> bool:
-        # print( common_util.whoami() )
+        # logging.debug('')
         if( self.getConnectState() != 1 ):
             return False
         else:
@@ -1635,7 +1573,11 @@ class KiwoomOpenApiPlus(QObject):
         return self.ocx.dynamicCall("KOA_Functions(QString, QString)", "GetStockMarketKind", [strCode])
 
 if __name__ == "__main__":
-    from kw_condition.utils import common_util
+
+    logging.basicConfig(
+        format='%(asctime)s [%(levelname)s] %(message)s - %(filename)s:%(funcName)s:%(lineno)d',
+        level=logging.DEBUG)
+
 
     myApp = QApplication(sys.argv)
     kw_obj = KiwoomOpenApiPlus()
@@ -1772,17 +1714,16 @@ if __name__ == "__main__":
     ########################################################################
     # 1주 시장가 신규 매수 
 
-    request_name = "1주 시장가 신규 매수"  # 사용자 구분명, 구분가능한 임의의 문자열
-    account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
-    order_type = 1  # 주문유형, 1:신규매수
-    code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
-    quantity = 1  # 주문수량, 1주 매수
-    price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
-    quote_type = "03"  # 거래구분, 03:시장가
-    original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
+    # request_name = "1주 시장가 신규 매수"  # 사용자 구분명, 구분가능한 임의의 문자열
+    # account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
+    # order_type = 1  # 주문유형, 1:신규매수
+    # code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
+    # quantity = 1  # 주문수량, 1주 
+    # price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
+    # quote_type = "03"  # 거래구분, 03:시장가
+    # original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
 
-    kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
-
+    # kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
 
 
     ########################################################################
@@ -1791,13 +1732,13 @@ if __name__ == "__main__":
     account_no = kw_obj.get_first_account()   # 계좌번호 10자리, 여기서는 계좌번호 목록에서 첫번째로 발견한 계좌번호로 매수처리
     order_type = 2  # 주문유형, 2:신규매도 
     code = "004410"  # 종목코드, 서울식품 종목코드 (싼거)
-    quantity = 1  # 주문수량, 1주 매수
+    quantity = 1 # 주문수량, 1주 
     price = 0  # 주문가격, 시장가 매수는 가격 설정 의미 없으므로 기본값 0 으로 설정
     quote_type = "03"  # 거래구분, 03:시장가
     original_order_no = ""  # 원주문번호, 주문 정정/취소 등에서 사용
 
     kw_obj.add_order( request_name, account_no, order_type, code, quantity, price, quote_type, original_order_no)
 
-    print('done')
+    logging.info('done')
     sys.exit(myApp.exec_())
     pass
