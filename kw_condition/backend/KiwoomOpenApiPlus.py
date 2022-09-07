@@ -56,8 +56,8 @@ class KiwoomOpenApiPlus(QObject):
 
         self.condition_names_dict = {}
 
-        self.create_state()
         self.create_connection()
+        self.create_state()
 
         self.screen_numbers = {}
         self.screen_numbers['free'] = []
@@ -1187,17 +1187,17 @@ class KiwoomOpenApiPlus(QObject):
         self.ocx.dynamicCall("DisconnectRealData(QString)", [scnNo] )
 
 
-    def tryConnect(self):
+    def try_connect(self):
         log.debug('')
         self.commConnect()
         pass
 
-    def tryDisconnect(self):
+    def try_disconnect(self):
         log.debug('')
         self.commTerminate()
         pass
 
-    def isConnected(self) -> bool:
+    def is_connected(self) -> bool:
         # log.debug('')
         if( self.getConnectState() != 1 ):
             return False
@@ -1358,8 +1358,8 @@ if __name__ == "__main__":
 
     myApp = QApplication(sys.argv)
     kw_obj = KiwoomOpenApiPlus()
-    kw_obj.tryConnect()
-    common_util.process_qt_events(kw_obj.isConnected,  60)
+    kw_obj.try_connect()
+    common_util.process_qt_events(kw_obj.is_connected,  60)
 
 
     # for index in range(1, 10):
