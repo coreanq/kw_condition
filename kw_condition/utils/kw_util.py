@@ -335,6 +335,13 @@ name_fid = {
     '전일거래량대비(계약,주)': 26
 }
 
+fid_name = {
+
+    fid: name
+    for fid in name_fid.values()
+    for name in name_fid.keys()
+}
+
 def parseErrorCode(code):
     """
         :param code: 에러 코드
