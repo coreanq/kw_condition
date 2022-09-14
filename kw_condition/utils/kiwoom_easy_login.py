@@ -1,45 +1,75 @@
-
-edit_id   = 1000
-edit_pass = 1001
-edit_cert = 1002
-btn_login = 1
-
-
-# 키움 easy 실행 
 from pywinauto.application import Application
-from pywinauto  import findwindows
+from pywinauto import clipboard as Clipboard
+import pandas as pd
+import time
 
-app = Application(backend="uia").start('C:/KiwoomEasy/bin/nkeasystarter.exe')
+# 키움 easy stater 실행 
+# for inspector.exe use uia
+# app = Application(backend="uia").start('C:/KiwoomEasy/bin/nkeasystarter.exe')
 
-# find dialog
-main_dlg = app.window( best_match= '영웅문 EASY Login')
-main_dlg.wait( wait_for = 'ready' )
+# # find dialog
+# main_dlg = app.window( best_match= '영웅문 EASY Login')
+# main_dlg.wait( wait_for = 'exists' )
+# # 이작업을 통해 타겟이 되는 컨트롤을 찾아야 함 
+# main_dlg.print_control_identifiers()
 
-control_ids = [edit_id, edit_pass, edit_cert ]
-user_inputs = [user_id, user_pass, user_cert]
+# edit_controls = [ main_dlg.Edit1, main_dlg.Edit2, main_dlg.Edit3 ]
+# user_inputs = [user_id, user_pass, user_cert]
 
-for infos in zip(control_ids, user_inputs):
-    child_control = main_dlg.child_window( control_id = infos[0] )
-    # child_control.print_control_identifiers()
-    # child_control.wait( wait_for = 'ready')
-    child_control.wrapper_object().double_click_input( button = 'left' ) # 더블클릭으로 기존 입력을 selecting 해서 지워지게 함 
-    child_control.wrapper_object().type_keys( infos[1] ) # shoule use instead of set_text 
+# for infos in zip(edit_controls, user_inputs):
+#     child_control = infos[0]
+#     child_control.double_click_input( button = 'left' ) # 더블클릭으로 기존 입력을 selecting 해서 지워지게 함 
+#     child_control.type_keys( infos[1] ) # shoule use instead of set_text 
 
-login_btn_control = main_dlg.child_window( control_id = btn_login )
-login_btn_control.wrapper_object().click_input( button = 'left' )
+# login_btn_control = main_dlg.Button1
+# login_btn_control.click_input( button = 'left' )
 
 # TODO: 업그레이드 확인 창 처리 
 
 
 # find dialog
+# time.sleep(5)
 
-news_dlg_id = 59648
 
-main_dlg = findwindows.find_element( control_id = news_dlg_id )
-main_dlg.wait( wait_for = 'ready', timeout = 120 )
+# 왼쪽 하단의 뉴스 다이얼로는 Pane25 임 
+app = Application(backend="uia").connect( path = 'nkeasy.exe' )
 
-# child_control = main_dlg.child_window( control_id = news_dlg_id )
-# child_control.print_control_identifiers()
+# find dialog
+main_dlg = app.영웅문EASY
+main_dlg.wait( wait_for = 'exists', timeout = 5 ) # not for 'visible'
+
+# 이작업을 통해 타겟이 되는 컨트롤을 찾아야 함 
+# main_dlg.print_control_identifiers()
+
+# 우하단 패널 
+target_window = main_dlg.Pane25
+
+# target_window.print_control_identifiers()
+
+# 뉴스 탭 클릭 
+target_window.뉴스TabIItem.click_input( button = 'left')
+
+# 전체 라디오 박스 클릭 
+target_window.전체Button.click_input( button = 'left')
+
+# 마우스 우클릭 해서 context 메뉴 보이고
+target_window.click_input( button = 'right')
+
+# 'z' 키 눌러서 클립보드 복사 
+target_window.type_keys('z')
+
+clipboard_data = print( Clipboard.GetData() )
+
+
+df = pd.read_clipboard()
+
+nan_filter = df['CODE'].isna()
+
+df = df.dropna( subset = ['CODE'] ).reset_index() 
+
+print( df ) 
+
+
 
 
 
