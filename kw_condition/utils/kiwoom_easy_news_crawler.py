@@ -1,10 +1,9 @@
 user_id = ''
 user_pass= '' 
-user_cert = '*'
+user_cert = ''
 
 from pywinauto.application import Application
 import pandas as pd
-import time
 
 # 키움 easy stater 실행 
 # for inspector.exe use uia
@@ -67,19 +66,6 @@ while True:
 
         # 'z' 키 눌러서 클립보드 복사 
         target_window.type_keys('z')
-
-        # 뉴스 탭 클릭 
-        target_window.뉴스TabIItem.click_input( button = 'left')
-
-        # 전체 라디오 박스 클릭 
-        target_window.전체Button.click_input( button = 'left')
-
-        # 마우스 우클릭 해서 context 메뉴 보이고
-        target_window.click_input( button = 'right')
-
-        # 'z' 키 눌러서 클립보드 복사 
-        target_window.type_keys('z')
-        pass
 
     except Exception as e:
         print( e ) 
