@@ -30,7 +30,7 @@ login_btn_control.click_input( button = 'left' )
 ################################################################################################################################
 # 업그레이드 확인 창 처리 
 try:
-    app = Application(backend="uia").connect( path = 'C:/KiwoomEasy/bin/nkeasyversionup.exe.exe', timeout = 20 )
+    app = Application(backend="uia").connect( path = 'C:/KiwoomEasy/bin/nkeasyversionup.exe.exe', timeout = 120 )
     # find dialog
     main_dlg = app.확인
     main_dlg.click_input( button = 'left' )
@@ -52,6 +52,7 @@ main_dlg.wait( wait_for = 'exists' ) # memory 에 valid 한 데이터가 들어�
 target_window = main_dlg.Pane25
 # target_window.print_control_identifiers()
 
+
 while True:
 
     try:
@@ -65,7 +66,10 @@ while True:
         target_window.click_input( button = 'right')
 
         # 'z' 키 눌러서 클립보드 복사 
-        target_window.type_keys('z')
+        # target_window.type_keys('z')
+
+        app.컨텍스트Menu['복사'].click_input()
+        # app.PopupMenu.wait('ready').Menu().get_menu_path('복사(Z)')[0].click_input()
 
     except Exception as e:
         print( e ) 
