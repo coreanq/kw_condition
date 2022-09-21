@@ -6,7 +6,6 @@ from pywinauto.application import Application
 import pandas as pd
 
 # 키움 easy stater 실행 
-# for inspector.exe use uia
 app = Application(backend="uia").start('C:/KiwoomEasy/bin/nkeasystarter.exe', timeout = 20)
 
 # find dialog
