@@ -101,11 +101,30 @@ def version_up():
     login_btn_control = main_dlg.Button1
     login_btn_control.click_input( button = 'left' )
 
+    ################################################################################################################################
+    # 버전업 처리 종료 경고 창 
+    try:
+        popup_dlg = main_dlg.window( best_match= 'opstarter' )
+        popup_dlg.wait( wait_for = 'visible', timeout= 120 ) 
+
+        # 이작업을 통해 타겟이 되는 컨트롤을 찾아야 함 
+        # popup_dlg.print_control_identifiers()
+
+        # process kill
+        while sub_proc.is_alive():
+            sub_proc.kill()
+            time.sleep(1)
+
+        popup_dlg.확인Button.click_input( button = 'left' )
+        pass
+    except Exception as e:
+        print( e ) 
+        pass
 
     ################################################################################################################################
     # 업그레이드 확인 창 처리 
     try:
-        app = Application(backend="uia").connect( path = 'C:/OpenAPI/opversionup.exe.exe', timeout = 120 )
+        app = Application(backend="uia").connect( path = 'C:/OpenAPI/opversionup.exe.exe', timeout = 30 )
         # find dialog
         main_dlg = app.window( best_match= '업그레이드 확인' )
         main_dlg.wait( wait_for = 'exists' ) # memory 에 valid 한 데이터가 들어갈때까지 기다림 
@@ -113,14 +132,16 @@ def version_up():
         # 이작업을 통해 타겟이 되는 컨트롤을 찾아야 함 
         main_dlg.print_control_identifiers()
 
-        main_dlg.click_input( button = 'left' )
+        main_dlg.확인Button.click_input( button = 'left' )
+
+        print("upgrade done")
+        sys.exit()
         pass
     except Exception as e:
         print( e ) 
         pass
 
-    while True:
-        time.sleep(1)
+    print("nothing to upgrade")
 
 if __name__ == '__main__':
     turn_off_auto()
