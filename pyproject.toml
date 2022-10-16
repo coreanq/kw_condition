@@ -11,6 +11,7 @@ matplotlib = "^3.5.2"
 mplfinance = "^0.12.9-beta.1"
 openpyxl = "^3.0.10"
 pywinauto = "^0.6.8"
+pyinstaller = "^5.5"
 
 [tool.poetry.dev-dependencies]
 ipykernel = "^6.15.1"
